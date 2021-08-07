@@ -505,7 +505,9 @@ class CamTool2(object):
 
             locUi["transform_rot_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength*", locUi["rot_z"].get_next_pos_v(), locUi["rot_z"].get_size())
             
-            locUi["lbl_rot_strength_exception"] = self.Label(self.__app, "*except roll", vec(locUi["transform_rot_strength"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["replay_speed"] = self.Option(self.__app, self.Button, self.Label, "Replay speed (bullet time)", locUi["transform_rot_strength"].get_next_pos_v(), locUi["transform_rot_strength"].get_size())
+
+            locUi["lbl_rot_strength_exception"] = self.Label(self.__app, "*except roll", vec(locUi["replay_speed"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_rot_strength_exception"].set_font_size(12)
 
             ac.addOnClickedListener(locUi["rot_x"].get_btn(), transform__rot_x)
@@ -522,6 +524,8 @@ class CamTool2(object):
             ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn_m(), transform__rot_strength_m)
             ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn(), transform__rot_strength)
             ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn_p(), transform__rot_strength_p)
+            ac.addOnClickedListener(locUi["replay_speed"].get_btn_m(), transform__replay_speed_m)
+            ac.addOnClickedListener(locUi["replay_speed"].get_btn_p(), transform__replay_speed_p)
 
 
             self.__ui["options"]["transform"] = locUi
@@ -3270,6 +3274,14 @@ def transform__rot_strength_p(*arg):
 
 def transform__rot_strength_m(*arg):
     gUI.set_data("transform_rot_strength_m")
+    gUI.refreshGuiOnly()
+    
+def transform__replay_speed_p(*arg):
+    gUI.set_data("transform_replay_speed_p")
+    gUI.refreshGuiOnly()
+
+def transform__replay_speed_m(*arg):
+    gUI.set_data("transform_replay_speed_m")
     gUI.refreshGuiOnly()
     
 def transform__loc_strength(*arg):

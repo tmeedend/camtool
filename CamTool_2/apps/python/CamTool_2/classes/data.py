@@ -556,7 +556,8 @@ class Data(object):
                     "spline_offset_loc_z" : None,
                     "spline_offset_pitch" : None,
                     "spline_offset_heading" : None,
-                    "spline_offset_spline" : None
+                    "spline_offset_spline" : None,
+                    "replay_speed" : 1
                 }
 
 
