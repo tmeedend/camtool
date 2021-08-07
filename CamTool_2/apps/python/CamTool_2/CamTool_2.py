@@ -25,6 +25,7 @@ from classes.data import data
 from classes.Replay import replay
 from classes.MouseLook import mouse
 from classes.Camera import cam
+from classes.CamMode import CamMode
 from classes.CubicBezierInterpolation import interpolation
 from classes.general import *
 #=================================================
@@ -38,19 +39,17 @@ gImgPath = os.path.dirname(__file__)+'/img/'
 gDataPath = os.path.abspath(__file__).replace("\\",'/').replace( os.path.basename(__file__),'') + "data/"
 gPrevCar = 0
 gInitVolume = 1
-
 def acMain(ac_version):
     try:
         global gUI
         gUI = CamTool2()
-
     except Exception as e:
         debug(e)
 
 def acUpdate(dt):
     try:
         global gTimer_mouse, gPrev_zoom_mode, gPrevCar, gTimer_volume
-
+         
         if ac.isConnected(ac.getFocusedCar()) != 1:
             ac.focusCar(0)
 
@@ -93,10 +92,7 @@ def acUpdate(dt):
             cam.reset_smart_tracking()
             gTimer_volume = 0
 
-
-
         gUI.refresh(math.sin(math.radians(gTimer_mouse * 90)), dt)
-
         if info.graphics.status == 1: #is replay
             replay.refresh(dt, ctt.get_replay_position(), info.graphics.replayTimeMultiplier)
 
@@ -131,7 +127,13 @@ class CamTool2(object):
             self.__file_form_visible = False
             self.__file_form_page = 0
             self.__n_files = 0
-
+            
+            self.__specific_cam_changed = False
+            self.cam_mod = CamMode()
+            self.__gAcUpdateCallsIndex = 0
+            self.__looking_camera = None
+            self.__menu_refreshed_once = False 
+            self.appReactivated = False    
             self.__lock = {"interpolate_init" : False}
             self.x = []
             self.y = {}
@@ -159,13 +161,30 @@ class CamTool2(object):
         except Exception as e:
             debug(e)
 
+    def setLookingCamAsBold(self):
+        for self.i in range(self.__max_cameras + 1):
+            if not self.i == 0:
+                if self.i - 1 < data.get_n_cameras():
+                    if data.active_cam == self.i-1:
+                        self.__ui["side_c"]["cameras"][self.i-1].bold(True)
+                        if not self.__looking_camera == None:
+                            self.__looking_camera.bold(False)
+                        self.__looking_camera = self.__ui["side_c"]["cameras"][self.i-1]
+
+    def refreshGuiOnly(self):
+        ac.setBackgroundOpacity(self.__app, 0)
+        self.__update_btns()
+        self.__update_mandatory_gui_objects()
+
     def refresh(self, strength, dt):
         try:
-            ac.setBackgroundOpacity(self.__app, 0)
-
-            self.__update_btns()
+            if not self.__menu_refreshed_once:
+                self.refreshGuiOnly()
+                self.__menu_refreshed_once = True
+            self.__gAcUpdateCallsIndex += 1
+            if self.__gAcUpdateCallsIndex % 30 == 0:
+                self.__update_mandatory_gui_objects()
             self.__interpolate(strength, dt)
-
             self.__ui["options"]["camera"]["camera_in"].set_focus()
 
         except Exception as e:
@@ -664,10 +683,12 @@ class CamTool2(object):
             self.ui["camera_focus_point"] = self.Option(self.__app, self.Button, self.Label, "Focus point", self.ui["lbl_camera"].get_next_pos_v(), self.ui["camera_pit"].get_size())
             self.ui["camera_use_tracking_point"] = self.Option( self.__app, self.Button, self.Label, "True", self.ui["camera_focus_point"].get_next_pos_v(), self.ui["camera_focus_point"].get_size(), True, False, "Autofocus" )
 
-            self.ui["camera_fov"]  = self.Option(self.__app, self.Button, self.Label, "FOV", self.ui["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), self.ui["camera_focus_point"].get_size())
+            self.ui["camera_fov"] = self.Option(self.__app, self.Button, self.Label, "FOV", self.ui["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), self.ui["camera_focus_point"].get_size())
+            
+            self.ui["camera_use_specific_cam"] = self.Option( self.__app, self.Button, self.Label, "Camtool",self.ui["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), self.ui["camera_focus_point"].get_size(), True, True, "Specific cam" )
 
 
-            self.ui["lbl_shake"] = self.Label(self.__app, "Shake", self.ui["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            self.ui["lbl_shake"] = self.Label(self.__app, "Shake", self.ui["camera_use_specific_cam"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             self.ui["lbl_shake"].set_alignment("center")
             self.ui["lbl_shake"].set_bold(True)
 
@@ -693,6 +714,9 @@ class CamTool2(object):
             ac.addOnClickedListener(self.ui["camera_fov"].get_btn_m(), camera__fov_m)
             ac.addOnClickedListener(self.ui["camera_fov"].get_btn(), camera__fov)
             ac.addOnClickedListener(self.ui["camera_fov"].get_btn_p(), camera__fov_p)
+            
+            ac.addOnClickedListener(self.ui["camera_use_specific_cam"].get_btn_m(), camera__use_specific_cam_m)
+            ac.addOnClickedListener(self.ui["camera_use_specific_cam"].get_btn_p(), camera__use_specific_cam_p)
 
             self.__ui["options"]["camera"] = self.ui
         except Exception as e:
@@ -1027,13 +1051,7 @@ class CamTool2(object):
     #---------------------------------------------------------------------------
 
     def __update_text(self):
-        self.__update_keyframe_btns()
-        self.__update_settings()
-        self.__update_transform()
-        self.__update_tracking()
-        self.__update_spline()
         self.__update_mode()
-        self.__update_camera_options()
 
     def __update_keyframe_btns(self):
         try:
@@ -1057,6 +1075,24 @@ class CamTool2(object):
         except Exception as e:
             debug(e)
 
+    def __update_mandatory_gui_objects(self):
+        self.__update_keyframe_btns()
+        self.__update_settings()
+        self.__update_transform()
+        self.__update_tracking()
+        self.__update_spline()
+        self.__update_camera_options()
+        try:
+            if data.active_mode == "pos":
+                self.__ui["header"]["the_x"].set_text("({0:.0f} m)".format(self.__the_x * ac.getTrackLength()))
+            if data.active_mode == "time":
+                if replay.get_refresh_rate() == -1:
+                    self.__ui["header"]["the_x"].set_text("")
+                else:
+                    self.__ui["header"]["the_x"].set_text("({0:.1f} s)".format(self.__the_x / (1000 / replay.get_refresh_rate())))
+        except Exception as e:
+            debug(e)
+
     def __update_mode(self):
         try:
             if data.active_mode == "pos":
@@ -1065,14 +1101,6 @@ class CamTool2(object):
             else:
                 self.__ui["header"]["mode-pos"].set_background("pos", 0)
                 self.__ui["header"]["mode-time"].set_background("time_active", 0)
-
-            if data.active_mode == "pos":
-                self.__ui["header"]["the_x"].set_text("({0:.0f} m)".format(self.__the_x * ac.getTrackLength()))
-            if data.active_mode == "time":
-                if replay.get_refresh_rate() == -1:
-                    self.__ui["header"]["the_x"].set_text("")
-                else:
-                    self.__ui["header"]["the_x"].set_text("({0:.1f} s)".format(self.__the_x / (1000 / replay.get_refresh_rate())))
         except Exception as e:
             debug(e)
 
@@ -1174,66 +1202,67 @@ class CamTool2(object):
             debug(e)
 
     def __update_tracking(self):
-        try:
-            cam.set_tracked_car(0, ac.getFocusedCar())
+        if self.__active_menu == "tracking":
+            try:
+                cam.set_tracked_car(0, ac.getFocusedCar())
 
-            self.driver_name_a = ac.getDriverName(cam.get_tracked_car(0))
-            if len(self.driver_name_a) > 13:
-                self.driver_name_a = self.driver_name_a[:13] + "."
+                self.driver_name_a = ac.getDriverName(cam.get_tracked_car(0))
+                if len(self.driver_name_a) > 13:
+                    self.driver_name_a = self.driver_name_a[:13] + "."
 
-            self.driver_name_b = ac.getDriverName(cam.get_tracked_car(1))
-            if len(self.driver_name_b) > 13:
-                self.driver_name_b = self.driver_name_b[:13] + "."
-
-
-            self.__ui["options"]["tracking"]["car_1"].set_text(self.driver_name_a)
-            self.__ui["options"]["tracking"]["car_2"].set_text(self.driver_name_b)
+                self.driver_name_b = ac.getDriverName(cam.get_tracked_car(1))
+                if len(self.driver_name_b) > 13:
+                    self.driver_name_b = self.driver_name_b[:13] + "."
 
 
-            if self.data().interpolation["tracking_mix"] == None:
-                self.__ui["options"]["tracking"]["tracking_mix"].set_text(self.data("camera").tracking_mix, True, "%")
-                self.__ui["options"]["tracking"]["tracking_mix"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_mix"].set_text( self.data().interpolation["tracking_mix"], True, "%")
-                self.__ui["options"]["tracking"]["tracking_mix"].highlight(True)
+                self.__ui["options"]["tracking"]["car_1"].set_text(self.driver_name_a)
+                self.__ui["options"]["tracking"]["car_2"].set_text(self.driver_name_b)
 
-            if self.data().interpolation["tracking_strength_pitch"] == None:
-                self.__ui["options"]["tracking"]["tracking_strength_pitch"].set_text(data.get_tracking_strength("pitch", self.__active_cam), True, "%")
-                self.__ui["options"]["tracking"]["tracking_strength_pitch"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_strength_pitch"].set_text( self.data().interpolation["tracking_strength_pitch"], True, "%")
-                self.__ui["options"]["tracking"]["tracking_strength_pitch"].highlight(True)
 
-            if self.data().interpolation["tracking_strength_heading"] == None:
-                self.__ui["options"]["tracking"]["tracking_strength_heading"].set_text(data.get_tracking_strength("heading", self.__active_cam), True, "%")
-                self.__ui["options"]["tracking"]["tracking_strength_heading"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_strength_heading"].set_text( self.data().interpolation["tracking_strength_heading"], True, "%")
-                self.__ui["options"]["tracking"]["tracking_strength_heading"].highlight(True)
+                if self.data().interpolation["tracking_mix"] == None:
+                    self.__ui["options"]["tracking"]["tracking_mix"].set_text(self.data("camera").tracking_mix, True, "%")
+                    self.__ui["options"]["tracking"]["tracking_mix"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_mix"].set_text( self.data().interpolation["tracking_mix"], True, "%")
+                    self.__ui["options"]["tracking"]["tracking_mix"].highlight(True)
 
-            if self.data().interpolation["tracking_offset_pitch"] == None:
-                self.__ui["options"]["tracking"]["tracking_offset_pitch"].set_text(self.data("camera").tracking_offset_pitch, True, "degrees")
-                self.__ui["options"]["tracking"]["tracking_offset_pitch"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_offset_pitch"].set_text( self.data().interpolation["tracking_offset_pitch"], True, "degrees")
-                self.__ui["options"]["tracking"]["tracking_offset_pitch"].highlight(True)
+                if self.data().interpolation["tracking_strength_pitch"] == None:
+                    self.__ui["options"]["tracking"]["tracking_strength_pitch"].set_text(data.get_tracking_strength("pitch", self.__active_cam), True, "%")
+                    self.__ui["options"]["tracking"]["tracking_strength_pitch"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_strength_pitch"].set_text( self.data().interpolation["tracking_strength_pitch"], True, "%")
+                    self.__ui["options"]["tracking"]["tracking_strength_pitch"].highlight(True)
 
-            if self.data().interpolation["tracking_offset_heading"] == None:
-                self.__ui["options"]["tracking"]["tracking_offset_heading"].set_text(self.data("camera").tracking_offset_heading, True, "degrees")
-                self.__ui["options"]["tracking"]["tracking_offset_heading"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_offset_heading"].set_text( self.data().interpolation["tracking_offset_heading"], True, "degrees")
-                self.__ui["options"]["tracking"]["tracking_offset_heading"].highlight(True)
+                if self.data().interpolation["tracking_strength_heading"] == None:
+                    self.__ui["options"]["tracking"]["tracking_strength_heading"].set_text(data.get_tracking_strength("heading", self.__active_cam), True, "%")
+                    self.__ui["options"]["tracking"]["tracking_strength_heading"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_strength_heading"].set_text( self.data().interpolation["tracking_strength_heading"], True, "%")
+                    self.__ui["options"]["tracking"]["tracking_strength_heading"].highlight(True)
 
-            if self.data().interpolation["tracking_offset"] == None:
-                self.__ui["options"]["tracking"]["tracking_offset"].set_text(self.data("camera").tracking_offset, True)
-                self.__ui["options"]["tracking"]["tracking_offset"].highlight(False)
-            else:
-                self.__ui["options"]["tracking"]["tracking_offset"].set_text( self.data().interpolation["tracking_offset"], True)
-                self.__ui["options"]["tracking"]["tracking_offset"].highlight(True)
+                if self.data().interpolation["tracking_offset_pitch"] == None:
+                    self.__ui["options"]["tracking"]["tracking_offset_pitch"].set_text(self.data("camera").tracking_offset_pitch, True, "degrees")
+                    self.__ui["options"]["tracking"]["tracking_offset_pitch"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_offset_pitch"].set_text( self.data().interpolation["tracking_offset_pitch"], True, "degrees")
+                    self.__ui["options"]["tracking"]["tracking_offset_pitch"].highlight(True)
 
-        except Exception as e:
-            debug(e)
+                if self.data().interpolation["tracking_offset_heading"] == None:
+                    self.__ui["options"]["tracking"]["tracking_offset_heading"].set_text(self.data("camera").tracking_offset_heading, True, "degrees")
+                    self.__ui["options"]["tracking"]["tracking_offset_heading"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_offset_heading"].set_text( self.data().interpolation["tracking_offset_heading"], True, "degrees")
+                    self.__ui["options"]["tracking"]["tracking_offset_heading"].highlight(True)
+
+                if self.data().interpolation["tracking_offset"] == None:
+                    self.__ui["options"]["tracking"]["tracking_offset"].set_text(self.data("camera").tracking_offset, True)
+                    self.__ui["options"]["tracking"]["tracking_offset"].highlight(False)
+                else:
+                    self.__ui["options"]["tracking"]["tracking_offset"].set_text( self.data().interpolation["tracking_offset"], True)
+                    self.__ui["options"]["tracking"]["tracking_offset"].highlight(True)
+
+            except Exception as e:
+                debug(e)
 
     def __update_spline(self):
         try:
@@ -1276,49 +1305,81 @@ class CamTool2(object):
 
     def __update_camera_options(self):
         try:
-            self.__ui["options"]["camera"]["camera_in"].set_text( data.get_camera_in(self.__active_cam), True, "m" )
+            if self.__active_menu == "camera":
+                self.__ui["options"]["camera"]["camera_in"].set_text( data.get_camera_in(self.__active_cam), True, "m" )
 
-            if self.data("camera").camera_pit:
-                self.__ui["options"]["camera"]["camera_pit"].set_text("True")
-            else:
-                self.__ui["options"]["camera"]["camera_pit"].set_text("False")
+                if self.data("camera").camera_pit:
+                    self.__ui["options"]["camera"]["camera_pit"].set_text("True")
+                else:
+                    self.__ui["options"]["camera"]["camera_pit"].set_text("False")
 
-            if self.data("camera").camera_use_tracking_point == 1:
-                self.__ui["options"]["camera"]["camera_use_tracking_point"].set_text("True")
-                self.__ui["options"]["camera"]["camera_focus_point"].disable()
-            else:
-                self.__ui["options"]["camera"]["camera_use_tracking_point"].set_text("False")
-                self.__ui["options"]["camera"]["camera_focus_point"].enable()
-
-
-            if self.data().interpolation["camera_focus_point"] != None:
-                self.__ui["options"]["camera"]["camera_focus_point"].set_text(self.data().interpolation["camera_focus_point"], True, "m")
-                self.__ui["options"]["camera"]["camera_focus_point"].highlight(True)
-            else:
-                self.__ui["options"]["camera"]["camera_focus_point"].set_text(ctt.get_focus_point(), True, "m")
-                self.__ui["options"]["camera"]["camera_focus_point"].highlight(False)
+                if self.data("camera").camera_use_tracking_point == 1:
+                    self.__ui["options"]["camera"]["camera_use_tracking_point"].set_text("True")
+                    self.__ui["options"]["camera"]["camera_focus_point"].disable()
+                else:
+                    self.__ui["options"]["camera"]["camera_use_tracking_point"].set_text("False")
+                    self.__ui["options"]["camera"]["camera_focus_point"].enable()
 
 
-            if self.data().interpolation["camera_fov"] != None:
-                self.__ui["options"]["camera"]["camera_fov"].set_text( math.radians(ctt.convert_fov_2_focal_length(self.data().interpolation["camera_fov"], True)), True, "degrees")
-                self.__ui["options"]["camera"]["camera_fov"].highlight(True)
-            else:
-                self.__ui["options"]["camera"]["camera_fov"].set_text(math.radians(ctt.get_fov()), True, "degrees")
-                self.__ui["options"]["camera"]["camera_fov"].highlight(False)
+                if self.data().interpolation["camera_focus_point"] != None:
+                    self.__ui["options"]["camera"]["camera_focus_point"].set_text(self.data().interpolation["camera_focus_point"], True, "m")
+                    self.__ui["options"]["camera"]["camera_focus_point"].highlight(True)
+                else:
+                    self.__ui["options"]["camera"]["camera_focus_point"].set_text(ctt.get_focus_point(), True, "m")
+                    self.__ui["options"]["camera"]["camera_focus_point"].highlight(False)
 
-            if self.data().interpolation["camera_offset_shake_strength"] == None:
-                self.__ui["options"]["camera"]["camera_offset_shake"].set_text( self.data("canera").camera_offset_shake_strength, True, "%" )
-                self.__ui["options"]["camera"]["camera_offset_shake"].highlight(False)
-            else:
-                self.__ui["options"]["camera"]["camera_offset_shake"].set_text(self.data().interpolation["camera_offset_shake_strength"], True, "%")
-                self.__ui["options"]["camera"]["camera_offset_shake"].highlight(True)
+                if self.data().interpolation["camera_fov"] != None:
+                    self.__ui["options"]["camera"]["camera_fov"].set_text( math.radians(ctt.convert_fov_2_focal_length(self.data().interpolation["camera_fov"], True)), True, "degrees")
+                    self.__ui["options"]["camera"]["camera_fov"].highlight(True)
+                else:
+                    self.__ui["options"]["camera"]["camera_fov"].set_text(math.radians(ctt.get_fov()), True, "degrees")
+                    self.__ui["options"]["camera"]["camera_fov"].highlight(False)
+                
+                if self.data("camera").camera_use_specific_cam == 0:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Steering Wheel")
+                elif self.data("camera").camera_use_specific_cam == 1:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Free outside")
+                elif self.data("camera").camera_use_specific_cam == 2:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Helicopter")
+                elif self.data("camera").camera_use_specific_cam == 3:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Roof")
+                elif self.data("camera").camera_use_specific_cam == 4:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Wheel")
+                elif self.data("camera").camera_use_specific_cam == 5:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Inside car")
+                elif self.data("camera").camera_use_specific_cam == 6:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Passenger")
+                elif self.data("camera").camera_use_specific_cam == 7:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Driver")
+                elif self.data("camera").camera_use_specific_cam == 8:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Glance Back")
+                elif self.data("camera").camera_use_specific_cam == 9:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Chase cam")
+                elif self.data("camera").camera_use_specific_cam == 10:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Chase cam far")
+                elif self.data("camera").camera_use_specific_cam == 11:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Hood")
+                elif self.data("camera").camera_use_specific_cam == 12:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Subjective")
+                elif self.data("camera").camera_use_specific_cam == 13:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Cockpit")
+                else:
+                    self.__ui["options"]["camera"]["camera_use_specific_cam"].set_text("Camtool")
 
-            if self.data().interpolation["camera_shake_strength"] == None:
-                self.__ui["options"]["camera"]["camera_shake"].set_text( self.data("camera").camera_shake_strength, True, "%")
-                self.__ui["options"]["camera"]["camera_shake"].highlight(False)
-            else:
-                self.__ui["options"]["camera"]["camera_shake"].set_text( self.data().interpolation["camera_shake_strength"], True, "%" )
-                self.__ui["options"]["camera"]["camera_shake"].highlight(True)
+
+                if self.data().interpolation["camera_offset_shake_strength"] == None:
+                    self.__ui["options"]["camera"]["camera_offset_shake"].set_text( self.data("canera").camera_offset_shake_strength, True, "%" )
+                    self.__ui["options"]["camera"]["camera_offset_shake"].highlight(False)
+                else:
+                    self.__ui["options"]["camera"]["camera_offset_shake"].set_text(self.data().interpolation["camera_offset_shake_strength"], True, "%")
+                    self.__ui["options"]["camera"]["camera_offset_shake"].highlight(True)
+
+                if self.data().interpolation["camera_shake_strength"] == None:
+                    self.__ui["options"]["camera"]["camera_shake"].set_text( self.data("camera").camera_shake_strength, True, "%")
+                    self.__ui["options"]["camera"]["camera_shake"].highlight(False)
+                else:
+                    self.__ui["options"]["camera"]["camera_shake"].set_text( self.data().interpolation["camera_shake_strength"], True, "%" )
+                    self.__ui["options"]["camera"]["camera_shake"].highlight(True)
 
 
         except Exception as e:
@@ -1345,8 +1406,6 @@ class CamTool2(object):
 
             #if app is activated, take control over camera
             if self.__active_app:
-                ac.setCameraMode(6)
-
                 if data.smart_tracking:
                     cam.update_smart_tracking_values(ctt, data, interpolation, info, self.__the_x, dt)
 
@@ -1770,10 +1829,52 @@ class CamTool2(object):
                 self.focus_point = cam.calculate_focus_point(ctt, self.mix, self.heading_4_focus_point, dt) * self.camera_use_tracking_point + self.focus_point * (1 - self.camera_use_tracking_point)
                 self.focus_point = self.focus_point * (1 - self.strength_inv) + 300 * self.strength_inv
                 ctt.set_focus_point( self.focus_point )
-
+                
+                
+                #---------------------------------------------------------------
+                #things that only need to change when the looking cam changes
+                if data.has_camera_changed() or not self.appReactivated or self.__specific_cam_changed:
+                    # set the looking cam as bold in the menu
+                    self.setLookingCamAsBold()  
+                    #---------------------------------------------------------------
+                    #set the specific cam mode 
+                    self.camera_use_specific_cam = self.data("camera", False).camera_use_specific_cam
+                    if self.camera_use_specific_cam == 0:
+                        self.cam_mod.setSterringWheel()
+                    elif self.camera_use_specific_cam == 1:
+                        self.cam_mod.setFreeOutside()
+                    elif self.camera_use_specific_cam == 2:
+                        self.cam_mod.setHelicopter()
+                    elif self.camera_use_specific_cam == 3:
+                        self.cam_mod.setRoof()
+                    elif self.camera_use_specific_cam == 4:
+                        self.cam_mod.setWheel()
+                    elif self.camera_use_specific_cam == 5:
+                        self.cam_mod.setInsideCar()
+                    elif self.camera_use_specific_cam == 6:
+                        self.cam_mod.setPassenger()
+                    elif self.camera_use_specific_cam == 7:
+                        self.cam_mod.setDriver()
+                    elif self.camera_use_specific_cam == 8:
+                        self.cam_mod.setBehind()
+                    elif self.camera_use_specific_cam == 9:
+                        self.cam_mod.setChaseCam()
+                    elif self.camera_use_specific_cam == 10:
+                        self.cam_mod.setChaseCamFar()
+                    elif self.camera_use_specific_cam == 11:
+                        self.cam_mod.setHood()
+                    elif self.camera_use_specific_cam == 12:
+                        self.cam_mod.setSubjective()
+                    elif self.camera_use_specific_cam == 13:
+                        self.cam_mod.setCockpit()
+                    else:
+                        self.cam_mod.setCamtool()
+                        
+                self.appReactivated = True
+                self.__specific_cam_changed = False
             else:
                 self.__lock["interpolate_init"] = False
-
+                self.appReactivated = False
         except Exception as e:
             debug(e)
 
@@ -2018,7 +2119,6 @@ class CamTool2(object):
                 if self.__active_cam != value:
                     self.set_active_kf(0)
                 self.__active_cam = value
-
             for self.i in range(len(self.__ui["side_c"]["cameras"])):
                 if self.i == self.__active_cam:
                     self.__ui["side_c"]["cameras"][self.i].highlight(True)
@@ -2214,53 +2314,66 @@ class CamTool2(object):
             elif action == "show_input":
                 self.__ui["options"]["camera"]["camera_in"].show_input()
 
-            if action == "use_tracking_point":
+            elif action == "use_tracking_point":
                 if self.data("camera").camera_use_tracking_point == 0:
                     self.data("camera").camera_use_tracking_point = 1
                 else:
                     self.data("camera").camera_use_tracking_point = 0
 
-            if action == "camera_pit":
+            elif action == "camera_pit":
                 if self.data("camera").camera_pit == False:
                     self.data("camera").camera_pit = True
                 else:
                     self.data("camera").camera_pit = False
 
-            if action == "focus_m":
+            elif action == "focus_m":
                 if self.data().interpolation["camera_focus_point"] == None:
                     ctt.set_focus_point( max(0, ctt.get_focus_point() - (ctt.get_focus_point() * 0.1)) )
                 else:
                     self.data().interpolation["camera_focus_point"] = max(0, self.data().interpolation["camera_focus_point"] - 0.5)
 
-            if action == "focus":
+            elif action == "focus":
                 if self.data().interpolation["camera_focus_point"] == None:
                     self.data().interpolation["camera_focus_point"] = ctt.get_focus_point()
                 else:
                     self.data().interpolation["camera_focus_point"] = None
 
-            if action == "focus_p":
+            elif action == "focus_p":
                 if self.data().interpolation["camera_focus_point"] == None:
                     ctt.set_focus_point( ctt.get_focus_point() + (ctt.get_focus_point() * 0.1) )
                 else:
                     self.data().interpolation["camera_focus_point"] = self.data().interpolation["camera_focus_point"] + 0.5
 
-            if action == "fov_m":
+            elif action == "fov_m":
                 if self.data().interpolation["camera_fov"] == None:
                     ctt.set_fov( max(0, ctt.get_fov() - 5) )
                 else:
                     self.data().interpolation["camera_fov"] = ctt.convert_fov_2_focal_length( max(0, ctt.convert_fov_2_focal_length(self.data().interpolation["camera_fov"], True) - 0.5) )
 
-            if action == "fov":
+            elif action == "fov":
                 if self.data().interpolation["camera_fov"] == None:
                     self.data().interpolation["camera_fov"] = ctt.convert_fov_2_focal_length(ctt.get_fov())
                 else:
                     self.data().interpolation["camera_fov"] = None
 
-            if action == "fov_p":
+            elif action == "fov_p":
                 if self.data().interpolation["camera_fov"] == None:
                     ctt.set_fov( max(0, ctt.get_fov() + 5) )
                 else:
                     self.data().interpolation["camera_fov"] = ctt.convert_fov_2_focal_length( max(0, ctt.convert_fov_2_focal_length(self.data().interpolation["camera_fov"], True) + 0.5) )
+
+            elif action == "use_specific_cam_m":
+                self.__specific_cam_changed = True
+                if self.data("camera").camera_use_specific_cam == -1:
+                    self.data("camera").camera_use_specific_cam = 13
+                else:
+                    self.data("camera").camera_use_specific_cam = self.data("camera").camera_use_specific_cam-1
+            elif action == "use_specific_cam_p":
+                self.__specific_cam_changed = True
+                if self.data("camera").camera_use_specific_cam == 13:
+                    self.data("camera").camera_use_specific_cam = -1
+                else:
+                    self.data("camera").camera_use_specific_cam = self.data("camera").camera_use_specific_cam+1
 
 
 
@@ -2855,10 +2968,12 @@ def file_form__wrapper(*arg):
         gUI.on_click__file_form("btn_click", button_id)
     else:
         gUI.on_click__file_form("btn_x_click", button_id)
+    gUI.refreshGuiOnly()
 
 
 def file_form__cancel(*arg):
     gUI.on_click__file_form("close")
+    gUI.refreshGuiOnly()
 
 def file_form__save_or_load(*arg):
     if gUI.get_file_form_mode() == "Save":
@@ -2867,81 +2982,117 @@ def file_form__save_or_load(*arg):
     else:
         if data.load(__file__, gUI.get_file_form_input()):
             gUI.on_click__file_form("close")
+    gUI.refreshGuiOnly()
 
 
 def spline__record(*arg):
     gUI.on_click__spline("record")
+    gUI.refreshGuiOnly()
 def spline__speed_m(*arg):
     gUI.set_data("spline_speed_m", 0.01, False)
+    gUI.refreshGuiOnly()
 def spline__speed(*arg):
     gUI.set_data("spline_speed", "camera")
+    gUI.refreshGuiOnly()
 def spline__speed_p(*arg):
     gUI.set_data("spline_speed_p", 0.01, False)
+    gUI.refreshGuiOnly()
 def spline__affect_loc_xy_m(*arg):
     gUI.set_data("spline_affect_loc_xy_m", 0.05)
+    gUI.refreshGuiOnly()
 def spline__affect_loc_xy(*arg):
     gUI.set_data("spline_affect_loc_xy", "camera")
+    gUI.refreshGuiOnly()
 def spline__affect_loc_xy_p(*arg):
     gUI.set_data("spline_affect_loc_xy_p", 0.05)
+    gUI.refreshGuiOnly()
 def spline__affect_loc_z_m(*arg):
     gUI.on_click__spline("loc_z_m")
+    gUI.refreshGuiOnly()
 def spline__affect_loc_z(*arg):
     gUI.set_data("spline_affect_loc_z", "camera")
+    gUI.refreshGuiOnly()
 def spline__affect_loc_z_p(*arg):
     gUI.on_click__spline("loc_z_p")
+    gUI.refreshGuiOnly()
 def spline_affect_pitch_m(*arg):
     gUI.on_click__spline("pitch_m")
+    gUI.refreshGuiOnly()
 def spline_affect_pitch(*arg):
     gUI.set_data("spline_affect_pitch", "camera")
+    gUI.refreshGuiOnly()
 def spline_affect_pitch_p(*arg):
     gUI.on_click__spline("pitch_p")
+    gUI.refreshGuiOnly()
 def spline_affect_roll_m(*arg):
     gUI.on_click__spline("roll_m")
+    gUI.refreshGuiOnly()
 def spline_affect_roll(*arg):
     gUI.set_data("spline_affect_roll", "camera")
+    gUI.refreshGuiOnly()
 def spline_affect_roll_p(*arg):
     gUI.on_click__spline("roll_p")
+    gUI.refreshGuiOnly()
 def spline_affect_heading_m(*arg):
     gUI.on_click__spline("heading_m")
+    gUI.refreshGuiOnly()
 def spline_affect_heading(*arg):
     gUI.set_data("spline_affect_heading", "camera")
+    gUI.refreshGuiOnly()
 def spline_affect_heading_p(*arg):
     gUI.on_click__spline("heading_p")
+    gUI.refreshGuiOnly()
 def spline_offset_pitch_m(*arg):
     gUI.on_click__spline("offset_pitch_m")
+    gUI.refreshGuiOnly()
 def spline_offset_pitch(*arg):
     gUI.set_data("spline_offset_pitch", "camera")
+    gUI.refreshGuiOnly()
 def spline_offset_pitch_p(*arg):
     gUI.on_click__spline("offset_pitch_p")
+    gUI.refreshGuiOnly()
 def spline_offset_heading_m(*arg):
     gUI.on_click__spline("offset_heading_m")
+    gUI.refreshGuiOnly()
 def spline_offset_heading(*arg):
     gUI.set_data("spline_offset_heading", "camera")
+    gUI.refreshGuiOnly()
 def spline_offset_heading_p(*arg):
     gUI.on_click__spline("offset_heading_p")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_z_m(*arg):
     gUI.on_click__spline("offset_loc_z_m")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_z(*arg):
     gUI.set_data("spline_offset_loc_z", "camera")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_z_p(*arg):
     gUI.on_click__spline("offset_loc_z_p")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_x_m(*arg):
     gUI.on_click__spline("offset_loc_x_m")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_x(*arg):
     gUI.set_data("spline_offset_loc_x", "camera")
+    gUI.refreshGuiOnly()
 def spline_offset_loc_x_p(*arg):
     gUI.on_click__spline("offset_loc_x_p")
+    gUI.refreshGuiOnly()
 def spline_offset_spline_m(*arg):
     gUI.on_click__spline("offset_spline_m")
+    gUI.refreshGuiOnly()
 def spline_offset_spline(*arg):
     gUI.set_data("spline_offset_spline", "camera")
+    gUI.refreshGuiOnly()
 def spline_offset_spline_p(*arg):
     gUI.on_click__spline("offset_spline_p")
+    gUI.refreshGuiOnly()
 def spline_offset_reset(*arg):
     if gUI.data().interpolation["spline_offset_spline"] == None:
         gUI.data("camera").spline_offset_spline = 0
     else:
         gUI.data().interpolation["spline_offset_spline"] = 0
+    gUI.refreshGuiOnly()
 
 def side_k(*arg):
     try:
@@ -2955,6 +3106,7 @@ def side_k(*arg):
         gUI.set_active_kf(slot)
     except Exception as e:
         debug(e)
+    gUI.refreshGuiOnly()
 
 def side_c(*arg):
     try:
@@ -2968,173 +3120,307 @@ def side_c(*arg):
         gUI.set_active_cam(slot)
     except Exception as e:
         debug(e)
+    gUI.refreshGuiOnly()
 
 def keyframes__pos(*arg):
     gUI.on_click__keyframe("pos")
+    gUI.refreshGuiOnly()
+
 def keyframes__pos_mmm(*arg):
     gUI.on_click__keyframe("pos_mmm")
+    gUI.refreshGuiOnly()
+
 def keyframes__pos_mm(*arg):
     gUI.on_click__keyframe("pos_mm")
+    gUI.refreshGuiOnly()
+
 def keyframes__pos_m(*arg):
     gUI.on_click__keyframe("pos_m")
+    gUI.refreshGuiOnly()
+    
 def keyframes__pos_p(*arg):
     gUI.on_click__keyframe("pos_p")
+    gUI.refreshGuiOnly()
 def keyframes__pos_pp(*arg):
     gUI.on_click__keyframe("pos_pp")
+    gUI.refreshGuiOnly()
+
 def keyframes__pos_ppp(*arg):
     gUI.on_click__keyframe("pos_ppp")
+    gUI.refreshGuiOnly()
+    
 def keyframes__time(*arg):
     gUI.on_click__keyframe("time")
+    gUI.refreshGuiOnly()
+    
 def keyframes__time_mm(*arg):
     gUI.on_click__keyframe("time_mm")
+    gUI.refreshGuiOnly()
+    
 def keyframes__time_m(*arg):
     gUI.on_click__keyframe("time_m")
+    gUI.refreshGuiOnly()
+    
 def keyframes__time_p(*arg):
     gUI.on_click__keyframe("time_p")
+    gUI.refreshGuiOnly()
+    
 def keyframes__time_pp(*arg):
     gUI.on_click__keyframe("time_pp")
+    gUI.refreshGuiOnly()
+    
 
 def replay_sync(*arg):
     replay.sync(ctt)
     gUI.on_click__sync()
+    gUI.refreshGuiOnly()
+    
 
 def transform__loc_x(*arg):
     gUI.set_data("loc_x", ctt.get_position(0))
+    gUI.refreshGuiOnly()
+    
 def transform__loc_y(*arg):
     gUI.set_data("loc_y", ctt.get_position(1))
+    gUI.refreshGuiOnly()
+    
 def transform__loc_z(*arg):
     gUI.set_data("loc_z", ctt.get_position(2))
+    gUI.refreshGuiOnly()
+    
 def transform__loc_x_m(*arg):
     gUI.set_data("loc_x_m", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__loc_y_m(*arg):
     gUI.set_data("loc_y_m", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__loc_z_m(*arg):
     gUI.set_data("loc_z_m", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__loc_x_p(*arg):
     gUI.set_data("loc_x_p", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__loc_y_p(*arg):
     gUI.set_data("loc_y_p", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__loc_z_p(*arg):
     gUI.set_data("loc_z_p", 0.5, False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_x(*arg):
     gUI.set_data("rot_x", ctt.get_pitch())
+    gUI.refreshGuiOnly()
+    
 def transform__rot_y(*arg):
     gUI.set_data("rot_y", ctt.get_roll())
+    gUI.refreshGuiOnly()
+    
 def transform__rot_z(*arg):
     gUI.set_data("rot_z", ctt.get_heading())
+    gUI.refreshGuiOnly()
+    
 def transform__rot_x_m(*arg):
     gUI.set_data("rot_x_m", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_y_m(*arg):
     gUI.set_data("rot_y_m", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_z_m(*arg):
     gUI.set_data("rot_z_m", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_x_p(*arg):
     gUI.set_data("rot_x_p", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_y_p(*arg):
     gUI.set_data("rot_y_p", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__rot_z_p(*arg):
     gUI.set_data("rot_z_p", math.radians(2.5), False)
+    gUI.refreshGuiOnly()
+    
 def transform__reset_pitch(*arg):
     if gUI.data().interpolation["rot_x"] == None:
         ctt.set_pitch(0)
     else:
         gUI.data().interpolation["rot_x"] = 0
+    gUI.refreshGuiOnly()
+    
 def transform__reset_roll(*arg):
     if gUI.data().interpolation["rot_y"] == None:
         ctt.set_roll(0)
     else:
         gUI.data().interpolation["rot_y"] = 0
+    gUI.refreshGuiOnly()
+    
 def transform__rot_strength(*arg):
     gUI.set_data("transform_rot_strength", "camera")
+    gUI.refreshGuiOnly()
+    
 def transform__rot_strength_p(*arg):
     gUI.set_data("transform_rot_strength_p")
+    gUI.refreshGuiOnly()
+    
 def transform__rot_strength_m(*arg):
     gUI.set_data("transform_rot_strength_m")
+    gUI.refreshGuiOnly()
+    
 def transform__loc_strength(*arg):
     gUI.set_data("transform_loc_strength", "camera")
+    gUI.refreshGuiOnly()
+    
 def transform__loc_strength_p(*arg):
     gUI.set_data("transform_loc_strength_p")
+    gUI.refreshGuiOnly()
+    
 def transform__loc_strength_m(*arg):
     gUI.set_data("transform_loc_strength_m")
+    gUI.refreshGuiOnly()
+    
 
 def tracking__strength_pitch_m(*arg):
     gUI.set_data("tracking_strength_pitch_m")
+    gUI.refreshGuiOnly()
+    
 def tracking__strength_pitch(*arg):
     gUI.set_data("tracking_strength_pitch", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__strength_pitch_p(*arg):
     gUI.set_data("tracking_strength_pitch_p")
+    gUI.refreshGuiOnly()
+    
 
 def tracking__strength_heading_m(*arg):
     gUI.set_data("tracking_strength_heading_m")
+    gUI.refreshGuiOnly()
+    
 def tracking__strength_heading(*arg):
     gUI.set_data("tracking_strength_heading", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__strength_heading_p(*arg):
     gUI.set_data("tracking_strength_heading_p")
+    gUI.refreshGuiOnly()
+    
 
 def tracking__offset_pitch_m(*arg):
     gUI.set_data("tracking_offset_pitch_m", math.radians(0.5), False)
+    gUI.refreshGuiOnly()
+    
 def tracking__offset_pitch(*arg):
     gUI.set_data("tracking_offset_pitch", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__offset_pitch_p(*arg):
     gUI.set_data("tracking_offset_pitch_p", math.radians(0.5), False)
+    gUI.refreshGuiOnly()
+    
 
 def tracking__offset_heading_m(*arg):
     gUI.set_data("tracking_offset_heading_m", math.radians(1), False)
+    gUI.refreshGuiOnly()
+    
 def tracking__offset_heading(*arg):
     gUI.set_data("tracking_offset_heading", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__offset_heading_p(*arg):
     gUI.set_data("tracking_offset_heading_p", math.radians(1), False)
+    gUI.refreshGuiOnly()
+    
 
 
 
 def tracking__offset_m(*arg):
     gUI.set_data("tracking_offset_m", 0.1, False)
+    gUI.refreshGuiOnly()
+    
 def tracking__offset(*arg):
     gUI.set_data("tracking_offset", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__offset_p(*arg):
     gUI.set_data("tracking_offset_p", 0.1, False)
+    gUI.refreshGuiOnly()
+    
 
 def tracking__car_1_m(*arg):
     gUI.on_click__tracking("car_1_m")
+    gUI.refreshGuiOnly()
+    
 def tracking__car_1(*arg):
     gUI.on_click__tracking("car_1")
+    gUI.refreshGuiOnly()
+    
 def tracking__car_1_p(*arg):
     gUI.on_click__tracking("car_1_p")
+    gUI.refreshGuiOnly()
+    
 def tracking__mix_m(*arg):
     gUI.set_data("tracking_mix_m", 0.25)
+    gUI.refreshGuiOnly()
+    
 def tracking__mix(*arg):
     gUI.set_data("tracking_mix", "camera")
+    gUI.refreshGuiOnly()
+    
 def tracking__mix_p(*arg):
     gUI.set_data("tracking_mix_p", 0.25)
+    gUI.refreshGuiOnly()
+    
 def tracking__car_2_m(*arg):
     gUI.on_click__tracking("car_2_m")
+    gUI.refreshGuiOnly()
+    
 def tracking__car_2(*arg):
     gUI.on_click__tracking("car_2")
+    gUI.refreshGuiOnly()
+    
 def tracking__car_2_p(*arg):
     gUI.on_click__tracking("car_2_p")
+    gUI.refreshGuiOnly()
+    
 
 
 def menu__settings(*arg):
     gUI.set_active_menu("settings")
+    gUI.refreshGuiOnly()
 def menu__transform(*arg):
     gUI.set_active_menu("transform")
+    gUI.refreshGuiOnly()
 def menu__spline(*arg):
     gUI.set_active_menu("spline")
+    gUI.refreshGuiOnly()
 def menu__tracking(*arg):
     gUI.set_active_menu("tracking")
+    gUI.refreshGuiOnly()
 def menu__camera(*arg):
     gUI.set_active_menu("camera")
+    gUI.refreshGuiOnly()
 
 
 
 def settings__show_form__save(*arg):
     gUI.on_click__settings("show_save_form")
+    gUI.refreshGuiOnly()
 def settings__show_form__load(*arg):
     gUI.on_click__settings("show_load_form")
+    gUI.refreshGuiOnly()
 def settings_reset(*arg):
     data.reset()
     gUI.set_active_kf(0)
     gUI.set_active_cam(0)
+    gUI.refreshGuiOnly()
 
 
 
@@ -3147,66 +3433,97 @@ def settings__smart_tracking(*arg):
 
 def settings_track_spline(*arg):
     gUI.on_click__settings("record_track_spline")
-
+    gUI.refreshGuiOnly()
 def settings_pit_spline(*arg):
     gUI.on_click__settings("record_pit_spline")
-
+    gUI.refreshGuiOnly()
 
 def camera__offset_shake_p(*arg):
     gUI.set_data("camera_offset_shake_strength_p", 0.1, False)
+    gUI.refreshGuiOnly()
 def camera__offset_shake_m(*arg):
     gUI.set_data("camera_offset_shake_strength_m", 0.1, False)
+    gUI.refreshGuiOnly()
 def camera__shake_p(*arg):
     gUI.set_data("camera_shake_strength_p", 0.1, False)
+    gUI.refreshGuiOnly()
 def camera__shake_m(*arg):
     gUI.set_data("camera_shake_strength_m", 0.1, False)
+    gUI.refreshGuiOnly()
 def camera__shake(*arg):
     gUI.set_data("camera_shake_strength", "camera")
+    gUI.refreshGuiOnly()
 def camera__offset_shake(*arg):
     gUI.set_data("camera_offset_shake_strength", "camera")
+    gUI.refreshGuiOnly()
 
 def camera__camera_in__show_input(*arg):
     gUI.on_click__camera("show_input")
+    gUI.refreshGuiOnly()
 def camera__camera_in__hide_input(*arg):
     gUI.on_click__camera("hide_input")
+    gUI.refreshGuiOnly()
 def camera__use_tracking_point(*arg):
     gUI.on_click__camera("use_tracking_point")
+    gUI.refreshGuiOnly()
 def camera__pit(*arg):
     gUI.on_click__camera("camera_pit")
+    gUI.refreshGuiOnly()
 def camera__focus_m(*arg):
     gUI.on_click__camera("focus_m")
+    gUI.refreshGuiOnly()
 def camera__focus(*arg):
     gUI.on_click__camera("focus")
+    gUI.refreshGuiOnly()
 def camera__focus_p(*arg):
     gUI.on_click__camera("focus_p")
+    gUI.refreshGuiOnly()
 def camera__fov_m(*arg):
     gUI.on_click__camera("fov_m")
+    gUI.refreshGuiOnly()
 def camera__fov(*arg):
     gUI.on_click__camera("fov")
+    gUI.refreshGuiOnly()
 def camera__fov_p(*arg):
     gUI.on_click__camera("fov_p")
-
+    gUI.refreshGuiOnly()
+def camera__use_specific_cam_m(*arg):
+    gUI.on_click__camera("use_specific_cam_m")
+    gUI.refreshGuiOnly()
+def camera__use_specific_cam_p(*arg):
+    gUI.on_click__camera("use_specific_cam_p")
+    gUI.refreshGuiOnly()
+    
 
 
 def side_c__remove_camera(*arg):
     gUI.on_click__remove_camera()
+    gUI.refreshGuiOnly()
 
 def side_c__add_camera(*arg):
     gUI.on_click__add_camera()
+    gUI.refreshGuiOnly()
 
 def side_k__remove_keyframe(*arg):
     gUI.on_click__remove_keyframe()
+    gUI.refreshGuiOnly()
 
 def side_k__add_keyframe(*arg):
     gUI.on_click__add_keyframe()
+    gUI.refreshGuiOnly()
 
 def header__activate(*arg):
     gUI.on_click__activate()
+    gUI.refreshGuiOnly()
 
 def header__free_camera(*arg):
     ac.setCameraMode(6)
+    gUI.refreshGuiOnly()
 
 def header__mode_pos(*arg):
     gUI.set_mode("pos")
+    gUI.refreshGuiOnly()
+
 def header__mode_time(*arg):
     gUI.set_mode("time")
+    gUI.refreshGuiOnly()

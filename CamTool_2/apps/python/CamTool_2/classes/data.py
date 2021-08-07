@@ -472,6 +472,7 @@ class Data(object):
             self.camera_shake_strength = 0.0
             self.camera_offset_shake_strength = 0.0
             self.camera_use_tracking_point = 1
+            self.camera_use_specific_cam = -1
 
             self.tracking_mix = 0
 
