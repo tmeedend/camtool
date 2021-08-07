@@ -135,8 +135,6 @@ class CamTool2(object):
             self.__menu_refreshed_once = False 
             self.appReactivated = False    
             self.__lock = {"interpolate_init" : False}
-            self.x = []
-            self.y = {}
 
             self.mouselook_start_camera = None
 
@@ -162,14 +160,14 @@ class CamTool2(object):
             debug(e)
 
     def setLookingCamAsBold(self):
-        for self.i in range(self.__max_cameras + 1):
-            if not self.i == 0:
-                if self.i - 1 < data.get_n_cameras():
-                    if data.active_cam == self.i-1:
-                        self.__ui["side_c"]["cameras"][self.i-1].bold(True)
+        for i in range(self.__max_cameras + 1):
+            if not i == 0:
+                if i - 1 < data.get_n_cameras():
+                    if data.active_cam == i-1:
+                        self.__ui["side_c"]["cameras"][i-1].bold(True)
                         if not self.__looking_camera == None:
                             self.__looking_camera.bold(False)
-                        self.__looking_camera = self.__ui["side_c"]["cameras"][self.i-1]
+                        self.__looking_camera = self.__ui["side_c"]["cameras"][i-1]
 
     def refreshGuiOnly(self):
         ac.setBackgroundOpacity(self.__app, 0)
@@ -226,153 +224,153 @@ class CamTool2(object):
 
     def __create_header(self):
         try:
-            self.ui = {}
-            self.ui["info"] = {"height" : self.__btn_height}
+            locUi = {}
+            locUi["info"] = {"height" : self.__btn_height}
 
-            self.ui["free_camera"] = self.Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
-            ac.addOnClickedListener(self.ui["free_camera"].get_btn(), header__free_camera)
+            locUi["free_camera"] = self.Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
+            ac.addOnClickedListener(locUi["free_camera"].get_btn(), header__free_camera)
 
-            self.ui["title"] = self.Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
-            self.ui["the_x"] = self.Label(self.__app, "()", self.ui["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
+            locUi["title"] = self.Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
+            locUi["the_x"] = self.Label(self.__app, "()", locUi["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
 
             #Activate
-            self.ui["activate"] = self.Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
-            self.ui["activate"].set_background("off", 0, 0)
-            ac.addOnClickedListener(self.ui["activate"].get_btn(), header__activate)
+            locUi["activate"] = self.Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
+            locUi["activate"].set_background("off", 0, 0)
+            ac.addOnClickedListener(locUi["activate"].get_btn(), header__activate)
 
-            # self.ui["header_replay_mm"] = self.Button(self.__app, "<<", self.ui["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # self.ui["header_replay_m"] = self.Button(self.__app, "<", self.ui["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # self.ui["header_jump_to_keyframe"] = self.Button(self.__app, "^", self.ui["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # self.ui["header_replay_m"] = self.Button(self.__app, ">", self.ui["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_mm"] = self.Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_m"] = self.Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_jump_to_keyframe"] = self.Button(self.__app, "^", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_m"] = self.Button(self.__app, ">", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
 
-            self.ui["mode-pos"] = self.Button(self.__app, "", self.ui["activate"].get_pos() - vec(self.__sizes["square"].x * 2 + self.__margin.x, 0), self.__sizes["square"])
-            self.ui["mode-time"] = self.Button(self.__app, "", self.ui["mode-pos"].get_next_pos(), self.__sizes["square"])
+            locUi["mode-pos"] = self.Button(self.__app, "", locUi["activate"].get_pos() - vec(self.__sizes["square"].x * 2 + self.__margin.x, 0), self.__sizes["square"])
+            locUi["mode-time"] = self.Button(self.__app, "", locUi["mode-pos"].get_next_pos(), self.__sizes["square"])
 
-            self.ui["mode-pos"].set_background("pos", 0)
-            self.ui["mode-time"].set_background("time", 0)
+            locUi["mode-pos"].set_background("pos", 0)
+            locUi["mode-time"].set_background("time", 0)
 
-            ac.addOnClickedListener(self.ui["mode-pos"].get_btn(), header__mode_pos)
-            ac.addOnClickedListener(self.ui["mode-time"].get_btn(), header__mode_time)
+            ac.addOnClickedListener(locUi["mode-pos"].get_btn(), header__mode_pos)
+            ac.addOnClickedListener(locUi["mode-time"].get_btn(), header__mode_time)
 
-            self.__offset.y += self.ui["info"]["height"]
-            self.__ui["header"] = self.ui
+            self.__offset.y += locUi["info"]["height"]
+            self.__ui["header"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_side_c(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.ui["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
-            self.ui["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
 
-            ac.addOnClickedListener(self.ui["bg"].get_btn(), side_c)
+            ac.addOnClickedListener(locUi["bg"].get_btn(), side_c)
 
-            self.ui["icon_camera"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
-            self.ui["icon_camera"].set_background("camera", 0, 0)
+            locUi["icon_camera"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
+            locUi["icon_camera"].set_background("camera", 0, 0)
 
-            self.cameras = []
-            for self.i in range(self.__max_cameras+1):
-                if self.i != 0:
-                    self.btn = self.Button(self.__app, self.i, vec(), self.__sizes["square"])
-                    self.cameras.append(self.btn)
+            locCameras = []
+            for i in range(self.__max_cameras+1):
+                if i != 0:
+                    self.btn = self.Button(self.__app, i, vec(), self.__sizes["square"])
+                    locCameras.append(self.btn)
                 else:
-                    self.ui["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
-                    ac.addOnClickedListener(self.ui["remove"].get_btn(), side_c__remove_camera)
-            self.ui["cameras"] = self.cameras
+                    locUi["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
+                    ac.addOnClickedListener(locUi["remove"].get_btn(), side_c__remove_camera)
+            locUi["cameras"] = locCameras
 
-            self.ui["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
-            ac.addOnClickedListener(self.ui["add"].get_btn(), side_c__add_camera)
+            locUi["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
+            ac.addOnClickedListener(locUi["add"].get_btn(), side_c__add_camera)
 
-            self.__ui["side_c"] = self.ui
+            self.__ui["side_c"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_side_k(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.ui["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
-            self.ui["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
 
-            ac.addOnClickedListener(self.ui["bg"].get_btn(), side_k)
+            ac.addOnClickedListener(locUi["bg"].get_btn(), side_k)
 
-            self.ui["icon_keyframe"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
-            self.ui["icon_keyframe"].set_background("keyframe", 0, 0)
-            self.keyframes = []
-            for self.i in range(self.__max_keyframes+1):
-                if self.i != 0:
-                    self.btn = self.Button(self.__app, self.i, vec(), self.__sizes["square"])
-                    self.keyframes.append(self.btn)
+            locUi["icon_keyframe"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
+            locUi["icon_keyframe"].set_background("keyframe", 0, 0)
+            locKeyframes = []
+            for i in range(self.__max_keyframes+1):
+                if i != 0:
+                    self.btn = self.Button(self.__app, i, vec(), self.__sizes["square"])
+                    locKeyframes.append(self.btn)
                 else:
-                    self.ui["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
-                    ac.addOnClickedListener(self.ui["remove"].get_btn(), side_k__remove_keyframe)
+                    locUi["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
+                    ac.addOnClickedListener(locUi["remove"].get_btn(), side_k__remove_keyframe)
 
-            self.ui["keyframes"] = self.keyframes
-            self.ui["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
-            ac.addOnClickedListener(self.ui["add"].get_btn(), side_k__add_keyframe)
+            locUi["keyframes"] = locKeyframes
+            locUi["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
+            ac.addOnClickedListener(locUi["add"].get_btn(), side_k__add_keyframe)
 
-            self.__ui["side_k"] = self.ui
+            self.__ui["side_k"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_menu(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.size = vec(self.__ui["header"]["title"].get_size().x - self.__margin.x, self.__btn_height)
-            self.color = vec3(0.25, 0.25, 0.25)
-            self.alignment = "left"
-            self.offset = vec(0, self.__margin.y + self.__btn_height + self.__margin.x + 1)
+            locSize = vec(self.__ui["header"]["title"].get_size().x - self.__margin.x, self.__btn_height)
+            locColor = vec3(0.25, 0.25, 0.25)
+            locAlignment = "left"
+            locOffset = vec(0, self.__margin.y + self.__btn_height + self.__margin.x + 1)
 
-            self.ui["camera"] = self.Button(self.__app, "Camera", self.offset, self.size, self.color, self.alignment)
-            self.ui["transform"] = self.Button(self.__app, "Transform", self.ui["camera"].get_next_pos_v(), self.size, self.color, self.alignment)
-            self.ui["tracking"] = self.Button(self.__app, "Tracking", self.ui["transform"].get_next_pos_v(), self.size, self.color, self.alignment)
-            self.ui["spline"] = self.Button(self.__app, "Spline", self.ui["tracking"].get_next_pos_v(), self.size, self.color, self.alignment)
-            self.ui["settings"] = self.Button(self.__app, "Settings", self.ui["spline"].get_next_pos_v(), self.size, self.color, self.alignment)
+            locUi["camera"] = self.Button(self.__app, "Camera", locOffset, locSize, locColor, locAlignment)
+            locUi["transform"] = self.Button(self.__app, "Transform", locUi["camera"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["tracking"] = self.Button(self.__app, "Tracking", locUi["transform"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["spline"] = self.Button(self.__app, "Spline", locUi["tracking"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["settings"] = self.Button(self.__app, "Settings", locUi["spline"].get_next_pos_v(), locSize, locColor, locAlignment)
 
-            ac.addOnClickedListener(self.ui["settings"].get_btn(), menu__settings)
-            ac.addOnClickedListener(self.ui["transform"].get_btn(), menu__transform)
-            ac.addOnClickedListener(self.ui["spline"].get_btn(), menu__spline)
-            ac.addOnClickedListener(self.ui["tracking"].get_btn(), menu__tracking)
-            ac.addOnClickedListener(self.ui["camera"].get_btn(), menu__camera)
+            ac.addOnClickedListener(locUi["settings"].get_btn(), menu__settings)
+            ac.addOnClickedListener(locUi["transform"].get_btn(), menu__transform)
+            ac.addOnClickedListener(locUi["spline"].get_btn(), menu__spline)
+            ac.addOnClickedListener(locUi["tracking"].get_btn(), menu__tracking)
+            ac.addOnClickedListener(locUi["camera"].get_btn(), menu__camera)
 
-            self.__ui["menu"] = self.ui
+            self.__ui["menu"] = locUi
 
         except Exception as e:
             debug(e)
 
     def __create_file_form(self):
         try:
-            self.ui = {}
-            self.offset = vec(ac.getSize(self.__app)[0] - self.__margin.x + 1, self.__margin.y - self.__margin.x)
-            self.size = vec(ac.getSize(self.__app)[0] * 0.61, self.__btn_height)
-            self.btn_size = vec(50, self.__btn_height)
+            locUi = {}
+            locOffset = vec(ac.getSize(self.__app)[0] - self.__margin.x + 1, self.__margin.y - self.__margin.x)
+            locSize = vec(ac.getSize(self.__app)[0] * 0.61, self.__btn_height)
+            locBtn_size = vec(50, self.__btn_height)
 
 
-            self.ui["top"] = self.Div(self.__app, self.offset, vec(self.size.x, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
-            self.ui["bg_big"] = self.Div(self.__app, self.ui["top"].get_pos() - vec(1, 0), vec(self.size.x + 2, self.__btn_height * self.__max_btns_in_column + self.ui["top"].get_size().y + 1), vec3(0.15,0.15,0.15), 1)
-            self.ui["bg"] = self.Div(self.__app, self.ui["top"].get_next_pos_v(), vec(self.size.x, self.__btn_height * self.__max_btns_in_column), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = self.Div(self.__app, locOffset, vec(locSize.x, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
+            locUi["bg_big"] = self.Div(self.__app, locUi["top"].get_pos() - vec(1, 0), vec(locSize.x + 2, self.__btn_height * self.__max_btns_in_column + locUi["top"].get_size().y + 1), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = self.Div(self.__app, locUi["top"].get_next_pos_v(), vec(locSize.x, self.__btn_height * self.__max_btns_in_column), vec3(0.2,0.2,0.2), 1)
 
-            self.ui["cancel"] = self.Button(self.__app, "Cancel", self.offset + vec(self.size.x - self.btn_size.x, self.__margin.x), self.btn_size)
-            self.ui["save"] = self.Button(self.__app, "Save", self.ui["cancel"].get_pos() - vec(self.ui["cancel"].get_size().x, 0), self.btn_size)
+            locUi["cancel"] = self.Button(self.__app, "Cancel", locOffset + vec(locSize.x - locBtn_size.x, self.__margin.x), locBtn_size)
+            locUi["save"] = self.Button(self.__app, "Save", locUi["cancel"].get_pos() - vec(locUi["cancel"].get_size().x, 0), locBtn_size)
 
-            self.ui["input"] = self.Input(self.__app, "", self.offset + vec(0, self.__margin.x), vec( self.size.x - self.__margin.x - 2 * self.btn_size.x, self.__btn_height) )
+            locUi["input"] = self.Input(self.__app, "", locOffset + vec(0, self.__margin.x), vec( locSize.x - self.__margin.x - 2 * locBtn_size.x, self.__btn_height) )
 
-            self.ui["buttons"] = []
-            self.ui["buttons_x"] = []
-            for self.i in range(self.__max_btns_in_column):
-                self.btn_pos = self.ui["input"].get_next_pos_v() + vec(0, self.__margin.x + 1) + vec(0, self.i * self.__btn_height)
-                self.ui["buttons"].append( self.Button(self.__app, "Slot", self.btn_pos, vec(self.ui["top"].get_size().x - self.__btn_height, self.__btn_height) ))
-                self.__btn_x = self.Button(self.__app, "", self.btn_pos + vec(self.ui["top"].get_size().x - self.__btn_height, 0), vec(self.__btn_height, self.__btn_height))
+            locUi["buttons"] = []
+            locUi["buttons_x"] = []
+            for i in range(self.__max_btns_in_column):
+                self.btn_pos = locUi["input"].get_next_pos_v() + vec(0, self.__margin.x + 1) + vec(0, i * self.__btn_height)
+                locUi["buttons"].append( self.Button(self.__app, "Slot", self.btn_pos, vec(locUi["top"].get_size().x - self.__btn_height, self.__btn_height) ))
+                self.__btn_x = self.Button(self.__app, "", self.btn_pos + vec(locUi["top"].get_size().x - self.__btn_height, 0), vec(self.__btn_height, self.__btn_height))
                 self.__btn_x.set_background("remove")
-                self.ui["buttons_x"].append(self.__btn_x)
+                locUi["buttons_x"].append(self.__btn_x)
 
-            ac.addOnClickedListener(self.ui["bg"].get_btn(), file_form__wrapper)
-            ac.addOnClickedListener(self.ui["cancel"].get_btn(), file_form__cancel)
-            ac.addOnClickedListener(self.ui["save"].get_btn(), file_form__save_or_load)
+            ac.addOnClickedListener(locUi["bg"].get_btn(), file_form__wrapper)
+            ac.addOnClickedListener(locUi["cancel"].get_btn(), file_form__cancel)
+            ac.addOnClickedListener(locUi["save"].get_btn(), file_form__save_or_load)
 
-            self.__ui["file_form"] = self.ui
+            self.__ui["file_form"] = locUi
         except Exception as e:
             debug(e)
 
@@ -381,13 +379,13 @@ class CamTool2(object):
     def __create_core(self):
         try:
             self.__ui["options"] = {}
-            self.ui = {}
-            self.ui["info"] = {
+            locUi = {}
+            locUi["info"] = {
                 "start_pos"         : vec( self.__ui["menu"]["camera"].get_size().x + self.__margin.x, self.__ui["menu"]["camera"].get_pos().y + self.__btn_height + self.__margin.x ),
                 "width"             : self.__width - (self.__ui["menu"]["camera"].get_size().x + self.__margin.x * 2),
                 "size"              : vec(self.__width - (self.__ui["menu"]["camera"].get_size().x + self.__margin.x * 2), self.__btn_height)
                 }
-            self.__ui["options"].update(self.ui)
+            self.__ui["options"].update(locUi)
             self.__create_keyframe()
             self.__create_settings()
             self.__create_transform()
@@ -400,325 +398,326 @@ class CamTool2(object):
 
     def __create_keyframe(self):
         try:
-            self.ui = {"pos":{}, "time":{}}
+            locUi = {"pos":{}, "time":{}}
 
             #pos
-            self.size = self.__sizes["square"] #arrow buttons
-            self.ui["pos"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.size)
-            self.ui["pos"]["-"] = self.Button(self.__app, "", self.ui["pos"]["--"].get_next_pos(), self.size)
-            self.ui["pos"]["keyframe"] = self.Button(self.__app, "Keyframe", self.ui["pos"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * self.size.x, 0))
-            self.ui["pos"]["+"] = self.Button(self.__app, "", self.ui["pos"]["keyframe"].get_next_pos(), self.size)
-            self.ui["pos"]["++"] = self.Button(self.__app, "", self.ui["pos"]["+"].get_next_pos(), self.size)
+            locSize = self.__sizes["square"] #arrow buttons
+            locUi["pos"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
+            locUi["pos"]["-"] = self.Button(self.__app, "", locUi["pos"]["--"].get_next_pos(), locSize)
+            locUi["pos"]["keyframe"] = self.Button(self.__app, "Keyframe", locUi["pos"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
+            locUi["pos"]["+"] = self.Button(self.__app, "", locUi["pos"]["keyframe"].get_next_pos(), locSize)
+            locUi["pos"]["++"] = self.Button(self.__app, "", locUi["pos"]["+"].get_next_pos(), locSize)
 
-            self.ui["pos"]["--"].set_background("prev+")
-            self.ui["pos"]["-"].set_background("prev")
-            self.ui["pos"]["+"].set_background("next")
-            self.ui["pos"]["++"].set_background("next+")
+            locUi["pos"]["--"].set_background("prev+")
+            locUi["pos"]["-"].set_background("prev")
+            locUi["pos"]["+"].set_background("next")
+            locUi["pos"]["++"].set_background("next+")
 
-            ac.addOnClickedListener(self.ui["pos"]["keyframe"].get_btn(), keyframes__pos)
-            ac.addOnClickedListener(self.ui["pos"]["--"].get_btn(), keyframes__pos_mm)
-            ac.addOnClickedListener(self.ui["pos"]["-"].get_btn(), keyframes__pos_m)
-            ac.addOnClickedListener(self.ui["pos"]["++"].get_btn(), keyframes__pos_pp)
-            ac.addOnClickedListener(self.ui["pos"]["+"].get_btn(), keyframes__pos_p)
+            ac.addOnClickedListener(locUi["pos"]["keyframe"].get_btn(), keyframes__pos)
+            ac.addOnClickedListener(locUi["pos"]["--"].get_btn(), keyframes__pos_mm)
+            ac.addOnClickedListener(locUi["pos"]["-"].get_btn(), keyframes__pos_m)
+            ac.addOnClickedListener(locUi["pos"]["++"].get_btn(), keyframes__pos_pp)
+            ac.addOnClickedListener(locUi["pos"]["+"].get_btn(), keyframes__pos_p)
 
             #time
-            self.ui["time"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.size)
-            self.ui["time"]["-"] = self.Button(self.__app, "", self.ui["time"]["--"].get_next_pos(), self.size)
-            self.ui["time"]["keyframe"] = self.Button(self.__app, "-", self.ui["time"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * self.size.x, 0))
-            self.ui["time"]["+"] = self.Button(self.__app, "", self.ui["time"]["keyframe"].get_next_pos(), self.size)
-            self.ui["time"]["++"] = self.Button(self.__app, "", self.ui["time"]["+"].get_next_pos(), self.size)
+            locUi["time"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
+            locUi["time"]["-"] = self.Button(self.__app, "", locUi["time"]["--"].get_next_pos(), locSize)
+            locUi["time"]["keyframe"] = self.Button(self.__app, "-", locUi["time"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
+            locUi["time"]["+"] = self.Button(self.__app, "", locUi["time"]["keyframe"].get_next_pos(), locSize)
+            locUi["time"]["++"] = self.Button(self.__app, "", locUi["time"]["+"].get_next_pos(), locSize)
 
-            self.ui["time"]["replay_sync"] = self.Button(self.__app, "Sync" ,self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.__ui["options"]["info"]["size"])
+            locUi["time"]["replay_sync"] = self.Button(self.__app, "Sync" ,self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.__ui["options"]["info"]["size"])
 
-            self.ui["time"]["--"].set_background("prev+")
-            self.ui["time"]["-"].set_background("prev")
-            self.ui["time"]["+"].set_background("next")
-            self.ui["time"]["++"].set_background("next+")
+            locUi["time"]["--"].set_background("prev+")
+            locUi["time"]["-"].set_background("prev")
+            locUi["time"]["+"].set_background("next")
+            locUi["time"]["++"].set_background("next+")
 
-            ac.addOnClickedListener(self.ui["time"]["--"].get_btn(), keyframes__time_mm)
-            ac.addOnClickedListener(self.ui["time"]["-"].get_btn(), keyframes__time_m)
-            ac.addOnClickedListener(self.ui["time"]["keyframe"].get_btn(), keyframes__time)
-            ac.addOnClickedListener(self.ui["time"]["+"].get_btn(), keyframes__time_p)
-            ac.addOnClickedListener(self.ui["time"]["++"].get_btn(), keyframes__time_pp)
-            ac.addOnClickedListener(self.ui["time"]["replay_sync"].get_btn(), replay_sync)
+            ac.addOnClickedListener(locUi["time"]["--"].get_btn(), keyframes__time_mm)
+            ac.addOnClickedListener(locUi["time"]["-"].get_btn(), keyframes__time_m)
+            ac.addOnClickedListener(locUi["time"]["keyframe"].get_btn(), keyframes__time)
+            ac.addOnClickedListener(locUi["time"]["+"].get_btn(), keyframes__time_p)
+            ac.addOnClickedListener(locUi["time"]["++"].get_btn(), keyframes__time_pp)
+            ac.addOnClickedListener(locUi["time"]["replay_sync"].get_btn(), replay_sync)
 
-            self.__ui["options"]["keyframes"] = self.ui
+            self.__ui["options"]["keyframes"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_settings(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.ui["save"] = self.Button(self.__app, "Save", self.__ui["options"]["info"]["start_pos"], self.__ui["options"]["info"]["size"] * vec(0.5, 1) )
-            self.ui["load"] = self.Button(self.__app, "Load", self.ui["save"].get_next_pos(), self.ui["save"].get_size() )
+            locUi["save"] = self.Button(self.__app, "Save", self.__ui["options"]["info"]["start_pos"], self.__ui["options"]["info"]["size"] * vec(0.5, 1) )
+            locUi["load"] = self.Button(self.__app, "Load", locUi["save"].get_next_pos(), locUi["save"].get_size() )
 
-            #self.ui["settings_smart_tracking"] = self.Option(self.__app, self.Button, self.Label, "Smart tracking", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
+            #locUi["settings_smart_tracking"] = self.Option(self.__app, self.Button, self.Label, "Smart tracking", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
 
-            self.ui["settings_track_spline"] = self.Option(self.__app, self.Button, self.Label, "Track spline", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
-            self.ui["settings_pit_spline"] = self.Option(self.__app, self.Button, self.Label, "Pit spline", self.ui["settings_track_spline"].get_next_pos_v(), self.__ui["options"]["info"]["size"], True, False)
+            locUi["settings_track_spline"] = self.Option(self.__app, self.Button, self.Label, "Track spline", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
+            locUi["settings_pit_spline"] = self.Option(self.__app, self.Button, self.Label, "Pit spline", locUi["settings_track_spline"].get_next_pos_v(), self.__ui["options"]["info"]["size"], True, False)
 
-            self.ui["settings_reset"] = self.Button(self.__app, "Reset", self.ui["settings_pit_spline"].get_next_pos_v() + vec(0, self.__margin.x), self.__ui["options"]["info"]["size"])
+            locUi["settings_reset"] = self.Button(self.__app, "Reset", locUi["settings_pit_spline"].get_next_pos_v() + vec(0, self.__margin.x), self.__ui["options"]["info"]["size"])
 
-            ac.addOnClickedListener(self.ui["save"].get_btn(), settings__show_form__save)
-            ac.addOnClickedListener(self.ui["load"].get_btn(), settings__show_form__load)
-            #ac.addOnClickedListener(self.ui["settings_smart_tracking"].get_btn(), settings__smart_tracking)
-            ac.addOnClickedListener(self.ui["settings_track_spline"].get_btn(), settings_track_spline)
-            ac.addOnClickedListener(self.ui["settings_pit_spline"].get_btn(), settings_pit_spline)
-            ac.addOnClickedListener(self.ui["settings_reset"].get_btn(), settings_reset)
+            ac.addOnClickedListener(locUi["save"].get_btn(), settings__show_form__save)
+            ac.addOnClickedListener(locUi["load"].get_btn(), settings__show_form__load)
+            #ac.addOnClickedListener(locUi["settings_smart_tracking"].get_btn(), settings__smart_tracking)
+            ac.addOnClickedListener(locUi["settings_track_spline"].get_btn(), settings_track_spline)
+            ac.addOnClickedListener(locUi["settings_pit_spline"].get_btn(), settings_pit_spline)
+            ac.addOnClickedListener(locUi["settings_reset"].get_btn(), settings_reset)
 
-            self.__ui["options"]["settings"] = self.ui
+            self.__ui["options"]["settings"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_transform(self):
         try:
-            self.ui = {}
-            self.ui["lbl_location"] = self.Label(self.__app, "Location", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_location"].set_alignment("center")
-            self.ui["lbl_location"].set_bold(True)
+            locUi = {}
+            locUi["lbl_location"] = self.Label(self.__app, "Location", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_location"].set_alignment("center")
+            locUi["lbl_location"].set_bold(True)
 
-            self.ui["loc_x"] = self.Option(self.__app, self.Button, self.Label, "X", self.ui["lbl_location"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["loc_y"] = self.Option(self.__app, self.Button, self.Label, "Y", self.ui["loc_x"].get_next_pos_v(), self.ui["loc_x"].get_size())
-            self.ui["loc_z"] = self.Option(self.__app, self.Button, self.Label, "Z", self.ui["loc_y"].get_next_pos_v(), self.ui["loc_y"].get_size())
-            self.ui["transform_loc_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength", self.ui["loc_z"].get_next_pos_v(), self.ui["loc_z"].get_size())
-            ac.addOnClickedListener(self.ui["loc_x"].get_btn(), transform__loc_x)
-            ac.addOnClickedListener(self.ui["loc_y"].get_btn(), transform__loc_y)
-            ac.addOnClickedListener(self.ui["loc_z"].get_btn(), transform__loc_z)
-            ac.addOnClickedListener(self.ui["loc_x"].get_btn_m(), transform__loc_x_m)
-            ac.addOnClickedListener(self.ui["loc_y"].get_btn_m(), transform__loc_y_m)
-            ac.addOnClickedListener(self.ui["loc_z"].get_btn_m(), transform__loc_z_m)
-            ac.addOnClickedListener(self.ui["loc_x"].get_btn_p(), transform__loc_x_p)
-            ac.addOnClickedListener(self.ui["loc_y"].get_btn_p(), transform__loc_y_p)
-            ac.addOnClickedListener(self.ui["loc_z"].get_btn_p(), transform__loc_z_p)
-            ac.addOnClickedListener(self.ui["transform_loc_strength"].get_btn_m(), transform__loc_strength_m)
-            ac.addOnClickedListener(self.ui["transform_loc_strength"].get_btn(), transform__loc_strength)
-            ac.addOnClickedListener(self.ui["transform_loc_strength"].get_btn_p(), transform__loc_strength_p)
-
-
-            self.ui["lbl_rotation"] = self.Label(self.__app, "Rotation", self.ui["transform_loc_strength"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_rotation"].set_alignment("center")
-            self.ui["lbl_rotation"].set_bold(True)
-            self.ui["rot_x"] = self.Option(self.__app, self.Button, self.Label, "Pitch" ,self.ui["lbl_rotation"].get_next_pos_v(), self.ui["loc_z"].get_size())
-            self.ui["rot_y"] = self.Option(self.__app, self.Button, self.Label, "Roll", self.ui["rot_x"].get_next_pos_v(), self.ui["rot_x"].get_size())
-            self.ui["rot_z"] = self.Option(self.__app, self.Button, self.Label, "Heading", self.ui["rot_y"].get_next_pos_v(), self.ui["rot_y"].get_size())
-            self.ui["rot_x"].show_reset_button()
-            self.ui["rot_y"].show_reset_button()
-
-            self.ui["transform_rot_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength*", self.ui["rot_z"].get_next_pos_v(), self.ui["rot_z"].get_size())
-            self.ui["lbl_rot_strength_exception"] = self.Label(self.__app, "*except roll", vec(self.ui["transform_rot_strength"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_rot_strength_exception"].set_font_size(12)
-
-            ac.addOnClickedListener(self.ui["rot_x"].get_btn(), transform__rot_x)
-            ac.addOnClickedListener(self.ui["rot_y"].get_btn(), transform__rot_y)
-            ac.addOnClickedListener(self.ui["rot_z"].get_btn(), transform__rot_z)
-            ac.addOnClickedListener(self.ui["rot_x"].get_btn_m(), transform__rot_x_m)
-            ac.addOnClickedListener(self.ui["rot_y"].get_btn_m(), transform__rot_y_m)
-            ac.addOnClickedListener(self.ui["rot_z"].get_btn_m(), transform__rot_z_m)
-            ac.addOnClickedListener(self.ui["rot_x"].get_btn_p(), transform__rot_x_p)
-            ac.addOnClickedListener(self.ui["rot_y"].get_btn_p(), transform__rot_y_p)
-            ac.addOnClickedListener(self.ui["rot_z"].get_btn_p(), transform__rot_z_p)
-            ac.addOnClickedListener(self.ui["rot_x"].get_btn_reset(), transform__reset_pitch)
-            ac.addOnClickedListener(self.ui["rot_y"].get_btn_reset(), transform__reset_roll)
-            ac.addOnClickedListener(self.ui["transform_rot_strength"].get_btn_m(), transform__rot_strength_m)
-            ac.addOnClickedListener(self.ui["transform_rot_strength"].get_btn(), transform__rot_strength)
-            ac.addOnClickedListener(self.ui["transform_rot_strength"].get_btn_p(), transform__rot_strength_p)
+            locUi["loc_x"] = self.Option(self.__app, self.Button, self.Label, "X", locUi["lbl_location"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["loc_y"] = self.Option(self.__app, self.Button, self.Label, "Y", locUi["loc_x"].get_next_pos_v(), locUi["loc_x"].get_size())
+            locUi["loc_z"] = self.Option(self.__app, self.Button, self.Label, "Z", locUi["loc_y"].get_next_pos_v(), locUi["loc_y"].get_size())
+            locUi["transform_loc_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength", locUi["loc_z"].get_next_pos_v(), locUi["loc_z"].get_size())
+            ac.addOnClickedListener(locUi["loc_x"].get_btn(), transform__loc_x)
+            ac.addOnClickedListener(locUi["loc_y"].get_btn(), transform__loc_y)
+            ac.addOnClickedListener(locUi["loc_z"].get_btn(), transform__loc_z)
+            ac.addOnClickedListener(locUi["loc_x"].get_btn_m(), transform__loc_x_m)
+            ac.addOnClickedListener(locUi["loc_y"].get_btn_m(), transform__loc_y_m)
+            ac.addOnClickedListener(locUi["loc_z"].get_btn_m(), transform__loc_z_m)
+            ac.addOnClickedListener(locUi["loc_x"].get_btn_p(), transform__loc_x_p)
+            ac.addOnClickedListener(locUi["loc_y"].get_btn_p(), transform__loc_y_p)
+            ac.addOnClickedListener(locUi["loc_z"].get_btn_p(), transform__loc_z_p)
+            ac.addOnClickedListener(locUi["transform_loc_strength"].get_btn_m(), transform__loc_strength_m)
+            ac.addOnClickedListener(locUi["transform_loc_strength"].get_btn(), transform__loc_strength)
+            ac.addOnClickedListener(locUi["transform_loc_strength"].get_btn_p(), transform__loc_strength_p)
 
 
-            self.__ui["options"]["transform"] = self.ui
+            locUi["lbl_rotation"] = self.Label(self.__app, "Rotation", locUi["transform_loc_strength"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_rotation"].set_alignment("center")
+            locUi["lbl_rotation"].set_bold(True)
+            locUi["rot_x"] = self.Option(self.__app, self.Button, self.Label, "Pitch" ,locUi["lbl_rotation"].get_next_pos_v(), locUi["loc_z"].get_size())
+            locUi["rot_y"] = self.Option(self.__app, self.Button, self.Label, "Roll", locUi["rot_x"].get_next_pos_v(), locUi["rot_x"].get_size())
+            locUi["rot_z"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["rot_y"].get_next_pos_v(), locUi["rot_y"].get_size())
+            locUi["rot_x"].show_reset_button()
+            locUi["rot_y"].show_reset_button()
+
+            locUi["transform_rot_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength*", locUi["rot_z"].get_next_pos_v(), locUi["rot_z"].get_size())
+            
+            locUi["lbl_rot_strength_exception"] = self.Label(self.__app, "*except roll", vec(locUi["transform_rot_strength"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_rot_strength_exception"].set_font_size(12)
+
+            ac.addOnClickedListener(locUi["rot_x"].get_btn(), transform__rot_x)
+            ac.addOnClickedListener(locUi["rot_y"].get_btn(), transform__rot_y)
+            ac.addOnClickedListener(locUi["rot_z"].get_btn(), transform__rot_z)
+            ac.addOnClickedListener(locUi["rot_x"].get_btn_m(), transform__rot_x_m)
+            ac.addOnClickedListener(locUi["rot_y"].get_btn_m(), transform__rot_y_m)
+            ac.addOnClickedListener(locUi["rot_z"].get_btn_m(), transform__rot_z_m)
+            ac.addOnClickedListener(locUi["rot_x"].get_btn_p(), transform__rot_x_p)
+            ac.addOnClickedListener(locUi["rot_y"].get_btn_p(), transform__rot_y_p)
+            ac.addOnClickedListener(locUi["rot_z"].get_btn_p(), transform__rot_z_p)
+            ac.addOnClickedListener(locUi["rot_x"].get_btn_reset(), transform__reset_pitch)
+            ac.addOnClickedListener(locUi["rot_y"].get_btn_reset(), transform__reset_roll)
+            ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn_m(), transform__rot_strength_m)
+            ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn(), transform__rot_strength)
+            ac.addOnClickedListener(locUi["transform_rot_strength"].get_btn_p(), transform__rot_strength_p)
+
+
+            self.__ui["options"]["transform"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_spline(self):
         try:
-            self.ui = {}
-            self.size = self.__ui["options"]["info"]["size"]
-            self.ui["spline_record"] = self.Button(self.__app, "Record", self.__ui["options"]["info"]["start_pos"], self.size)
-            self.ui["spline_speed"] = self.Option(self.__app, self.Button, self.Label, "Speed", self.ui["spline_record"].get_next_pos_v() + vec(0, self.__margin.x), self.size)
+            locUi = {}
+            locSize = self.__ui["options"]["info"]["size"]
+            locUi["spline_record"] = self.Button(self.__app, "Record", self.__ui["options"]["info"]["start_pos"], locSize)
+            locUi["spline_speed"] = self.Option(self.__app, self.Button, self.Label, "Speed", locUi["spline_record"].get_next_pos_v() + vec(0, self.__margin.x), locSize)
 
-            self.ui["lbl_affect"] = self.Label(self.__app, "Strength", self.ui["spline_speed"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
-            self.ui["lbl_affect"].set_alignment("center")
-            self.ui["lbl_affect"].set_bold(True)
+            locUi["lbl_affect"] = self.Label(self.__app, "Strength", locUi["spline_speed"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            locUi["lbl_affect"].set_alignment("center")
+            locUi["lbl_affect"].set_bold(True)
 
-            self.ui["spline_affect_loc_xy"] = self.Option(self.__app, self.Button, self.Label, "Location XY", self.ui["lbl_affect"].get_next_pos_v(), self.size)
-            self.ui["spline_affect_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", self.ui["spline_affect_loc_xy"].get_next_pos_v(), self.size)
-            self.ui["spline_affect_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", self.ui["spline_affect_loc_z"].get_next_pos_v(), self.size)
-            self.ui["spline_affect_roll"] = self.Option(self.__app, self.Button, self.Label, "Roll", self.ui["spline_affect_pitch"].get_next_pos_v(), self.size)
-            self.ui["spline_affect_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", self.ui["spline_affect_roll"].get_next_pos_v(), self.size)
+            locUi["spline_affect_loc_xy"] = self.Option(self.__app, self.Button, self.Label, "Location XY", locUi["lbl_affect"].get_next_pos_v(), locSize)
+            locUi["spline_affect_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", locUi["spline_affect_loc_xy"].get_next_pos_v(), locSize)
+            locUi["spline_affect_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["spline_affect_loc_z"].get_next_pos_v(), locSize)
+            locUi["spline_affect_roll"] = self.Option(self.__app, self.Button, self.Label, "Roll", locUi["spline_affect_pitch"].get_next_pos_v(), locSize)
+            locUi["spline_affect_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["spline_affect_roll"].get_next_pos_v(), locSize)
 
-            self.ui["lbl_offset"] = self.Label(self.__app, "Offset", self.ui["spline_affect_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
-            self.ui["lbl_offset"].set_alignment("center")
-            self.ui["lbl_offset"].set_bold(True)
-            self.ui["spline_offset_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", self.ui["lbl_offset"].get_next_pos_v(), self.size)
-            self.ui["spline_offset_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", self.ui["spline_offset_pitch"].get_next_pos_v(), self.size)
-            self.ui["spline_offset_loc_x"] = self.Option(self.__app, self.Button, self.Label, "Location X", self.ui["spline_offset_heading"].get_next_pos_v(), self.size)
-            self.ui["spline_offset_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", self.ui["spline_offset_loc_x"].get_next_pos_v(), self.size)
-            self.ui["spline_offset_spline"] = self.Option(self.__app, self.Button, self.Label, "Spline", self.ui["spline_offset_loc_z"].get_next_pos_v(), self.size)
-            self.ui["spline_offset_spline"].show_reset_button()
+            locUi["lbl_offset"] = self.Label(self.__app, "Offset", locUi["spline_affect_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            locUi["lbl_offset"].set_alignment("center")
+            locUi["lbl_offset"].set_bold(True)
+            locUi["spline_offset_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["lbl_offset"].get_next_pos_v(), locSize)
+            locUi["spline_offset_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["spline_offset_pitch"].get_next_pos_v(), locSize)
+            locUi["spline_offset_loc_x"] = self.Option(self.__app, self.Button, self.Label, "Location X", locUi["spline_offset_heading"].get_next_pos_v(), locSize)
+            locUi["spline_offset_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", locUi["spline_offset_loc_x"].get_next_pos_v(), locSize)
+            locUi["spline_offset_spline"] = self.Option(self.__app, self.Button, self.Label, "Spline", locUi["spline_offset_loc_z"].get_next_pos_v(), locSize)
+            locUi["spline_offset_spline"].show_reset_button()
 
-            ac.addOnClickedListener(self.ui["spline_record"].get_btn(), spline__record)
-            ac.addOnClickedListener(self.ui["spline_speed"].get_btn_m(), spline__speed_m)
-            ac.addOnClickedListener(self.ui["spline_speed"].get_btn(), spline__speed)
-            ac.addOnClickedListener(self.ui["spline_speed"].get_btn_p(), spline__speed_p)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_xy"].get_btn_m(), spline__affect_loc_xy_m)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_xy"].get_btn(), spline__affect_loc_xy)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_xy"].get_btn_p(), spline__affect_loc_xy_p)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_z"].get_btn_m(), spline__affect_loc_z_m)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_z"].get_btn(), spline__affect_loc_z)
-            ac.addOnClickedListener(self.ui["spline_affect_loc_z"].get_btn_p(), spline__affect_loc_z_p)
-            ac.addOnClickedListener(self.ui["spline_affect_pitch"].get_btn_m(), spline_affect_pitch_m)
-            ac.addOnClickedListener(self.ui["spline_affect_pitch"].get_btn(), spline_affect_pitch)
-            ac.addOnClickedListener(self.ui["spline_affect_pitch"].get_btn_p(), spline_affect_pitch_p)
-            ac.addOnClickedListener(self.ui["spline_affect_roll"].get_btn_m(), spline_affect_roll_m)
-            ac.addOnClickedListener(self.ui["spline_affect_roll"].get_btn(), spline_affect_roll)
-            ac.addOnClickedListener(self.ui["spline_affect_roll"].get_btn_p(), spline_affect_roll_p)
-            ac.addOnClickedListener(self.ui["spline_affect_heading"].get_btn_m(), spline_affect_heading_m)
-            ac.addOnClickedListener(self.ui["spline_affect_heading"].get_btn(), spline_affect_heading)
-            ac.addOnClickedListener(self.ui["spline_affect_heading"].get_btn_p(), spline_affect_heading_p)
-            ac.addOnClickedListener(self.ui["spline_offset_pitch"].get_btn_m(), spline_offset_pitch_m)
-            ac.addOnClickedListener(self.ui["spline_offset_pitch"].get_btn(), spline_offset_pitch)
-            ac.addOnClickedListener(self.ui["spline_offset_pitch"].get_btn_p(), spline_offset_pitch_p)
-            ac.addOnClickedListener(self.ui["spline_offset_heading"].get_btn_m(), spline_offset_heading_m)
-            ac.addOnClickedListener(self.ui["spline_offset_heading"].get_btn(), spline_offset_heading)
-            ac.addOnClickedListener(self.ui["spline_offset_heading"].get_btn_p(), spline_offset_heading_p)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_z"].get_btn_m(), spline_offset_loc_z_m)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_z"].get_btn(), spline_offset_loc_z)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_z"].get_btn_p(), spline_offset_loc_z_p)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_x"].get_btn_m(), spline_offset_loc_x_m)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_x"].get_btn(), spline_offset_loc_x)
-            ac.addOnClickedListener(self.ui["spline_offset_loc_x"].get_btn_p(), spline_offset_loc_x_p)
-            ac.addOnClickedListener(self.ui["spline_offset_spline"].get_btn_m(), spline_offset_spline_m)
-            ac.addOnClickedListener(self.ui["spline_offset_spline"].get_btn(), spline_offset_spline)
-            ac.addOnClickedListener(self.ui["spline_offset_spline"].get_btn_p(), spline_offset_spline_p)
-            ac.addOnClickedListener(self.ui["spline_offset_spline"].get_btn_reset(), spline_offset_reset)
+            ac.addOnClickedListener(locUi["spline_record"].get_btn(), spline__record)
+            ac.addOnClickedListener(locUi["spline_speed"].get_btn_m(), spline__speed_m)
+            ac.addOnClickedListener(locUi["spline_speed"].get_btn(), spline__speed)
+            ac.addOnClickedListener(locUi["spline_speed"].get_btn_p(), spline__speed_p)
+            ac.addOnClickedListener(locUi["spline_affect_loc_xy"].get_btn_m(), spline__affect_loc_xy_m)
+            ac.addOnClickedListener(locUi["spline_affect_loc_xy"].get_btn(), spline__affect_loc_xy)
+            ac.addOnClickedListener(locUi["spline_affect_loc_xy"].get_btn_p(), spline__affect_loc_xy_p)
+            ac.addOnClickedListener(locUi["spline_affect_loc_z"].get_btn_m(), spline__affect_loc_z_m)
+            ac.addOnClickedListener(locUi["spline_affect_loc_z"].get_btn(), spline__affect_loc_z)
+            ac.addOnClickedListener(locUi["spline_affect_loc_z"].get_btn_p(), spline__affect_loc_z_p)
+            ac.addOnClickedListener(locUi["spline_affect_pitch"].get_btn_m(), spline_affect_pitch_m)
+            ac.addOnClickedListener(locUi["spline_affect_pitch"].get_btn(), spline_affect_pitch)
+            ac.addOnClickedListener(locUi["spline_affect_pitch"].get_btn_p(), spline_affect_pitch_p)
+            ac.addOnClickedListener(locUi["spline_affect_roll"].get_btn_m(), spline_affect_roll_m)
+            ac.addOnClickedListener(locUi["spline_affect_roll"].get_btn(), spline_affect_roll)
+            ac.addOnClickedListener(locUi["spline_affect_roll"].get_btn_p(), spline_affect_roll_p)
+            ac.addOnClickedListener(locUi["spline_affect_heading"].get_btn_m(), spline_affect_heading_m)
+            ac.addOnClickedListener(locUi["spline_affect_heading"].get_btn(), spline_affect_heading)
+            ac.addOnClickedListener(locUi["spline_affect_heading"].get_btn_p(), spline_affect_heading_p)
+            ac.addOnClickedListener(locUi["spline_offset_pitch"].get_btn_m(), spline_offset_pitch_m)
+            ac.addOnClickedListener(locUi["spline_offset_pitch"].get_btn(), spline_offset_pitch)
+            ac.addOnClickedListener(locUi["spline_offset_pitch"].get_btn_p(), spline_offset_pitch_p)
+            ac.addOnClickedListener(locUi["spline_offset_heading"].get_btn_m(), spline_offset_heading_m)
+            ac.addOnClickedListener(locUi["spline_offset_heading"].get_btn(), spline_offset_heading)
+            ac.addOnClickedListener(locUi["spline_offset_heading"].get_btn_p(), spline_offset_heading_p)
+            ac.addOnClickedListener(locUi["spline_offset_loc_z"].get_btn_m(), spline_offset_loc_z_m)
+            ac.addOnClickedListener(locUi["spline_offset_loc_z"].get_btn(), spline_offset_loc_z)
+            ac.addOnClickedListener(locUi["spline_offset_loc_z"].get_btn_p(), spline_offset_loc_z_p)
+            ac.addOnClickedListener(locUi["spline_offset_loc_x"].get_btn_m(), spline_offset_loc_x_m)
+            ac.addOnClickedListener(locUi["spline_offset_loc_x"].get_btn(), spline_offset_loc_x)
+            ac.addOnClickedListener(locUi["spline_offset_loc_x"].get_btn_p(), spline_offset_loc_x_p)
+            ac.addOnClickedListener(locUi["spline_offset_spline"].get_btn_m(), spline_offset_spline_m)
+            ac.addOnClickedListener(locUi["spline_offset_spline"].get_btn(), spline_offset_spline)
+            ac.addOnClickedListener(locUi["spline_offset_spline"].get_btn_p(), spline_offset_spline_p)
+            ac.addOnClickedListener(locUi["spline_offset_spline"].get_btn_reset(), spline_offset_reset)
 
-            self.__ui["options"]["spline"] = self.ui
+            self.__ui["options"]["spline"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_tracking(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.ui["lbl_tracking"] = self.Label(self.__app, "Tracking", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_tracking"].set_alignment("center")
-            self.ui["lbl_tracking"].set_bold(True)
+            locUi["lbl_tracking"] = self.Label(self.__app, "Tracking", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_tracking"].set_alignment("center")
+            locUi["lbl_tracking"].set_bold(True)
 
-            self.ui["car_1"] = self.Option(self.__app, self.Button, self.Label, "Active car", self.ui["lbl_tracking"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["tracking_mix"] = self.Option(self.__app, self.Button, self.Label, "Mix", self.ui["car_1"].get_next_pos_v(), self.ui["car_1"].get_size())
-            self.ui["car_2"] = self.Option(self.__app, self.Button, self.Label, "Extra car", self.ui["tracking_mix"].get_next_pos_v(), self.ui["car_1"].get_size())
+            locUi["car_1"] = self.Option(self.__app, self.Button, self.Label, "Active car", locUi["lbl_tracking"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["tracking_mix"] = self.Option(self.__app, self.Button, self.Label, "Mix", locUi["car_1"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["car_2"] = self.Option(self.__app, self.Button, self.Label, "Extra car", locUi["tracking_mix"].get_next_pos_v(), locUi["car_1"].get_size())
 
 
-            self.ui["lbl_offset"] = self.Label(self.__app, "Offset", self.ui["car_2"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_offset"].set_alignment("center")
-            self.ui["lbl_offset"].set_bold(True)
+            locUi["lbl_offset"] = self.Label(self.__app, "Offset", locUi["car_2"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_offset"].set_alignment("center")
+            locUi["lbl_offset"].set_bold(True)
 
-            self.ui["tracking_offset"]  = self.Option(self.__app, self.Button, self.Label, "Tracking", self.ui["lbl_offset"].get_next_pos_v(), self.ui["car_1"].get_size())
+            locUi["tracking_offset"]  = self.Option(self.__app, self.Button, self.Label, "Tracking", locUi["lbl_offset"].get_next_pos_v(), locUi["car_1"].get_size())
 
-            self.ui["tracking_offset_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", self.ui["tracking_offset"].get_next_pos_v() + vec(0, self.__margin.x), self.ui["car_1"].get_size())
-            self.ui["tracking_offset_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", self.ui["tracking_offset_pitch"].get_next_pos_v(), self.ui["car_1"].get_size())
+            locUi["tracking_offset_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["tracking_offset"].get_next_pos_v() + vec(0, self.__margin.x), locUi["car_1"].get_size())
+            locUi["tracking_offset_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["tracking_offset_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
 
-            self.ui["lbl_strength"] = self.Label(self.__app, "Strength", self.ui["tracking_offset_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_strength"].set_alignment("center")
-            self.ui["lbl_strength"].set_bold(True)
+            locUi["lbl_strength"] = self.Label(self.__app, "Strength", locUi["tracking_offset_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_strength"].set_alignment("center")
+            locUi["lbl_strength"].set_bold(True)
 
-            self.ui["tracking_strength_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", self.ui["lbl_strength"].get_next_pos_v(), self.ui["car_1"].get_size())
-            self.ui["tracking_strength_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", self.ui["tracking_strength_pitch"].get_next_pos_v(), self.ui["car_1"].get_size())
+            locUi["tracking_strength_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["lbl_strength"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["tracking_strength_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["tracking_strength_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
 
-            ac.addOnClickedListener(self.ui["tracking_offset"].get_btn_m(), tracking__offset_m)
-            ac.addOnClickedListener(self.ui["tracking_offset"].get_btn(), tracking__offset)
-            ac.addOnClickedListener(self.ui["tracking_offset"].get_btn_p(), tracking__offset_p)
+            ac.addOnClickedListener(locUi["tracking_offset"].get_btn_m(), tracking__offset_m)
+            ac.addOnClickedListener(locUi["tracking_offset"].get_btn(), tracking__offset)
+            ac.addOnClickedListener(locUi["tracking_offset"].get_btn_p(), tracking__offset_p)
 
-            ac.addOnClickedListener(self.ui["tracking_strength_pitch"].get_btn_m(), tracking__strength_pitch_m)
-            ac.addOnClickedListener(self.ui["tracking_strength_pitch"].get_btn(), tracking__strength_pitch)
-            ac.addOnClickedListener(self.ui["tracking_strength_pitch"].get_btn_p(), tracking__strength_pitch_p)
+            ac.addOnClickedListener(locUi["tracking_strength_pitch"].get_btn_m(), tracking__strength_pitch_m)
+            ac.addOnClickedListener(locUi["tracking_strength_pitch"].get_btn(), tracking__strength_pitch)
+            ac.addOnClickedListener(locUi["tracking_strength_pitch"].get_btn_p(), tracking__strength_pitch_p)
 
-            ac.addOnClickedListener(self.ui["tracking_strength_heading"].get_btn_m(), tracking__strength_heading_m)
-            ac.addOnClickedListener(self.ui["tracking_strength_heading"].get_btn(), tracking__strength_heading)
-            ac.addOnClickedListener(self.ui["tracking_strength_heading"].get_btn_p(), tracking__strength_heading_p)
+            ac.addOnClickedListener(locUi["tracking_strength_heading"].get_btn_m(), tracking__strength_heading_m)
+            ac.addOnClickedListener(locUi["tracking_strength_heading"].get_btn(), tracking__strength_heading)
+            ac.addOnClickedListener(locUi["tracking_strength_heading"].get_btn_p(), tracking__strength_heading_p)
 
-            ac.addOnClickedListener(self.ui["tracking_offset_pitch"].get_btn_m(), tracking__offset_pitch_m)
-            ac.addOnClickedListener(self.ui["tracking_offset_pitch"].get_btn(), tracking__offset_pitch)
-            ac.addOnClickedListener(self.ui["tracking_offset_pitch"].get_btn_p(), tracking__offset_pitch_p)
+            ac.addOnClickedListener(locUi["tracking_offset_pitch"].get_btn_m(), tracking__offset_pitch_m)
+            ac.addOnClickedListener(locUi["tracking_offset_pitch"].get_btn(), tracking__offset_pitch)
+            ac.addOnClickedListener(locUi["tracking_offset_pitch"].get_btn_p(), tracking__offset_pitch_p)
 
-            ac.addOnClickedListener(self.ui["tracking_offset_heading"].get_btn_m(), tracking__offset_heading_m)
-            ac.addOnClickedListener(self.ui["tracking_offset_heading"].get_btn(), tracking__offset_heading)
-            ac.addOnClickedListener(self.ui["tracking_offset_heading"].get_btn_p(), tracking__offset_heading_p)
+            ac.addOnClickedListener(locUi["tracking_offset_heading"].get_btn_m(), tracking__offset_heading_m)
+            ac.addOnClickedListener(locUi["tracking_offset_heading"].get_btn(), tracking__offset_heading)
+            ac.addOnClickedListener(locUi["tracking_offset_heading"].get_btn_p(), tracking__offset_heading_p)
 
-            ac.addOnClickedListener(self.ui["car_1"].get_btn_m(), tracking__car_1_m)
-            ac.addOnClickedListener(self.ui["car_1"].get_btn(), tracking__car_1)
-            ac.addOnClickedListener(self.ui["car_1"].get_btn_p(), tracking__car_1_p)
+            ac.addOnClickedListener(locUi["car_1"].get_btn_m(), tracking__car_1_m)
+            ac.addOnClickedListener(locUi["car_1"].get_btn(), tracking__car_1)
+            ac.addOnClickedListener(locUi["car_1"].get_btn_p(), tracking__car_1_p)
 
-            ac.addOnClickedListener(self.ui["tracking_mix"].get_btn_m(), tracking__mix_m)
-            ac.addOnClickedListener(self.ui["tracking_mix"].get_btn(), tracking__mix)
-            ac.addOnClickedListener(self.ui["tracking_mix"].get_btn_p(), tracking__mix_p)
+            ac.addOnClickedListener(locUi["tracking_mix"].get_btn_m(), tracking__mix_m)
+            ac.addOnClickedListener(locUi["tracking_mix"].get_btn(), tracking__mix)
+            ac.addOnClickedListener(locUi["tracking_mix"].get_btn_p(), tracking__mix_p)
 
-            ac.addOnClickedListener(self.ui["car_2"].get_btn_m(), tracking__car_2_m)
-            ac.addOnClickedListener(self.ui["car_2"].get_btn(), tracking__car_2)
-            ac.addOnClickedListener(self.ui["car_2"].get_btn_p(), tracking__car_2_p)
+            ac.addOnClickedListener(locUi["car_2"].get_btn_m(), tracking__car_2_m)
+            ac.addOnClickedListener(locUi["car_2"].get_btn(), tracking__car_2)
+            ac.addOnClickedListener(locUi["car_2"].get_btn_p(), tracking__car_2_p)
 
-            self.__ui["options"]["tracking"] = self.ui
+            self.__ui["options"]["tracking"] = locUi
         except Exception as e:
             debug(e)
 
     def __create_camera_options(self):
         try:
-            self.ui = {}
+            locUi = {}
 
-            self.ui["lbl_activation"] = self.Label(self.__app, "Activation", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_activation"].set_alignment("center")
-            self.ui["lbl_activation"].set_bold(True)
+            locUi["lbl_activation"] = self.Label(self.__app, "Activation", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_activation"].set_alignment("center")
+            locUi["lbl_activation"].set_bold(True)
 
-            self.ui["camera_in"] = self.Editable_Button(self.__app, self.Button, self.Input, self.Label, "Camera in", self.ui["lbl_activation"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
-            ac.addOnClickedListener(self.ui["camera_in"].get_btn(), camera__camera_in__show_input)
-            ac.addOnValidateListener(self.ui["camera_in"].get_input(), camera__camera_in__hide_input)
+            locUi["camera_in"] = self.Editable_Button(self.__app, self.Button, self.Input, self.Label, "Camera in", locUi["lbl_activation"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            ac.addOnClickedListener(locUi["camera_in"].get_btn(), camera__camera_in__show_input)
+            ac.addOnValidateListener(locUi["camera_in"].get_input(), camera__camera_in__hide_input)
 
-            self.ui["camera_pit"] = self.Option(self.__app, self.Button, self.Label, "True", self.ui["camera_in"].get_next_pos_v(), self.ui["camera_in"].get_size(), True, False, "Pit only")
+            locUi["camera_pit"] = self.Option(self.__app, self.Button, self.Label, "True", locUi["camera_in"].get_next_pos_v(), locUi["camera_in"].get_size(), True, False, "Pit only")
 
 
-            self.ui["lbl_camera"] = self.Label(self.__app, "Camera", self.ui["camera_pit"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_camera"].set_alignment("center")
-            self.ui["lbl_camera"].set_bold(True)
+            locUi["lbl_camera"] = self.Label(self.__app, "Camera", locUi["camera_pit"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_camera"].set_alignment("center")
+            locUi["lbl_camera"].set_bold(True)
 
-            self.ui["camera_focus_point"] = self.Option(self.__app, self.Button, self.Label, "Focus point", self.ui["lbl_camera"].get_next_pos_v(), self.ui["camera_pit"].get_size())
-            self.ui["camera_use_tracking_point"] = self.Option( self.__app, self.Button, self.Label, "True", self.ui["camera_focus_point"].get_next_pos_v(), self.ui["camera_focus_point"].get_size(), True, False, "Autofocus" )
+            locUi["camera_focus_point"] = self.Option(self.__app, self.Button, self.Label, "Focus point", locUi["lbl_camera"].get_next_pos_v(), locUi["camera_pit"].get_size())
+            locUi["camera_use_tracking_point"] = self.Option( self.__app, self.Button, self.Label, "True", locUi["camera_focus_point"].get_next_pos_v(), locUi["camera_focus_point"].get_size(), True, False, "Autofocus" )
 
-            self.ui["camera_fov"] = self.Option(self.__app, self.Button, self.Label, "FOV", self.ui["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), self.ui["camera_focus_point"].get_size())
+            locUi["camera_fov"] = self.Option(self.__app, self.Button, self.Label, "FOV", locUi["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size())
             
-            self.ui["camera_use_specific_cam"] = self.Option( self.__app, self.Button, self.Label, "Camtool",self.ui["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), self.ui["camera_focus_point"].get_size(), True, True, "Specific cam" )
+            locUi["camera_use_specific_cam"] = self.Option( self.__app, self.Button, self.Label, "Camtool",locUi["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size(), True, True, "Specific cam" )
 
 
-            self.ui["lbl_shake"] = self.Label(self.__app, "Shake", self.ui["camera_use_specific_cam"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["lbl_shake"].set_alignment("center")
-            self.ui["lbl_shake"].set_bold(True)
+            locUi["lbl_shake"] = self.Label(self.__app, "Shake", locUi["camera_use_specific_cam"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_shake"].set_alignment("center")
+            locUi["lbl_shake"].set_bold(True)
 
 
-            self.ui["camera_shake"] = self.Option(self.__app, self.Button, self.Label, "Camera", self.ui["lbl_shake"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            self.ui["camera_offset_shake"] = self.Option(self.__app, self.Button, self.Label, "Tracking", self.ui["camera_shake"].get_next_pos_v(), self.ui["camera_shake"].get_size())
+            locUi["camera_shake"] = self.Option(self.__app, self.Button, self.Label, "Camera", locUi["lbl_shake"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["camera_offset_shake"] = self.Option(self.__app, self.Button, self.Label, "Tracking", locUi["camera_shake"].get_next_pos_v(), locUi["camera_shake"].get_size())
 
 
-            ac.addOnClickedListener(self.ui["camera_shake"].get_btn_p(), camera__shake_p)
-            ac.addOnClickedListener(self.ui["camera_shake"].get_btn(), camera__shake)
-            ac.addOnClickedListener(self.ui["camera_shake"].get_btn_m(), camera__shake_m)
-            ac.addOnClickedListener(self.ui["camera_offset_shake"].get_btn_p(), camera__offset_shake_p)
-            ac.addOnClickedListener(self.ui["camera_offset_shake"].get_btn(), camera__offset_shake)
-            ac.addOnClickedListener(self.ui["camera_offset_shake"].get_btn_m(), camera__offset_shake_m)
+            ac.addOnClickedListener(locUi["camera_shake"].get_btn_p(), camera__shake_p)
+            ac.addOnClickedListener(locUi["camera_shake"].get_btn(), camera__shake)
+            ac.addOnClickedListener(locUi["camera_shake"].get_btn_m(), camera__shake_m)
+            ac.addOnClickedListener(locUi["camera_offset_shake"].get_btn_p(), camera__offset_shake_p)
+            ac.addOnClickedListener(locUi["camera_offset_shake"].get_btn(), camera__offset_shake)
+            ac.addOnClickedListener(locUi["camera_offset_shake"].get_btn_m(), camera__offset_shake_m)
 
-            ac.addOnClickedListener(self.ui["camera_focus_point"].get_btn_m(), camera__focus_m)
-            ac.addOnClickedListener(self.ui["camera_focus_point"].get_btn(), camera__focus)
-            ac.addOnClickedListener(self.ui["camera_focus_point"].get_btn_p(), camera__focus_p)
+            ac.addOnClickedListener(locUi["camera_focus_point"].get_btn_m(), camera__focus_m)
+            ac.addOnClickedListener(locUi["camera_focus_point"].get_btn(), camera__focus)
+            ac.addOnClickedListener(locUi["camera_focus_point"].get_btn_p(), camera__focus_p)
 
-            ac.addOnClickedListener(self.ui["camera_use_tracking_point"].get_btn(), camera__use_tracking_point)
-            ac.addOnClickedListener(self.ui["camera_pit"].get_btn(), camera__pit)
+            ac.addOnClickedListener(locUi["camera_use_tracking_point"].get_btn(), camera__use_tracking_point)
+            ac.addOnClickedListener(locUi["camera_pit"].get_btn(), camera__pit)
 
-            ac.addOnClickedListener(self.ui["camera_fov"].get_btn_m(), camera__fov_m)
-            ac.addOnClickedListener(self.ui["camera_fov"].get_btn(), camera__fov)
-            ac.addOnClickedListener(self.ui["camera_fov"].get_btn_p(), camera__fov_p)
+            ac.addOnClickedListener(locUi["camera_fov"].get_btn_m(), camera__fov_m)
+            ac.addOnClickedListener(locUi["camera_fov"].get_btn(), camera__fov)
+            ac.addOnClickedListener(locUi["camera_fov"].get_btn_p(), camera__fov_p)
             
-            ac.addOnClickedListener(self.ui["camera_use_specific_cam"].get_btn_m(), camera__use_specific_cam_m)
-            ac.addOnClickedListener(self.ui["camera_use_specific_cam"].get_btn_p(), camera__use_specific_cam_p)
+            ac.addOnClickedListener(locUi["camera_use_specific_cam"].get_btn_m(), camera__use_specific_cam_m)
+            ac.addOnClickedListener(locUi["camera_use_specific_cam"].get_btn_p(), camera__use_specific_cam_p)
 
-            self.__ui["options"]["camera"] = self.ui
+            self.__ui["options"]["camera"] = locUi
         except Exception as e:
             debug(e)
 
@@ -742,49 +741,49 @@ class CamTool2(object):
         try:
 
             #keyframe slots positions
-            for self.i in range(self.__max_keyframes + 1):
-                self.init_offset = int(data.get_n_keyframes(self.__active_cam) / self.__max_btns_in_column) + 1
+            for i in range(self.__max_keyframes + 1):
+                locInit_offset = int(data.get_n_keyframes(self.__active_cam) / self.__max_btns_in_column) + 1
 
                 #consider add keyframe btn
                 if data.get_n_keyframes(self.__active_cam) % self.__max_btns_in_column == self.__max_btns_in_column - 1:
                     if data.get_n_keyframes(self.__active_cam) < self.__max_keyframes - 1:
-                        self.init_offset += 1
+                        locInit_offset += 1
 
                 #grid
-                self.x = int(self.i / self.__max_btns_in_column) - self.init_offset
-                self.y = int(self.i % self.__max_btns_in_column)
+                locX = int(i / self.__max_btns_in_column) - locInit_offset
+                locY = int(i % self.__max_btns_in_column)
 
 
                 self.pos = vec(
-                    self.x * self.__sizes["square"].x - 1,
-                    self.y * self.__sizes["square"].y + self.__margin.y + self.__btn_height + self.__margin.x + 1
+                    locX * self.__sizes["square"].x - 1,
+                    locY * self.__sizes["square"].y + self.__margin.y + self.__btn_height + self.__margin.x + 1
                 )
 
 
-                if self.i == 0:
+                if i == 0:
                     self.__ui["side_k"]["remove"].set_pos(self.pos)
                 else:
-                    self.__ui["side_k"]["keyframes"][self.i-1].set_pos(self.pos)
+                    self.__ui["side_k"]["keyframes"][i-1].set_pos(self.pos)
 
                     #hide empty slots
-                    if self.i - 1 < data.get_n_keyframes(self.__active_cam):
-                        self.__ui["side_k"]["keyframes"][self.i-1].show()
+                    if i - 1 < data.get_n_keyframes(self.__active_cam):
+                        self.__ui["side_k"]["keyframes"][i-1].show()
 
-                        if self.i - 1 == self.__active_kf:
-                            self.__ui["side_k"]["keyframes"][self.i-1].highlight(True)
+                        if i - 1 == self.__active_kf:
+                            self.__ui["side_k"]["keyframes"][i-1].highlight(True)
                         else:
-                            self.__ui["side_k"]["keyframes"][self.i-1].highlight(False)
+                            self.__ui["side_k"]["keyframes"][i-1].highlight(False)
 
-                        if data.mode[data.active_mode][self.__active_cam].keyframes[self.i - 1].keyframe != None:
-                            self.__ui["side_k"]["keyframes"][self.i-1].bold(True)
+                        if data.mode[data.active_mode][self.__active_cam].keyframes[i - 1].keyframe != None:
+                            self.__ui["side_k"]["keyframes"][i-1].bold(True)
                         else:
-                            self.__ui["side_k"]["keyframes"][self.i-1].bold(False)
+                            self.__ui["side_k"]["keyframes"][i-1].bold(False)
 
                     else:
-                        self.__ui["side_k"]["keyframes"][self.i-1].hide()
+                        self.__ui["side_k"]["keyframes"][i-1].hide()
 
                     #set position of add btn
-                    if self.i - 1 == data.get_n_keyframes(self.__active_cam):
+                    if i - 1 == data.get_n_keyframes(self.__active_cam):
                         self.__ui["side_k"]["add"].set_pos(self.pos)
 
 
@@ -795,65 +794,65 @@ class CamTool2(object):
                     else:
                         self.__ui["side_k"]["add"].show()
 
-            self.offset_x = self.__ui["side_k"]["remove"].get_pos().x
-            self.size_x_k = (self.__ui["side_k"]["add"].get_pos().x + self.__ui["side_k"]["add"].get_size().x) - self.offset_x
+            locOffset_x = self.__ui["side_k"]["remove"].get_pos().x
+            self.size_x_k = (self.__ui["side_k"]["add"].get_pos().x + self.__ui["side_k"]["add"].get_size().x) - locOffset_x
 
-            self.__ui["side_k"]["icon_keyframe"].set_pos( vec(self.offset_x + (self.size_x_k - self.__sizes["square"].x) / 2, self.__margin.y ))
+            self.__ui["side_k"]["icon_keyframe"].set_pos( vec(locOffset_x + (self.size_x_k - self.__sizes["square"].x) / 2, self.__margin.y ))
 
             #divs
-            self.__ui["side_k"]["top"].set_pos( vec(self.offset_x, self.__margin.y - self.__margin.x) )
+            self.__ui["side_k"]["top"].set_pos( vec(locOffset_x, self.__margin.y - self.__margin.x) )
             self.__ui["side_k"]["top"].set_size( vec(self.size_x_k, self.__btn_height + self.__margin.x * 2) )
 
-            self.__ui["side_k"]["bg"].set_pos(vec(self.offset_x, self.__margin.y + self.__btn_height + self.__margin.x))
+            self.__ui["side_k"]["bg"].set_pos(vec(locOffset_x, self.__margin.y + self.__btn_height + self.__margin.x))
             self.__ui["side_k"]["bg"].set_size(vec(self.size_x_k, self.__btn_height * self.__max_btns_in_column))
 
 
             #---------------------------------
 
             #camera slots positions
-            for self.i in range(self.__max_cameras + 1):
-                self.init_offset = int(data.get_n_cameras() / self.__max_btns_in_column) + 1
+            for i in range(self.__max_cameras + 1):
+                locInit_offset = int(data.get_n_cameras() / self.__max_btns_in_column) + 1
 
                 #consider add keyframe btn
                 if data.get_n_cameras() % self.__max_btns_in_column == self.__max_btns_in_column - 1:
                     if data.get_n_cameras() < self.__max_cameras - 1:
-                        self.init_offset += 1
+                        locInit_offset += 1
 
                 #grid
-                self.x = int(self.i / self.__max_btns_in_column) - self.init_offset
-                self.y = int(self.i % self.__max_btns_in_column)
+                locX = int(i / self.__max_btns_in_column) - locInit_offset
+                locY = int(i % self.__max_btns_in_column)
 
 
                 self.pos = vec(
-                    self.x * self.__sizes["square"].x + self.offset_x - 1, # offset.x => - keyframes
-                    self.y * self.__sizes["square"].y + self.__margin.y + self.__btn_height + self.__margin.x + 1
+                    locX * self.__sizes["square"].x + locOffset_x - 1, # offset.x => - keyframes
+                    locY * self.__sizes["square"].y + self.__margin.y + self.__btn_height + self.__margin.x + 1
                 )
 
-                if self.i == 0:
+                if i == 0:
                     self.__ui["side_c"]["remove"].set_pos(self.pos)
                 else:
-                    self.__ui["side_c"]["cameras"][self.i-1].set_pos(self.pos)
+                    self.__ui["side_c"]["cameras"][i-1].set_pos(self.pos)
 
                     #hide empty slots
-                    if self.i - 1 < data.get_n_cameras():
-                        self.__ui["side_c"]["cameras"][self.i-1].show()
+                    if i - 1 < data.get_n_cameras():
+                        self.__ui["side_c"]["cameras"][i-1].show()
 
                         #show active camera
-                        if self.i - 1 == self.__active_cam:
-                            self.__ui["side_c"]["cameras"][self.i-1].highlight(True)
+                        if i - 1 == self.__active_cam:
+                            self.__ui["side_c"]["cameras"][i-1].highlight(True)
                         else:
-                            self.__ui["side_c"]["cameras"][self.i-1].highlight(False)
+                            self.__ui["side_c"]["cameras"][i-1].highlight(False)
 
-                        if data.active_cam == self.i-1:
-                            self.__ui["side_c"]["cameras"][self.i-1].bold(True)
+                        if data.active_cam == i-1:
+                            self.__ui["side_c"]["cameras"][i-1].bold(True)
                         else:
-                            self.__ui["side_c"]["cameras"][self.i-1].bold(False)
+                            self.__ui["side_c"]["cameras"][i-1].bold(False)
 
                     else:
-                        self.__ui["side_c"]["cameras"][self.i-1].hide()
+                        self.__ui["side_c"]["cameras"][i-1].hide()
 
                     #set position of add btn
-                    if self.i - 1 == data.get_n_cameras():
+                    if i - 1 == data.get_n_cameras():
                         self.__ui["side_c"]["add"].set_pos(self.pos)
 
                     #hide add btn if max slots
@@ -862,19 +861,19 @@ class CamTool2(object):
                     else:
                         self.__ui["side_c"]["add"].show()
 
-            self.offset_x = self.__ui["side_c"]["remove"].get_pos().x
-            self.size_x = (self.__ui["side_c"]["add"].get_pos().x + self.__ui["side_c"]["add"].get_size().x) - self.offset_x
+            locOffset_x = self.__ui["side_c"]["remove"].get_pos().x
+            self.size_x = (self.__ui["side_c"]["add"].get_pos().x + self.__ui["side_c"]["add"].get_size().x) - locOffset_x
 
-            self.__ui["side_c"]["icon_camera"].set_pos( vec(self.offset_x + (self.size_x - self.__sizes["square"].x) / 2, self.__margin.y ))
+            self.__ui["side_c"]["icon_camera"].set_pos( vec(locOffset_x + (self.size_x - self.__sizes["square"].x) / 2, self.__margin.y ))
 
             #divs
-            self.__ui["side_c"]["top"].set_pos( vec(self.offset_x, self.__margin.y - self.__margin.x) )
+            self.__ui["side_c"]["top"].set_pos( vec(locOffset_x, self.__margin.y - self.__margin.x) )
             self.__ui["side_c"]["top"].set_size( vec(self.size_x, self.__btn_height + self.__margin.x * 2) )
 
-            self.__ui["side_c"]["bg"].set_pos(vec(self.offset_x, self.__margin.y + self.__btn_height + self.__margin.x))
+            self.__ui["side_c"]["bg"].set_pos(vec(locOffset_x, self.__margin.y + self.__btn_height + self.__margin.x))
             self.__ui["side_c"]["bg"].set_size(vec(self.size_x, self.__btn_height * self.__max_btns_in_column))
 
-            self.__ui["divs"]["side"].set_pos(vec(self.offset_x - 1, self.__margin.y - self.__margin.x ))
+            self.__ui["divs"]["side"].set_pos(vec(locOffset_x - 1, self.__margin.y - self.__margin.x ))
             self.height = self.__ui["side_c"]["top"].get_size().y + self.__ui["side_c"]["bg"].get_size().y + 1
             self.__ui["divs"]["side"].set_size( vec(self.size_x + self.size_x_k + 3, self.height) )
 
@@ -884,11 +883,11 @@ class CamTool2(object):
     def __update_menu(self):
         try:
             #highlighht active menu
-            for self.key, self.val in self.__ui["menu"].items():
-                if self.key == self.__active_menu:
-                    self.val.highlight(True)
+            for locKey, locVal in self.__ui["menu"].items():
+                if locKey == self.__active_menu:
+                    locVal.highlight(True)
                 else:
-                    self.val.highlight(False)
+                    locVal.highlight(False)
 
             if  (   self.data().interpolation["loc_x"] == None and
                     self.data().interpolation["loc_y"] == None and
@@ -947,19 +946,19 @@ class CamTool2(object):
             self.files = []
 
             #visibility
-            for self.key, self.val in self.__ui["file_form"].items():
-                if self.key == "buttons" or self.key == "buttons_x":
-                    for self.val2 in range(len(self.__ui["file_form"][self.key])):
+            for locKey, locVal in self.__ui["file_form"].items():
+                if locKey == "buttons" or locKey == "buttons_x":
+                    for locVal2 in range(len(self.__ui["file_form"][locKey])):
                         if self.__file_form_visible:
-                            self.__ui["file_form"][self.key][self.val2].show()
+                            self.__ui["file_form"][locKey][locVal2].show()
                         else:
-                            self.__ui["file_form"][self.key][self.val2].hide()
+                            self.__ui["file_form"][locKey][locVal2].hide()
 
                 else:
                     if self.__file_form_visible:
-                        self.val.show()
+                        locVal.show()
                     else:
-                        self.val.hide()
+                        locVal.hide()
 
 
             if self.__file_form_visible:
@@ -977,27 +976,27 @@ class CamTool2(object):
                 self.__n_files = len(self.files)
 
                 #update text
-                for self.i in range(self.__max_btns_in_column):
-                    self.file_index = self.i + self.__file_form_page * self.__max_btns_in_column
+                for i in range(self.__max_btns_in_column):
+                    self.file_index = i + self.__file_form_page * self.__max_btns_in_column
                     self.file_index -= 2 * self.__file_form_page
 
                     if self.file_index < self.__n_files:
 
-                        self.__ui["file_form"]["buttons"][self.i].show()
-                        self.__ui["file_form"]["buttons_x"][self.i].show()
+                        self.__ui["file_form"]["buttons"][i].show()
+                        self.__ui["file_form"]["buttons_x"][i].show()
 
-                        if self.__file_form_page > 0 and self.i == 0:
+                        if self.__file_form_page > 0 and i == 0:
                             self.__ui["file_form"]["buttons"][0].set_text("Show previous")
 
                         else:
-                            self.__ui["file_form"]["buttons"][self.i].set_text(self.files[self.file_index])
+                            self.__ui["file_form"]["buttons"][i].set_text(self.files[self.file_index])
 
-                        if self.i == self.__max_btns_in_column - 1:
+                        if i == self.__max_btns_in_column - 1:
                             if self.__n_files - (self.__max_btns_in_column * self.__file_form_page) > self.__max_btns_in_column:
                                 self.__ui["file_form"]["buttons"][self.__max_btns_in_column - 1].set_text("Show more")
                     else:
-                        self.__ui["file_form"]["buttons"][self.i].hide()
-                        self.__ui["file_form"]["buttons_x"][self.i].hide()
+                        self.__ui["file_form"]["buttons"][i].hide()
+                        self.__ui["file_form"]["buttons_x"][i].hide()
         except Exception as e:
             debug(e)
 
@@ -1009,38 +1008,38 @@ class CamTool2(object):
             else:
                 self.__ui["header"]["free_camera"].show()
 
-            for self.key, self.val in self.__ui["options"].items():
-                if self.key != "info" and self.key != "file_form":
-                    if self.key != "keyframes":
-                        if self.key != self.__active_menu:
-                            for self.key2, self.val2 in self.val.items():
-                                self.val2.hide()
+            for locKey, locVal in self.__ui["options"].items():
+                if locKey != "info" and locKey != "file_form":
+                    if locKey != "keyframes":
+                        if locKey != self.__active_menu:
+                            for locKey2, locVal2 in locVal.items():
+                                locVal2.hide()
                         else:
-                            for self.key2, self.val2 in self.val.items():
-                                self.val2.show()
+                            for locKey2, locVal2 in locVal.items():
+                                locVal2.show()
                     else:
                         #keyframe
-                        for self.key4, self.val4 in self.__ui["options"]["keyframes"].items():
-                            for self.key5, self.val5 in self.val4.items():
-                                if data.active_mode == self.key4:
-                                    self.val5.show()
+                        for locKey4, locVal4 in self.__ui["options"]["keyframes"].items():
+                            for self.key5, locVal5 in locVal4.items():
+                                if data.active_mode == locKey4:
+                                    locVal5.show()
                                 else:
-                                    self.val5.hide()
+                                    locVal5.hide()
 
             if data.active_mode == "time":
                 self.wrapper = self.__ui["options"]["keyframes"]["time"]
                 self.wrapper["replay_sync"].hide()
-                for self.key, self.val in self.wrapper.items():
+                for locKey, locVal in self.wrapper.items():
                     if replay.is_sync():
-                        if self.key == "replay_sync":
-                            self.val.hide()
+                        if locKey == "replay_sync":
+                            locVal.hide()
                         else:
-                            self.val.show()
+                            locVal.show()
                     else:
-                        if self.key == "replay_sync":
-                            self.val.show()
+                        if locKey == "replay_sync":
+                            locVal.show()
                         else:
-                            self.val.hide()
+                            locVal.hide()
 
 
 
@@ -1275,30 +1274,30 @@ class CamTool2(object):
                     else:
                         self.__ui["options"]["spline"]["spline_record"].set_text("Remove")
 
-                for self.key, self.val in self.__ui["options"]["spline"].items():
-                    if self.val.__class__.__name__ == "Option":
+                for locKey, locVal in self.__ui["options"]["spline"].items():
+                    if locVal.__class__.__name__ == "Option":
 
-                        if self.data().interpolation[self.key] == None:
-                            self.text = self.data("camera").get_attr(self.key)
-                            self.val.highlight(False)
+                        if self.data().interpolation[locKey] == None:
+                            self.text = self.data("camera").get_attr(locKey)
+                            locVal.highlight(False)
                         else:
-                            self.text = self.data().interpolation[self.key]
-                            self.val.highlight(True)
+                            self.text = self.data().interpolation[locKey]
+                            locVal.highlight(True)
 
                         self.display_mode = "%"
-                        if self.key == "spline_offset_heading" or self.key == "spline_offset_pitch" or self.key == "spline_offset_roll":
+                        if locKey == "spline_offset_heading" or locKey == "spline_offset_pitch" or locKey == "spline_offset_roll":
                             self.display_mode = "degrees"
 
-                        if self.key == "spline_offset_loc_x" or self.key == "spline_offset_spline" or self.key == "spline_offset_loc_z":
+                        if locKey == "spline_offset_loc_x" or locKey == "spline_offset_spline" or locKey == "spline_offset_loc_z":
                             self.display_mode = "m"
 
-                        if self.key == "spline_offset_spline" and data.active_mode == "time":
+                        if locKey == "spline_offset_spline" and data.active_mode == "time":
                             self.display_mode = "time"
 
-                        if self.key == "spline_offset_spline" and data.active_mode == "pos":
+                        if locKey == "spline_offset_spline" and data.active_mode == "pos":
                             self.text *= ac.getTrackLength()
 
-                        self.val.set_text(self.text, True, self.display_mode)
+                        locVal.set_text(self.text, True, self.display_mode)
 
         except Exception as e:
             debug(e)
@@ -1409,27 +1408,28 @@ class CamTool2(object):
                 if data.smart_tracking:
                     cam.update_smart_tracking_values(ctt, data, interpolation, info, self.__the_x, dt)
 
-                self.x = []
-                self.y = {}
+                locX = []
+                locY = {}
 
                 #prepare dict to store interpolated values
-                for self.key, self.val in self.data().interpolation.items():
-                    self.y[self.key] = []
+                for locKey, locVal in self.data().interpolation.items():
+                    locY[locKey] = []
 
                 #interpolate all options
-                for self.val in data.mode[data.active_mode][data.active_cam].keyframes:
-                    self.x.append(self.val.keyframe)
-                    for self.key, self.val2 in self.val.interpolation.items():
-                        self.y[self.key].append(self.val2)
+                activeCamKeyframes = data.mode[data.active_mode][data.active_cam].keyframes
+                for locVal in activeCamKeyframes:
+                    locX.append(locVal.keyframe)
+                    for locKey, locVal2 in locVal.interpolation.items():
+                        locY[locKey].append(locVal2)
 
                 # if data.is_last_camera() and data.get_n_cameras() > 1:
-                #     for self.i in range(len(self.x)):
-                #         if self.x[self.i] != None:
-                #             if self.x[self.i] > 0.5:
-                #                 self.x[self.i] -= 1
+                #     for i in range(len(locX)):
+                #         if locX[i] != None:
+                #             if locX[i] > 0.5:
+                #                 locX[i] -= 1
 
-                    # for self.key, self.val in self.y.items():
-                    #     self.x, self.y[self.key] = zip(*sorted(zip(self.x, self.y[self.key])))
+                    # for locKey, locVal in locY.items():
+                    #     locX, locY[locKey] = zip(*sorted(zip(locX, locY[locKey])))
 
 
 
@@ -1447,38 +1447,39 @@ class CamTool2(object):
 
 
 
+                locCameraData = self.data("camera", False)
 
                 #---------------------------------------------------------------
                 #LOCATION
-                self.spline_len = len(self.data("camera", False).spline["the_x"])
+                self.spline_len = len(locCameraData.spline["the_x"])
                 if self.spline_len > 0:
-                    self.spline_exists = True
+                    locSpline_exists = True
                 else:
-                    self.spline_exists = False
+                    locSpline_exists = False
 
 
                 #spline offset
-                self.spline_offset = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_offset_spline"] )
-                if self.spline_offset == None:
-                    self.spline_offset = self.data("camera", False).spline_offset_spline
+                locSpline_offset = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_offset_spline"] )
+                if locSpline_offset == None:
+                    locSpline_offset = locCameraData.spline_offset_spline
                 else:
-                    self.data("camera", False).spline_offset_spline = self.spline_offset
+                    locCameraData.spline_offset_spline = locSpline_offset
 
                 if data.active_mode == "time":
-                    self.spline_offset = self.spline_offset * (1000 / replay.get_refresh_rate())
+                    locSpline_offset = locSpline_offset * (1000 / replay.get_refresh_rate())
 
                 #spline speed
-                self.spline_speed = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_speed"] )
-                if self.spline_speed == None:
-                    self.spline_speed = self.data("camera", False).spline_speed
+                locSpline_speed = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_speed"] )
+                if locSpline_speed == None:
+                    locSpline_speed = locCameraData.spline_speed
                 else:
-                    self.data("camera", False).spline_speed = self.spline_speed
+                    locCameraData.spline_speed = locSpline_speed
 
                 self.__the_x_tmp_4_spline = self.__the_x_tmp
 
-                if self.spline_exists:
-                    self.__the_x_tmp_4_spline = (self.__the_x - self.data("camera", False).spline["the_x"][0]) * self.spline_speed - self.spline_offset + self.data("camera", False).spline["the_x"][0]
-                    if self.data("camera", False).spline["the_x"][self.spline_len - 1] > 1:
+                if locSpline_exists:
+                    self.__the_x_tmp_4_spline = (self.__the_x - locCameraData.spline["the_x"][0]) * locSpline_speed - locSpline_offset + locCameraData.spline["the_x"][0]
+                    if locCameraData.spline["the_x"][self.spline_len - 1] > 1:
                         if data.active_mode == "pos":
                             if self.__the_x_tmp_4_spline < 0.5:
                                 self.__the_x_tmp_4_spline += 1
@@ -1487,301 +1488,301 @@ class CamTool2(object):
                 self.loc_y_spline = None
                 self.loc_z_spline = None
                 self.heading_spline = None
-                if self.spline_exists:
+                if locSpline_exists:
                     #spline_offset relative loc_x
-                    self.heading_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["rot_z"])
-                    self.spline_offset_x = vec()
-                    self.value = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_offset_loc_x"] )
-                    if self.value == None:
-                        self.value = self.data("camera", False).spline_offset_loc_x
-                    self.spline_offset_x.y = math.cos(self.heading_spline) * self.value
-                    self.spline_offset_x.x = math.sin(self.heading_spline) * self.value
+                    self.heading_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["rot_z"])
+                    locSpline_offset_x = vec()
+                    locValue = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_offset_loc_x"] )
+                    if locValue == None:
+                        locValue = locCameraData.spline_offset_loc_x
+                    locSpline_offset_x.y = math.cos(self.heading_spline) * locValue
+                    locSpline_offset_x.x = math.sin(self.heading_spline) * locValue
 
-                    self.loc_x_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["loc_x"])
-                    self.loc_y_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["loc_y"])
-                    self.loc_z_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["loc_z"])
-                    self.loc_x_spline += self.spline_offset_x.x
-                    self.loc_y_spline += self.spline_offset_x.y
+                    self.loc_x_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["loc_x"])
+                    self.loc_y_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["loc_y"])
+                    self.loc_z_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["loc_z"])
+                    self.loc_x_spline += locSpline_offset_x.x
+                    self.loc_y_spline += locSpline_offset_x.y
 
                 #transform
-                self.transform_loc_strength = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["transform_loc_strength"] )
+                self.transform_loc_strength = interpolation.interpolate( self.__the_x_tmp, locX, locY["transform_loc_strength"] )
                 if self.transform_loc_strength == None:
-                    self.transform_loc_strength = self.data("camera", False).transform_loc_strength
+                    self.transform_loc_strength = locCameraData.transform_loc_strength
                 else:
-                    self.data("camera", False).transform_rot_strength = self.transform_loc_strength
+                    locCameraData.transform_rot_strength = self.transform_loc_strength
 
-                self.transform_rot_strength = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["transform_rot_strength"] )
+                self.transform_rot_strength = interpolation.interpolate( self.__the_x_tmp, locX, locY["transform_rot_strength"] )
                 if self.transform_rot_strength == None:
-                    self.transform_rot_strength = self.data("camera", False).transform_rot_strength
+                    self.transform_rot_strength = locCameraData.transform_rot_strength
                 else:
-                    self.data("camera", False).transform_rot_strength = self.transform_rot_strength
+                    locCameraData.transform_rot_strength = self.transform_rot_strength
 
-                self.loc_x_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["loc_x"] )
-                self.loc_y_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["loc_y"] )
-                self.loc_z_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["loc_z"] )
+                locLoc_x_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["loc_x"] )
+                locLoc_y_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["loc_y"] )
+                locLoc_z_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["loc_z"] )
 
                 #combining: spline / transform / self.strength_inv (mouse)
-                if self.loc_x_spline != None or self.loc_x_transform != None:
+                if self.loc_x_spline != None or locLoc_x_transform != None:
                     if self.loc_x_spline == None:
                         self.loc_x_spline = ctt.get_position(0)
 
-                    if self.loc_x_transform == None:
-                        self.loc_x_transform = ctt.get_position(0)
+                    if locLoc_x_transform == None:
+                        locLoc_x_transform = ctt.get_position(0)
                     else:
-                        self.loc_x_transform = self.loc_x_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
+                        locLoc_x_transform = locLoc_x_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
 
-                    if self.spline_exists:
-                        self.spline_affect_loc_xy = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_affect_loc_xy"] )
+                    if locSpline_exists:
+                        self.spline_affect_loc_xy = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_affect_loc_xy"] )
                         if self.spline_affect_loc_xy == None:
-                            self.spline_affect_loc_xy = self.data("camera", False).spline_affect_loc_xy
+                            self.spline_affect_loc_xy = locCameraData.spline_affect_loc_xy
                         else:
-                            self.data("camera", False).spline_affect_loc_xy = self.spline_affect_loc_xy
+                            locCameraData.spline_affect_loc_xy = self.spline_affect_loc_xy
                     else:
                         self.spline_affect_loc_xy = 0
 
-                    ctt.set_position(0, (self.loc_x_transform * (1 - self.spline_affect_loc_xy) + self.loc_x_spline * self.spline_affect_loc_xy) * (1 - self.strength_inv) + ctt.get_position(0) * self.strength_inv)
+                    ctt.set_position(0, (locLoc_x_transform * (1 - self.spline_affect_loc_xy) + self.loc_x_spline * self.spline_affect_loc_xy) * (1 - self.strength_inv) + ctt.get_position(0) * self.strength_inv)
 
 
-                if self.loc_y_spline != None or self.loc_y_transform != None:
+                if self.loc_y_spline != None or locLoc_y_transform != None:
                     if self.loc_y_spline == None:
                         self.loc_y_spline = ctt.get_position(1)
 
-                    if self.loc_y_transform == None:
-                        self.loc_y_transform = ctt.get_position(1)
+                    if locLoc_y_transform == None:
+                        locLoc_y_transform = ctt.get_position(1)
                     else:
-                        self.loc_y_transform = self.loc_y_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
+                        locLoc_y_transform = locLoc_y_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
 
-                    if self.spline_exists:
-                        self.spline_affect_loc_xy = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_affect_loc_xy"] )
+                    if locSpline_exists:
+                        self.spline_affect_loc_xy = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_affect_loc_xy"] )
                         if self.spline_affect_loc_xy == None:
-                            self.spline_affect_loc_xy = self.data("camera", False).spline_affect_loc_xy
+                            self.spline_affect_loc_xy = locCameraData.spline_affect_loc_xy
                         else:
-                            self.data("camera", False).spline_affect_loc_xy = self.spline_affect_loc_xy
+                            locCameraData.spline_affect_loc_xy = self.spline_affect_loc_xy
                     else:
                         self.spline_affect_loc_xy = 0
-                    ctt.set_position(1, (self.loc_y_transform * (1 - self.spline_affect_loc_xy) + self.loc_y_spline * self.spline_affect_loc_xy) * (1 - self.strength_inv) + ctt.get_position(1) * self.strength_inv)
+                    ctt.set_position(1, (locLoc_y_transform * (1 - self.spline_affect_loc_xy) + self.loc_y_spline * self.spline_affect_loc_xy) * (1 - self.strength_inv) + ctt.get_position(1) * self.strength_inv)
 
 
-                if self.loc_z_spline != None or self.loc_z_transform != None:
+                if self.loc_z_spline != None or locLoc_z_transform != None:
                     if self.loc_z_spline == None:
                         self.loc_z_spline = ctt.get_position(2)
 
-                    if self.loc_z_transform == None:
-                        self.loc_z_transform = ctt.get_position(2)
+                    if locLoc_z_transform == None:
+                        locLoc_z_transform = ctt.get_position(2)
                     else:
-                        self.loc_z_transform = self.loc_z_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
+                        locLoc_z_transform = locLoc_z_transform * self.transform_loc_strength + ctt.get_position(0) * (1 - self.transform_loc_strength)
 
-                    if self.spline_exists:
-                        self.spline_affect_loc_z = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_affect_loc_z"] )
+                    if locSpline_exists:
+                        self.spline_affect_loc_z = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_affect_loc_z"] )
                         if self.spline_affect_loc_z == None:
-                            self.spline_affect_loc_z = self.data("camera", False).spline_affect_loc_z
+                            self.spline_affect_loc_z = locCameraData.spline_affect_loc_z
                     else:
                         self.spline_affect_loc_z = 0
 
-                    self.spline_offset_loc_z = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_offset_loc_z"] )
-                    if self.spline_offset_loc_z == None:
-                        self.spline_offset_loc_z = self.data("camera", False).spline_offset_loc_z
-                    self.loc_z_spline += self.spline_offset_loc_z
+                    locSpline_offset_loc_z = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_offset_loc_z"] )
+                    if locSpline_offset_loc_z == None:
+                        locSpline_offset_loc_z = locCameraData.spline_offset_loc_z
+                    self.loc_z_spline += locSpline_offset_loc_z
 
 
 
-                    ctt.set_position(2, (self.loc_z_transform * (1 - self.spline_affect_loc_z) + self.loc_z_spline * self.spline_affect_loc_z) * (1 - self.strength_inv) + ctt.get_position(2) * self.strength_inv)
+                    ctt.set_position(2, (locLoc_z_transform * (1 - self.spline_affect_loc_z) + self.loc_z_spline * self.spline_affect_loc_z) * (1 - self.strength_inv) + ctt.get_position(2) * self.strength_inv)
 
 
                 #===============================================================
                 #ROTATION
 
                 #transform
-                self.pitch_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["rot_x"] )
-                self.roll_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["rot_y"] )
-                self.heading_transform = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["rot_z"] )
+                locPitch_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["rot_x"] )
+                locRoll_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["rot_y"] )
+                locHeading_transform = interpolation.interpolate( self.__the_x_tmp, locX, locY["rot_z"] )
 
                 #spline
-                self.pitch_spline = None
-                self.roll_spline = None
+                locPitch_spline = None
+                locRoll_spline = None
                 #moved up
                 #self.heading_spline = None
 
-                if self.spline_exists:
-                    self.pitch_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["rot_x"])
-                    self.roll_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["rot_y"])
+                if locSpline_exists:
+                    locPitch_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["rot_x"])
+                    locRoll_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["rot_y"])
                     #moved up
-                    #self.heading_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, self.data("camera", False).spline["the_x"], self.data("camera", False).spline["rot_z"])
+                    #self.heading_spline = interpolation.interpolate(self.__the_x_tmp_4_spline, locCameraData.spline["the_x"], locCameraData.spline["rot_z"])
 
 
                     #offset - rotation
-                    self.spline_offset_heading = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_offset_heading"] )
-                    if self.spline_offset_heading == None:
-                        self.spline_offset_heading = self.data("camera", False).spline_offset_heading
-                    self.heading_spline += self.spline_offset_heading
+                    locSpline_offset_heading = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_offset_heading"] )
+                    if locSpline_offset_heading == None:
+                        locSpline_offset_heading = locCameraData.spline_offset_heading
+                    self.heading_spline += locSpline_offset_heading
 
-                    self.roll_spline *= math.sin(self.spline_offset_heading + math.pi/2)
-                    self.pitch_spline *= math.sin(self.spline_offset_heading + math.pi/2)
+                    locRoll_spline *= math.sin(locSpline_offset_heading + math.pi/2)
+                    locPitch_spline *= math.sin(locSpline_offset_heading + math.pi/2)
 
-                    self.spline_offset_pitch = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["spline_offset_pitch"] )
-                    if self.spline_offset_pitch == None:
-                        self.spline_offset_pitch = self.data("camera", False).spline_offset_pitch
-                    self.pitch_spline += self.spline_offset_pitch
+                    locSpline_offset_pitch = interpolation.interpolate( self.__the_x_tmp, locX, locY["spline_offset_pitch"] )
+                    if locSpline_offset_pitch == None:
+                        locSpline_offset_pitch = locCameraData.spline_offset_pitch
+                    locPitch_spline += locSpline_offset_pitch
 
 
                 #---------------------------------------------------------------
                 #TRACKING
                 #tracking - offset
-                self.value = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["tracking_offset"] )
-                if self.value != None:
-                    self.data("camera", False).tracking_offset = self.value
+                locValue = interpolation.interpolate( self.__the_x_tmp, locX, locY["tracking_offset"] )
+                if locValue != None:
+                    locCameraData.tracking_offset = locValue
 
                 if data.smart_tracking:
-                    self.cam_rot_tracking = cam.get_st_cam_rot()
+                    locCam_rot_tracking = cam.get_st_cam_rot()
 
                 else:
                     self.cam_rot_to_car_a = cam.calculate_cam_rot_to_tracking_car(ctt, data, info, cam.get_tracked_car(0), dt)
 
                     #tracking - mix
-                    self.cam_rot_tracking = self.cam_rot_to_car_a
-                    self.value = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["tracking_mix"] )
-                    if self.value == None:
-                        self.value = self.data("camera", False).tracking_mix
+                    locCam_rot_tracking = self.cam_rot_to_car_a
+                    locValue = interpolation.interpolate( self.__the_x_tmp, locX, locY["tracking_mix"] )
+                    if locValue == None:
+                        locValue = locCameraData.tracking_mix
                     else:
-                        self.data("camera", False).tracking_mix = self.value
+                        locCameraData.tracking_mix = locValue
 
-                    if self.value > 0:
+                    if locValue > 0:
                         self.cam_rot_to_car_b = cam.calculate_cam_rot_to_tracking_car(ctt, data, info, cam.get_tracked_car(1), dt)
                         self.cam_rot_to_car_b.z = normalize_angle(self.cam_rot_to_car_a.z, self.cam_rot_to_car_b.z)
-                        self.cam_rot_tracking = self.cam_rot_to_car_a * vec3((1-self.value), (1-self.value), (1-self.value)) + self.cam_rot_to_car_b * vec3(self.value, self.value, self.value)
+                        locCam_rot_tracking = self.cam_rot_to_car_a * vec3((1-locValue), (1-locValue), (1-locValue)) + self.cam_rot_to_car_b * vec3(locValue, locValue, locValue)
 
-                self.heading_4_focus_point = self.cam_rot_tracking.z
+                self.heading_4_focus_point = locCam_rot_tracking.z
 
 
 
                 #tracking - strength - pitch
-                self.value = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["tracking_strength_pitch"] )
-                if self.value != None:
-                    self.data("camera", False).tracking_strength_pitch = self.value
+                locValue = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["tracking_strength_pitch"] )
+                if locValue != None:
+                    locCameraData.tracking_strength_pitch = locValue
 
                 #tracking - strength - heading
-                self.value = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["tracking_strength_heading"] )
-                if self.value != None:
-                    self.data("camera", False).tracking_strength_heading = self.value
+                locValue = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["tracking_strength_heading"] )
+                if locValue != None:
+                    locCameraData.tracking_strength_heading = locValue
 
-                self.tracking_offset_heading = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["tracking_offset_heading"] )
+                self.tracking_offset_heading = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["tracking_offset_heading"] )
                 if self.tracking_offset_heading != None:
-                    self.data("camera", False).tracking_offset_heading = self.tracking_offset_heading
+                    locCameraData.tracking_offset_heading = self.tracking_offset_heading
 
-                self.tracking_offset_pitch = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["tracking_offset_pitch"] )
+                self.tracking_offset_pitch = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["tracking_offset_pitch"] )
                 if self.tracking_offset_pitch != None:
-                    self.data("camera", False).tracking_offset_pitch = self.tracking_offset_pitch
+                    locCameraData.tracking_offset_pitch = self.tracking_offset_pitch
 
 
                 #---------------------------------------------------------------
                 #Combining rotations - heading
                 self.heading = ctt.get_heading()
-                if self.heading_transform != None or self.heading_spline != None or data.get_tracking_strength("heading") > 0:
+                if locHeading_transform != None or self.heading_spline != None or data.get_tracking_strength("heading") > 0:
 
                     #prepare values
-                    if self.heading_transform == None:
-                        self.heading_transform = self.heading
+                    if locHeading_transform == None:
+                        locHeading_transform = self.heading
                     else:
-                        self.heading_transform = self.heading_transform * self.transform_rot_strength + self.heading * (1 - self.transform_rot_strength)
+                        locHeading_transform = locHeading_transform * self.transform_rot_strength + self.heading * (1 - self.transform_rot_strength)
 
 
                     if self.heading_spline == None:
                         self.heading_spline = self.heading
 
-                    if self.cam_rot_tracking.z == None:
-                        self.cam_rot_tracking.z = self.heading
+                    if locCam_rot_tracking.z == None:
+                        locCam_rot_tracking.z = self.heading
                     else:
-                        self.cam_rot_tracking.z += self.data("camera", False).tracking_offset_heading
+                        locCam_rot_tracking.z += locCameraData.tracking_offset_heading
 
 
-                    self.heading_transform = normalize_angle(self.heading, self.heading_transform)
-                    self.cam_rot_tracking.z = normalize_angle(self.heading, self.cam_rot_tracking.z)
+                    locHeading_transform = normalize_angle(self.heading, locHeading_transform)
+                    locCam_rot_tracking.z = normalize_angle(self.heading, locCam_rot_tracking.z)
                     self.heading_spline = normalize_angle(self.heading, self.heading_spline)
 
                     #prepare self.strength_invs
-                    if self.spline_exists:
-                        self.strength_spline = self.get_data("spline_affect_heading", True, False)
+                    if locSpline_exists:
+                        locStrength_spline = self.get_data("spline_affect_heading", True, False)
                     else:
-                        self.strength_spline = 0
+                        locStrength_spline = 0
 
                     self.strength_tracking = data.get_tracking_strength("heading")
 
                     self.heading =  (
                                         (
-                                            (self.heading_transform * (1 - self.strength_tracking) + self.cam_rot_tracking.z * self.strength_tracking)
-                                            * (1 - self.strength_spline) + self.heading_spline * self.strength_spline
+                                            (locHeading_transform * (1 - self.strength_tracking) + locCam_rot_tracking.z * self.strength_tracking)
+                                            * (1 - locStrength_spline) + self.heading_spline * locStrength_spline
                                         )
                                         * (1 - self.strength_inv) + self.heading * self.strength_inv
 
                                     )
                 #---------------------------------------------------------------
                 #Combining rotations - pitch
-                self.pitch = ctt.get_pitch()
-                if self.pitch_transform != None or self.pitch_spline != None or data.get_tracking_strength("pitch") > 0:
+                locPitch = ctt.get_pitch()
+                if locPitch_transform != None or locPitch_spline != None or data.get_tracking_strength("pitch") > 0:
 
                     #prepare values
-                    if self.pitch_transform == None:
-                        self.pitch_transform = self.pitch
+                    if locPitch_transform == None:
+                        locPitch_transform = locPitch
                     else:
-                        self.pitch_transform = self.pitch_transform * self.transform_rot_strength + self.pitch * (1 - self.transform_rot_strength)
+                        locPitch_transform = locPitch_transform * self.transform_rot_strength + locPitch * (1 - self.transform_rot_strength)
 
-                    if self.pitch_spline == None:
-                        self.pitch_spline = self.pitch
+                    if locPitch_spline == None:
+                        locPitch_spline = locPitch
 
-                    if self.cam_rot_tracking.x == None:
-                        self.cam_rot_tracking.x = self.pitch
+                    if locCam_rot_tracking.x == None:
+                        locCam_rot_tracking.x = locPitch
                     else:
-                        self.cam_rot_tracking.x += self.data("camera", False).tracking_offset_pitch
+                        locCam_rot_tracking.x += locCameraData.tracking_offset_pitch
 
                     #prepare self.strength_invs
-                    if self.spline_exists:
-                        self.strength_spline = self.get_data("spline_affect_pitch", True, False)
+                    if locSpline_exists:
+                        locStrength_spline = self.get_data("spline_affect_pitch", True, False)
                     else:
-                        self.strength_spline = 0
+                        locStrength_spline = 0
 
                     self.strength_tracking = data.get_tracking_strength("pitch")
 
 
-                    self.pitch =    (
+                    locPitch =    (
                                         (
-                                            (self.pitch_transform * (1 - self.strength_tracking) + self.cam_rot_tracking.x * self.strength_tracking)
-                                            * (1 - self.strength_spline) + self.pitch_spline * self.strength_spline
+                                            (locPitch_transform * (1 - self.strength_tracking) + locCam_rot_tracking.x * self.strength_tracking)
+                                            * (1 - locStrength_spline) + locPitch_spline * locStrength_spline
                                         )
-                                        * (1 - self.strength_inv) + self.pitch * self.strength_inv
+                                        * (1 - self.strength_inv) + locPitch * self.strength_inv
                                     )
 
                 #---------------------------------------------------------------
                 #Combining rotations - roll
-                self.roll = ctt.get_roll()
-                if self.roll_transform != None or self.roll_spline != None:
+                locRoll = ctt.get_roll()
+                if locRoll_transform != None or locRoll_spline != None:
 
                     #prepare values
-                    if self.roll_transform == None:
-                        self.roll_transform = self.roll
+                    if locRoll_transform == None:
+                        locRoll_transform = locRoll
                     else:
-                        self.roll_transform = self.roll_transform# * self.transform_rot_strength + self.roll * (1 - self.transform_rot_strength)
+                        locRoll_transform = locRoll_transform# * self.transform_rot_strength + locRoll * (1 - self.transform_rot_strength)
 
-                    if self.roll_spline == None:
-                        self.roll_spline = self.roll
+                    if locRoll_spline == None:
+                        locRoll_spline = locRoll
 
                     #prepare self.strength_invs
-                    if self.spline_exists:
-                        self.strength_spline = self.get_data("spline_affect_roll", True, False)
+                    if locSpline_exists:
+                        locStrength_spline = self.get_data("spline_affect_roll", True, False)
                     else:
-                        self.strength_spline = 0
+                        locStrength_spline = 0
 
-                    self.roll =  (self.roll_transform * (1 - self.strength_spline) + self.roll_spline * self.strength_spline) * (1 - self.strength_inv) + self.roll * self.strength_inv
+                    locRoll =  (locRoll_transform * (1 - locStrength_spline) + locRoll_spline * locStrength_spline) * (1 - self.strength_inv) + locRoll * self.strength_inv
 
                 #---------------------------------------------------------------
 
-                self.camera_shake_strength = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["camera_shake_strength"] )
-                if self.camera_shake_strength != None:
-                    self.data("camera", False).camera_shake_strength = self.camera_shake_strength
+                locCamera_shake_strength = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["camera_shake_strength"] )
+                if locCamera_shake_strength != None:
+                    locCameraData.camera_shake_strength = locCamera_shake_strength
 
 
-                self.shake_factor = 0.75 * data.get_tracking_strength("heading") + 0.01 * (1 - min(1, data.get_tracking_strength("heading") + self.transform_rot_strength) )
-                self.shake = cam.get_shake(data, info.graphics.replayTimeMultiplier) * vec3(1 - self.strength_inv * self.shake_factor, 0, 1 - self.strength_inv * self.shake_factor)
-                ctt.set_rotation(self.pitch + self.shake.x, self.roll, self.heading + self.shake.z)
+                locShake_factor = 0.75 * data.get_tracking_strength("heading") + 0.01 * (1 - min(1, data.get_tracking_strength("heading") + self.transform_rot_strength) )
+                locShake = cam.get_shake(data, info.graphics.replayTimeMultiplier) * vec3(1 - self.strength_inv * locShake_factor, 0, 1 - self.strength_inv * locShake_factor)
+                ctt.set_rotation(locPitch + locShake.x, locRoll, self.heading + locShake.z)
 
 
                 #===============================================================
@@ -1789,46 +1790,43 @@ class CamTool2(object):
                 #fov
                 self.strength_tracking_heading = data.get_tracking_strength("heading")
 
-                self.fov = interpolation.interpolate_sin( self.__the_x_tmp, self.x, self.y["camera_fov"] )
-                if self.fov != None:
-                    self.fov =  ctt.convert_fov_2_focal_length(self.fov, True)
+                locFov = interpolation.interpolate_sin( self.__the_x_tmp, locX, locY["camera_fov"] )
+                if locFov != None:
+                    locFov =  ctt.convert_fov_2_focal_length(locFov, True)
                 else:
-                    self.fov = ctt.get_fov()
-
+                    locFov = ctt.get_fov()
 
                 if data.smart_tracking:
                     if data.has_camera_changed():
                         cam.reset_smart_tracking()
-                    self.st_fov = cam.get_st_fov()
-                    self.st_fov_mix = cam.get_st_fov_mix()
-                    self.st_fov = self.st_fov * self.strength_tracking_heading + self.fov * (1 - self.strength_tracking_heading)
-                    self.fov = self.fov * (1 - self.st_fov_mix) + self.st_fov * self.st_fov_mix
-                ctt.set_fov( self.fov * (1 - self.strength_inv) + ctt.get_fov() * self.strength_inv )
-
-
+                    locSt_fov = cam.get_st_fov()
+                    locSt_fov_mix = cam.get_st_fov_mix()
+                    locSt_fov = locSt_fov * self.strength_tracking_heading + locFov * (1 - self.strength_tracking_heading)
+                    locFov = locFov * (1 - locSt_fov_mix) + locSt_fov * locSt_fov_mix
+                ctt.set_fov(locFov * (1 - self.strength_inv) + ctt.get_fov() * self.strength_inv )
 
 
 
                 #---------------------------------------------------------------
                 #focus point
-                self.camera_use_tracking_point = self.data("camera", False).camera_use_tracking_point
+                locCamera_use_tracking_point = locCameraData.camera_use_tracking_point
 
-                self.focus_point = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["camera_focus_point"] )
-                if self.focus_point == None:
-                    self.focus_point = ctt.get_focus_point()
+                locFocus_point = interpolation.interpolate( self.__the_x_tmp, locX, locY["camera_focus_point"] )
+                if locFocus_point == None:
+                    locFocus_point = ctt.get_focus_point()
 
-                self.mix = interpolation.interpolate( self.__the_x_tmp, self.x, self.y["tracking_mix"] )
-                if self.mix == None:
-                    self.mix = self.data("camera", False).tracking_mix
+                locMix = interpolation.interpolate( self.__the_x_tmp, locX, locY["tracking_mix"] )
+                if locMix == None:
+                    locMix = locCameraData.tracking_mix
 
                 if self.heading_4_focus_point != None:
                     self.heading_4_focus_point = normalize_angle(ctt.get_heading(), self.heading_4_focus_point)
                 else:
                     self.heading_4_focus_point = ctt.get_heading()
 
-                self.focus_point = cam.calculate_focus_point(ctt, self.mix, self.heading_4_focus_point, dt) * self.camera_use_tracking_point + self.focus_point * (1 - self.camera_use_tracking_point)
-                self.focus_point = self.focus_point * (1 - self.strength_inv) + 300 * self.strength_inv
-                ctt.set_focus_point( self.focus_point )
+                locFocus_point = cam.calculate_focus_point(ctt, locMix, self.heading_4_focus_point, dt) * locCamera_use_tracking_point + locFocus_point * (1 - locCamera_use_tracking_point)
+                locFocus_point = locFocus_point * (1 - self.strength_inv) + 300 * self.strength_inv
+                ctt.set_focus_point( locFocus_point )
                 
                 
                 #---------------------------------------------------------------
@@ -1838,7 +1836,7 @@ class CamTool2(object):
                     self.setLookingCamAsBold()  
                     #---------------------------------------------------------------
                     #set the specific cam mode 
-                    self.camera_use_specific_cam = self.data("camera", False).camera_use_specific_cam
+                    self.camera_use_specific_cam = locCameraData.camera_use_specific_cam
                     if self.camera_use_specific_cam == 0:
                         self.cam_mod.setSterringWheel()
                     elif self.camera_use_specific_cam == 1:
@@ -1907,79 +1905,79 @@ class CamTool2(object):
 
     def set_data(self, action, val=0.25, clamp=True):
         try:
-            self.key = action[:len(action)-2]
+            locKey = action[:len(action)-2]
             self.action = action[-2:]
 
             if self.action != "_m" and self.action != "_p":
-                self.key = action
+                locKey = action
                 self.action = "toogle"
 
-            self.val = val
+            locVal = val
 
 
 
-            if self.key in self.data().interpolation:
-                if self.data().interpolation[self.key] != None:
+            if locKey in self.data().interpolation:
+                if self.data().interpolation[locKey] != None:
                     if ctt.is_async_key_pressed("c"):
-                        self.val /= 4
+                        locVal /= 4
                     if ctt.is_async_key_pressed("s"):
-                        self.val *= 4
+                        locVal *= 4
 
                     if self.action == "_m":
                         if clamp:
-                            self.data().interpolation[self.key] = max(0, min(1, (self.data().interpolation[self.key] - self.val / 5)))
+                            self.data().interpolation[locKey] = max(0, min(1, (self.data().interpolation[locKey] - locVal / 5)))
                         else:
-                            self.data().interpolation[self.key] -= self.val / 5
+                            self.data().interpolation[locKey] -= locVal / 5
                         return True
 
                     elif self.action == "_p":
                         if clamp:
-                            self.data().interpolation[self.key] = max(0, min(1, (self.data().interpolation[self.key] + self.val / 5)))
+                            self.data().interpolation[locKey] = max(0, min(1, (self.data().interpolation[locKey] + locVal / 5)))
                         else:
-                            self.data().interpolation[self.key] += self.val / 5
+                            self.data().interpolation[locKey] += locVal / 5
                         return True
 
                     if self.action == "toogle":
-                        self.data().interpolation[self.key] = None
+                        self.data().interpolation[locKey] = None
                         return True
 
 
                 else:
                     if self.action == "toogle":
                         if val == "camera":
-                            self.data().interpolation[self.key] = self.data("camera").get_attr(self.key)
+                            self.data().interpolation[locKey] = self.data("camera").get_attr(locKey)
                         else:
-                            self.data().interpolation[self.key] = self.val
+                            self.data().interpolation[locKey] = locVal
                         return True
 
-                    elif hasattr(self.data("camera"), self.key):
+                    elif hasattr(self.data("camera"), locKey):
                         if self.action == "_m":
-                            self.value = self.data("camera").get_attr(self.key)
+                            locValue = self.data("camera").get_attr(locKey)
 
                             if ctt.is_async_key_pressed("c"):
-                                self.val /= 4
+                                locVal /= 4
                             if ctt.is_async_key_pressed("s"):
-                                self.val *= 4
+                                locVal *= 4
 
                             if clamp:
-                                self.data("camera").set_attr(self.key, max(0, min(1, self.value - self.val)))
+                                self.data("camera").set_attr(locKey, max(0, min(1, locValue - locVal)))
                             else:
-                                self.data("camera").set_attr(self.key, self.value - self.val)
+                                self.data("camera").set_attr(locKey, locValue - locVal)
 
                             return True
 
                         elif self.action == "_p":
-                            self.value = self.data("camera").get_attr(self.key)
+                            locValue = self.data("camera").get_attr(locKey)
 
                             if ctt.is_async_key_pressed("c"):
-                                self.val /= 4
+                                locVal /= 4
                             if ctt.is_async_key_pressed("s"):
-                                self.val *= 4
+                                locVal *= 4
 
                             if clamp:
-                                self.data("camera").set_attr(self.key, max(0, min(1, self.value + self.val)))
+                                self.data("camera").set_attr(locKey, max(0, min(1, locValue + locVal)))
                             else:
-                                self.data("camera").set_attr(self.key, self.value + self.val)
+                                self.data("camera").set_attr(locKey, locValue + locVal)
                             return True
 
             if self.action == "_m":
@@ -1987,7 +1985,7 @@ class CamTool2(object):
             else:
                 self.multiplier = 1
 
-            return self.set_custom_data(self.key, self.multiplier)
+            return self.set_custom_data(locKey, self.multiplier)
 
 
         except Exception as e:
@@ -2105,11 +2103,11 @@ class CamTool2(object):
             if value >= 0 and value < data.get_n_keyframes(self.__active_cam):
                 self.__active_kf = value
 
-            for self.i in range(len(self.__ui["side_k"]["keyframes"])):
-                if self.i == self.__active_kf:
-                    self.__ui["side_k"]["keyframes"][self.i].highlight(True)
+            for i in range(len(self.__ui["side_k"]["keyframes"])):
+                if i == self.__active_kf:
+                    self.__ui["side_k"]["keyframes"][i].highlight(True)
                 else:
-                    self.__ui["side_k"]["keyframes"][self.i].highlight(False)
+                    self.__ui["side_k"]["keyframes"][i].highlight(False)
         except Exception as e:
             debug(e)
 
@@ -2119,11 +2117,11 @@ class CamTool2(object):
                 if self.__active_cam != value:
                     self.set_active_kf(0)
                 self.__active_cam = value
-            for self.i in range(len(self.__ui["side_c"]["cameras"])):
-                if self.i == self.__active_cam:
-                    self.__ui["side_c"]["cameras"][self.i].highlight(True)
+            for i in range(len(self.__ui["side_c"]["cameras"])):
+                if i == self.__active_cam:
+                    self.__ui["side_c"]["cameras"][i].highlight(True)
                 else:
-                    self.__ui["side_c"]["cameras"][self.i].highlight(False)
+                    self.__ui["side_c"]["cameras"][i].highlight(False)
         except Exception as e:
             debug(e)
 
@@ -2454,8 +2452,8 @@ class CamTool2(object):
 
     def on_click__add_keyframe(self):
         if data.get_n_keyframes(self.__active_cam) < self.__max_keyframes:
-            self.loc = vec3(ctt.get_position(0), ctt.get_position(1), ctt.get_position(2))
-            self.roll = ctt.get_roll()
+            locPos = vec3(ctt.get_position(0), ctt.get_position(1), ctt.get_position(2))
+            locRoll = ctt.get_roll()
             data.add_keyframe(self.__active_cam, None, vec3(None, None, None), None)
             self.set_active_kf(data.get_n_keyframes(self.__active_cam) - 1)
 
@@ -2467,9 +2465,9 @@ class CamTool2(object):
     def on_click__add_camera(self):
         try:
             if data.get_n_cameras() < self.__max_cameras:
-                self.loc = vec3(ctt.get_position(0), ctt.get_position(1), ctt.get_position(2))
-                self.roll = ctt.get_roll()
-                self.active_cam = data.add_camera(self.__the_x, self.loc, 0)
+                locPos = vec3(ctt.get_position(0), ctt.get_position(1), ctt.get_position(2))
+                locRoll = ctt.get_roll()
+                self.active_cam = data.add_camera(self.__the_x, locPos, 0)
                 self.set_active_cam(self.active_cam)
         except Exception as e:
             debug(e)
@@ -2605,15 +2603,15 @@ class CamTool2(object):
             ac.setSize( self.__btn, self.__size.x, self.__size.y )
 
         def set_text(self, text, b_round=False, unit=None):
-            self.value = text
+            locValue = text
             self.unit = ""
             if b_round:
                 if unit == "%":
-                    self.value *= 100
+                    locValue *= 100
                     self.unit = "%"
 
                 if unit == "degrees":
-                    self.value = math.degrees(self.value)
+                    locValue = math.degrees(locValue)
                     self.unit = "°"
 
                 if unit == "time":
@@ -2623,11 +2621,11 @@ class CamTool2(object):
                     self.unit = " m"
 
                 if unit == "%":
-                    ac.setText(self.__btn, "{0:.0f}{1}".format(float(self.value), self.unit))
+                    ac.setText(self.__btn, "{0:.0f}{1}".format(float(locValue), self.unit))
                 else:
-                    ac.setText(self.__btn, "{0:.2f}{1}".format(float(self.value), self.unit))
+                    ac.setText(self.__btn, "{0:.2f}{1}".format(float(locValue), self.unit))
             else:
-                ac.setText(self.__btn, "{0}".format(self.value))
+                ac.setText(self.__btn, "{0}".format(locValue))
 
         def show(self):
             ac.setVisible(self.__btn, 1)
@@ -2796,9 +2794,9 @@ class CamTool2(object):
 
         def hide_input(self):
             self.active = False
-            self.value = ac.getText(self.get_input())
-            self.value = self.value.replace(",", ".")
-            self.__btn.set_text(self.value, True, "m")
+            locValue = ac.getText(self.get_input())
+            locValue = locValue.replace(",", ".")
+            self.__btn.set_text(locValue, True, "m")
             ac.setVisible(self.get_input(), 0)
             ac.setVisible(self.get_btn(), 1)
 
@@ -3269,7 +3267,7 @@ def transform__rot_strength(*arg):
 def transform__rot_strength_p(*arg):
     gUI.set_data("transform_rot_strength_p")
     gUI.refreshGuiOnly()
-    
+
 def transform__rot_strength_m(*arg):
     gUI.set_data("transform_rot_strength_m")
     gUI.refreshGuiOnly()
