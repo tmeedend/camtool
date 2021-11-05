@@ -35,20 +35,41 @@ class CamToolTool(object):
         return ac.ext_isButtonPressed(value)
 
     def get_position(self, axis):
-        self.__path.GetPosition.restype = ctypes.c_float
-        return self.__path.GetPosition(axis)
-        # return ac.ext_getCameraPositionAxis(axis)  # not working
+        axisCSP = 2
+        if axis == 1:
+            axisCSP = 2
+        elif axis == 0:
+            axisCSP = 0
+        elif axis == 2:
+            axisCSP = 1
+
+        #self.__path.GetPosition.restype = ctypes.c_float
+        #ac.log("axis:" + str(axis) + " pos dll:" + str(self.__path.GetPosition(axis)) + " pos csp: " + str(ac.ext_getCameraPositionAxis(axisCSP)))
+        #return self.__path.GetPosition(axis)
+        return ac.ext_getCameraPositionAxis(axisCSP)  # not working
 
     def set_position(self, axis, value):
-        self.__path.SetPosition.argtypes = [ctypes.c_int, ctypes.c_float]
-        self.__path.SetPosition.restype = ctypes.c_bool
-        return self.__path.SetPosition(axis, value)
-        # return ac.ext_setCameraPositionAxis(axis, value)  # not working
+        axisCSP = 2
+        if axis == 1:
+            axisCSP = 2
+        elif axis == 0:
+            axisCSP = 0
+        elif axis == 2:
+            axisCSP = 1
+        #self.__path.SetPosition.argtypes = [ctypes.c_int, ctypes.c_float]
+        #self.__path.SetPosition.restype = ctypes.c_bool
+        #return self.__path.SetPosition(axis, value)
+        return ac.ext_setCameraPositionAxis(axisCSP, value)  # not working
 
     def get_heading(self):
         self.__path.GetHeading.restype = ctypes.c_float
+        #ac.log("heading: " + str(self.__path.GetHeading()))
+        #ac.log("ext_getCameraYawRad: " + str(ac.ext_getCameraYawRad()))
+        #ac.log("dir 0: " + str(ac.ext_getCameraDirection()[0]))
+        #ac.log("dir 1: " + str(ac.ext_getCameraDirection()[1]))
+        #ac.log("dir 2: " + str(ac.ext_getCameraDirection()[2]))
         return (-1) * self.__path.GetHeading()
-        # return ac.ext_getCameraYawRad() # not working
+        # return (-1) *  ac.ext_getCameraYawRad() # not working
 
     def set_heading(self, angle, absolute=True):
         try:
