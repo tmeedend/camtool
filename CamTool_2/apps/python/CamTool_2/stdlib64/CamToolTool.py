@@ -1,3 +1,4 @@
+
 '''
 AC v1.14.3 x64
 
@@ -20,29 +21,55 @@ from ctypes import*
 
 class CamToolTool(object):
     def __init__(self):
-        self.__path = WinDLL( (os.path.abspath(__file__)+'CamTool_1-16.dll').replace("\\",'/').replace( os.path.basename(__file__),'') )
+         self.__path = WinDLL( (os.path.abspath(__file__)+'CamTool_1-16.dll').replace("\\",'/').replace( os.path.basename(__file__),'') )
 
     def is_lmb_pressed(self):
-        self.__path.IsLeftMouseButtonPressed.restype = ctypes.c_bool
-        return self.__path.IsLeftMouseButtonPressed()
+        # self.__path.IsLeftMouseButtonPressed.restype = ctypes.c_bool
+        # return self.__path.IsLeftMouseButtonPressed()
+        return ac.ext_isButtonPressed(1)
 
     def is_async_key_pressed(self, value):
-        self.__path.IsAsyncKeyPressed.argtypes = [ctypes.c_wchar]
-        self.__path.IsAsyncKeyPressed.restype = ctypes.c_bool
-        return self.__path.IsAsyncKeyPressed(value)
+        # self.__path.IsAsyncKeyPressed.argtypes = [ctypes.c_wchar]
+        # self.__path.IsAsyncKeyPressed.restype = ctypes.c_bool
+        # return self.__path.IsAsyncKeyPressed(value)
+        return ac.ext_isButtonPressed(value)
 
     def get_position(self, axis):
-        self.__path.GetPosition.restype = ctypes.c_float
-        return self.__path.GetPosition(axis)
+        axisCSP = 2
+        if axis == 1:
+            axisCSP = 2
+        elif axis == 0:
+            axisCSP = 0
+        elif axis == 2:
+            axisCSP = 1
+
+        #self.__path.GetPosition.restype = ctypes.c_float
+        #ac.log("axis:" + str(axis) + " pos dll:" + str(self.__path.GetPosition(axis)) + " pos csp: " + str(ac.ext_getCameraPositionAxis(axisCSP)))
+        #return self.__path.GetPosition(axis)
+        return ac.ext_getCameraPositionAxis(axisCSP)  # not working
 
     def set_position(self, axis, value):
-        self.__path.SetPosition.argtypes = [ctypes.c_int, ctypes.c_float]
-        self.__path.SetPosition.restype = ctypes.c_bool
-        return self.__path.SetPosition(axis, value)
+        axisCSP = 2
+        if axis == 1:
+            axisCSP = 2
+        elif axis == 0:
+            axisCSP = 0
+        elif axis == 2:
+            axisCSP = 1
+        #self.__path.SetPosition.argtypes = [ctypes.c_int, ctypes.c_float]
+        #self.__path.SetPosition.restype = ctypes.c_bool
+        #return self.__path.SetPosition(axis, value)
+        return ac.ext_setCameraPositionAxis(axisCSP, value)  # not working
 
     def get_heading(self):
         self.__path.GetHeading.restype = ctypes.c_float
+        #ac.log("heading: " + str(self.__path.GetHeading()))
+        #ac.log("ext_getCameraYawRad: " + str(ac.ext_getCameraYawRad()))
+        #ac.log("dir 0: " + str(ac.ext_getCameraDirection()[0]))
+        #ac.log("dir 1: " + str(ac.ext_getCameraDirection()[1]))
+        #ac.log("dir 2: " + str(ac.ext_getCameraDirection()[2]))
         return (-1) * self.__path.GetHeading()
+        # return (-1) *  ac.ext_getCameraYawRad() # not working
 
     def set_heading(self, angle, absolute=True):
         try:
@@ -65,8 +92,9 @@ class CamToolTool(object):
             debug(e)
 
     def get_pitch(self):
-        self.__path.GetPitch.restype = ctypes.c_float
-        return self.__path.GetPitch()
+       #  self.__path.GetPitch.restype = ctypes.c_float
+       #  return self.__path.GetPitch()
+        return ac.ext_getCameraPitchRad()
 
     def set_pitch(self, angle, absolute=True):
         self.prev_roll = self.get_roll()
@@ -96,6 +124,7 @@ class CamToolTool(object):
     def get_roll(self):
         self.__path.GetRoll.restype = ctypes.c_float
         return math.asin( max(-1, min(1, self.__path.GetRoll() )) )
+        # return ac.ext_getCameraRollRad() # not working
 
     def set_roll(self, angle, absolute=True):
         if absolute:
@@ -106,8 +135,9 @@ class CamToolTool(object):
 
 
     def get_fov(self):
-        self.__path.GetFOV.restype = ctypes.c_float
-        return self.__path.GetFOV()
+        # self.__path.GetFOV.restype = ctypes.c_float
+        # return self.__path.GetFOV()
+        return ac.ext_getCameraFov()
 
     def convert_fov_2_focal_length(self, val, reverse=False):
         #convert to interpolation freindly format
@@ -127,72 +157,78 @@ class CamToolTool(object):
         #     return 2 * math.atan(2203 / (2 * val)) * 180 / math.pi
 
     def set_fov(self, fov):
-        self.__path.SetFOV.argtypes = [ctypes.c_float]
-        self.__path.SetFOV.restype = ctypes.c_bool
-
-        self.near_clipping = min(2, max(0.1, (2 - (fov/50))))
-
-        self.set_clipping_near(self.near_clipping)
-
-        return self.__path.SetFOV(fov)
+        # self.__path.SetFOV.argtypes = [ctypes.c_float]
+        # self.__path.SetFOV.restype = ctypes.c_bool
+        # self.near_clipping = min(2, max(0.1, (2 - (fov/50))))
+        # self.set_clipping_near(self.near_clipping)
+        # return self.__path.SetFOV(fov)
+        return ac.ext_setCameraFov(fov)
 
     def get_dof_factor(self):
-        self.__path.GetDOFfactor.restype = ctypes.c_int
-        return self.__path.GetDOFfactor()
+        # self.__path.GetDOFfactor.restype = ctypes.c_int
+        # return self.__path.GetDOFfactor()
+        return ac.ext_getCameraDofFactor()
 
     def set_dof_factor(self, strength):
-        self.__path.SetDOFfactor.argtypes = [ctypes.c_int]
-        self.__path.SetDOFfactor.restype = ctypes.c_bool
-        return self.__path.SetDOFfactor(strength)
+        # self.__path.SetDOFfactor.argtypes = [ctypes.c_int]
+        # self.__path.SetDOFfactor.restype = ctypes.c_bool
+        # return self.__path.SetDOFfactor(strength)
+        return ac.ext_setCameraDofFactor(strength)
 
     def get_focus_point(self):
-        self.__path.GetFocusPoint.restype = ctypes.c_float
-        return self.__path.GetFocusPoint()
+        # self.__path.GetFocusPoint.restype = ctypes.c_float
+        # return self.__path.GetFocusPoint()
+        return ac.ext_getCameraDofFocus()
 
     def set_focus_point(self, value):
-        self.__path.SetFocusPoint.argtypes = [ctypes.c_float]
-        self.__path.SetFocusPoint.restype = ctypes.c_bool
+        # self.__path.SetFocusPoint.argtypes = [ctypes.c_float]
+        # self.__path.SetFocusPoint.restype = ctypes.c_bool
         if value < 0.1:
             self.set_dof_factor( 0 )
         else:
             self.set_dof_factor( 1 )
-        return self.__path.SetFocusPoint(value)
+        # return self.__path.SetFocusPoint(value)
+        return ac.ext_setCameraDofFocus(value)
 
     def set_clipping_near(self, clipping):
-        self.__path.SetClippingNear.argtypes = [ctypes.c_float]
-        self.__path.SetClippingNear.restype = ctypes.c_bool
-        return self.__path.SetClippingNear(clipping)
+        # self.__path.SetClippingNear.argtypes = [ctypes.c_float]
+        # self.__path.SetClippingNear.restype = ctypes.c_bool
+        # return self.__path.SetClippingNear(clipping)
+        return ac.ext_setCameraClipNear(clipping)
 
     def set_clipping_far(self, clipping):
-        self.__path.SetClippingFar.argtypes = [ctypes.c_float]
-        self.__path.SetClippingFar.restype = ctypes.c_bool
-        return self.__path.SetClippingFar(clipping)
+        # self.__path.SetClippingFar.argtypes = [ctypes.c_float]
+        # self.__path.SetClippingFar.restype = ctypes.c_bool
+        # return self.__path.SetClippingFar(clipping)
+        return ac.ext_setCameraClipFar(clipping)
 
     def get_replay_position(self):
-        self.__path.GetReplayPosition.restype = ctypes.c_int
-        return self.__path.GetReplayPosition()
+        # self.__path.GetReplayPosition.restype = ctypes.c_int
+        # return self.__path.GetReplayPosition()
+        return ac.ext_getReplayPosition()
 
     def set_replay_position(self, keyframe):
-        self.__path.SetReplayPosition.argtypes = [ctypes.c_int]
-        self.__path.SetReplayPosition.restype = ctypes.c_bool
-        return self.__path.SetReplayPosition(keyframe)
+        # self.__path.SetReplayPosition.argtypes = [ctypes.c_int]
+        # self.__path.SetReplayPosition.restype = ctypes.c_bool
+        # return self.__path.SetReplayPosition(keyframe)
+        return ac.ext_setReplayPosition(keyframe)
 
     def set_replay_speed(self, value):
-        self.__path.SetReplaySpeed.argtypes = [ctypes.c_float]
-        self.__path.SetReplaySpeed.restype = ctypes.c_bool
-        return self.__path.SetReplaySpeed(value)
+        # self.__path.SetReplaySpeed.argtypes = [ctypes.c_float]
+        # self.__path.SetReplaySpeed.restype = ctypes.c_bool
+        # return self.__path.SetReplaySpeed(value)
+        return ac.ext_setReplaySpeed(value)
 
     def get_volume(self):
         self.__path.GetVolume.restype = ctypes.c_float
         return self.__path.GetVolume()
-
-
-
+        # return ac.ext_getAudioVolume() # not working, causes sound issues (choppy or engine continues when pausing replay)
 
     def set_volume(self, value):
         self.__path.SetVolume.argtypes = [ctypes.c_float]
         self.__path.SetVolume.restype = ctypes.c_bool
         return self.__path.SetVolume(value)
+        # return ac.ext_setAudioVolume(value) # not working, causes sound issues (choppy or engine continues when pausing replay)
 
 ctt = CamToolTool()
 
@@ -206,3 +242,4 @@ def debug(e):
     #ac.console( 'CamTool 2: EXCEPTION IN ({}, LINE {} "{}"): {}'.format(filename, lineno, line.strip(), exc_obj) )
     ac.console( 'CamTool 2: EXCEPTION IN (LINE {}): {}'.format(lineno, exc_obj) )
     ac.log( 'CamTool 2: EXCEPTION IN ({} LINE {}): {}'.format(filename, lineno, exc_obj) )
+
