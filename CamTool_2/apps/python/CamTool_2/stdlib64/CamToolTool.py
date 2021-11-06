@@ -220,15 +220,15 @@ class CamToolTool(object):
         return ac.ext_setReplaySpeed(value)
 
     def get_volume(self):
-        # self.__path.GetVolume.restype = ctypes.c_float
-        # return self.__path.GetVolume()
-        return ac.ext_getAudioVolume()
+        self.__path.GetVolume.restype = ctypes.c_float
+        return self.__path.GetVolume()
+        # return ac.ext_getAudioVolume() # not working, causes sound issues (choppy or engine continues when pausing replay)
 
     def set_volume(self, value):
-        # self.__path.SetVolume.argtypes = [ctypes.c_float]
-        # self.__path.SetVolume.restype = ctypes.c_bool
-        # return self.__path.SetVolume(value)
-        return ac.ext_setAudioVolume(value)
+        self.__path.SetVolume.argtypes = [ctypes.c_float]
+        self.__path.SetVolume.restype = ctypes.c_bool
+        return self.__path.SetVolume(value)
+        # return ac.ext_setAudioVolume(value) # not working, causes sound issues (choppy or engine continues when pausing replay)
 
 ctt = CamToolTool()
 
