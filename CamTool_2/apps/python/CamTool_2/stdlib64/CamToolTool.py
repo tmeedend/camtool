@@ -29,10 +29,10 @@ class CamToolTool(object):
         return ac.ext_isButtonPressed(1)
 
     def is_async_key_pressed(self, value):
-        # self.__path.IsAsyncKeyPressed.argtypes = [ctypes.c_wchar]
-        # self.__path.IsAsyncKeyPressed.restype = ctypes.c_bool
-        # return self.__path.IsAsyncKeyPressed(value)
-        return ac.ext_isButtonPressed(value)
+        self.__path.IsAsyncKeyPressed.argtypes = [ctypes.c_wchar]
+        self.__path.IsAsyncKeyPressed.restype = ctypes.c_bool
+        return self.__path.IsAsyncKeyPressed(value)
+        # return ac.ext_isButtonPressed(value) # keys not working
 
     def get_position(self, axis):
         axisCSP = 2
