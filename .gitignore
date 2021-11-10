@@ -128,3 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 JSGME.ini
+CamTool_2/data/
