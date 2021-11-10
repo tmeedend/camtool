@@ -3,6 +3,8 @@
 kasperski95@gmail.com
 '''
 
+import keyboard
+
 import sys
 import os
 import platform
@@ -238,8 +240,18 @@ class CamTool2(object):
             #Activate
             self.ui["activate"] = self.Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
             self.ui["activate"].set_background("off", 0, 0)
+            ac.log("BLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             ac.addOnClickedListener(self.ui["activate"].get_btn(), header__activate)
 
+            keyboard.add_hotkey('f10', self.activate, args=())
+            keyboard.add_hotkey('f1', self.desactivate, args=())
+            keyboard.add_hotkey('f2', self.desactivate, args=())
+            keyboard.add_hotkey('f3', self.desactivate, args=())
+            keyboard.add_hotkey('f5', self.desactivate, args=())
+            keyboard.add_hotkey('f6', self.desactivate, args=())
+            keyboard.add_hotkey('f7', self.desactivate, args=())
+            
+            ac.log("registered keyboard hotkey 2")
             # self.ui["header_replay_mm"] = self.Button(self.__app, "<<", self.ui["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
             # self.ui["header_replay_m"] = self.Button(self.__app, "<", self.ui["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
             # self.ui["header_jump_to_keyframe"] = self.Button(self.__app, "^", self.ui["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
@@ -2484,13 +2496,19 @@ class CamTool2(object):
         except Exception as e:
             debug(e)
 
-    def on_click__activate(self):
-        if self.__active_app:
+    def activate(self):
+        self.__active_app = True
+        self.__ui["header"]["activate"].set_background("on", 0, 0)
+
+    def desactivate(self):
             self.__active_app = False
             self.__ui["header"]["activate"].set_background("off", 0, 0)
+
+    def on_click__activate(self):
+        if self.__active_app:
+            self.desactivate()
         else:
-            self.__active_app = True
-            self.__ui["header"]["activate"].set_background("on", 0, 0)
+            self.activate()
 
     def on_click__file_form(self, action, button_id=None):
         try:
