@@ -10,7 +10,7 @@ class CamMode(object):
         self.lastCamMode = 6      
         self.numberOf2After0 = 0   
         self.mustFix2CamMode = False     
-     #   self.keyboard = Controller()
+        
     def pressF1(self, times):
         ac.log("pressing f1 " + str(times))
         ac.log("camera count " + str(ac.getCameraCarCount(0)))
