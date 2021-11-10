@@ -248,7 +248,6 @@ class CamTool2(object):
             keyboard.add_hotkey('f6', self.desactivate, args=())
             keyboard.add_hotkey('f7', self.desactivate, args=())
             
-            ac.log("registered keyboard hotkey 2")
             # locUi["header_replay_mm"] = self.Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
             # locUi["header_replay_m"] = self.Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
             # locUi["header_jump_to_keyframe"] = self.Button(self.__app, "^", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
