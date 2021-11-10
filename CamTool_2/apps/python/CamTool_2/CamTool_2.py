@@ -182,7 +182,7 @@ class CamTool2(object):
                 self.refreshGuiOnly()
                 self.__menu_refreshed_once = True
             self.__gAcUpdateCallsIndex += 1
-            if self.__gAcUpdateCallsIndex % 30 == 0:
+            if self.__gAcUpdateCallsIndex % 30 == 0: # we try to not refresh gui objects every frame to gain fps
                 self.__update_mandatory_gui_objects()
             self.__interpolate(strength, dt)
             self.__ui["options"]["camera"]["camera_in"].set_focus()
