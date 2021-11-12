@@ -1,6 +1,5 @@
 
 import ac
-#from pynput.keyboard import Key, Controller
 
 class CamMode(object):
     
@@ -10,10 +9,10 @@ class CamMode(object):
         self.lastCamMode = 6      
         self.numberOf2After0 = 0   
         self.mustFix2CamMode = False     
-     #   self.keyboard = Controller()
+        
     def pressF1(self, times):
-        ac.log("pressing f1 " + str(times))
-        ac.log("camera count " + str(ac.getCameraCarCount(0)))
+        # ac.log("pressing f1 " + str(times))
+        # ac.log("camera count " + str(ac.getCameraCarCount(0)))
         for i in range(times):
             ac.setCameraMode(0)
 
@@ -27,19 +26,19 @@ class CamMode(object):
         if (self.mustFix2CamMode == True and offset != self.last_cam_offset and self.last_cam_offset == 5) or self.mustFix2CamMode == True and offset == self.last_cam_offset and offset == 5:
             numberOfF1 = offset
         #    numberOfF1 = offsetFromCamMode2 + 6
-            ac.log("ffiiixx")
-        #ac.log("change cam zero lastcamoffset: " + str(self.last_cam_offset) + " offset: " + str(offset) + "numberOfF1:" + str(numberOfF1))
+        #    ac.log("ffiiixx")
+        # ac.log("change cam zero lastcamoffset: " + str(self.last_cam_offset) + " offset: " + str(offset) + "numberOfF1:" + str(numberOfF1))
         self.pressF1(numberOfF1)
         self.last_cam_offset = offset
         self.lastCamMode = 0
         self.mustFix2CamMode = False
 
     def setCockpit(self):
-        ac.log("cockpit, forcef1:" + str(self.need_f1_key_press_forcockit))
+        # ac.log("cockpit, forcef1:" + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(4,4)
             
     def setSterringWheel(self):
-        ac.log("sterringwheel, forcef1:" + str(self.need_f1_key_press_forcockit))
+        # ac.log("sterringwheel, forcef1:" + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(5,5)
         
     def setFreeOutside(self):
@@ -87,19 +86,19 @@ class CamMode(object):
         self.mustFix2CamMode = True
 
     def setChaseCam(self):
-        ac.log("hood, chase forcef1: " + str(self.need_f1_key_press_forcockit))
+        # ac.log("hood, chase forcef1: " + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(0,0)
 
     def setChaseCamFar(self):
-        ac.log("chase cam far forcef1: " + str(self.need_f1_key_press_forcockit))
+        # ac.log("chase cam far forcef1: " + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(1,1)
 
     def setHood(self):
-        ac.log("hood, forcef1: " + str(self.need_f1_key_press_forcockit))
+        # ac.log("hood, forcef1: " + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(2,2)
 
     def setSubjective(self):
-        ac.log("subjective, forcef1: " + str(self.need_f1_key_press_forcockit))
+        # ac.log("subjective, forcef1: " + str(self.need_f1_key_press_forcockit))
         self.changeCamModeZero(3,3)
 
     def setCamtool(self):

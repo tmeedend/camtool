@@ -3,6 +3,11 @@ import acsys
 import math
 import timeit
 from classes.general import *
+from classes.general import vec3
+from classes.general import debug
+from classes.general import normalize_angle
+from classes.general import cout
+from classes.general import vec
 
 
 class Camera(object):

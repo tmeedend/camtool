@@ -21,7 +21,7 @@ from ctypes import*
 
 class CamToolTool(object):
     def __init__(self):
-         self.__path = WinDLL( (os.path.abspath(__file__)+'CamTool_1-16.dll').replace("\\",'/').replace( os.path.basename(__file__),'') )
+        self.__path = WinDLL( (os.path.abspath(__file__)+'CamTool_1-16.dll').replace("\\",'/').replace( os.path.basename(__file__),'') )
 
     def is_lmb_pressed(self):
         # self.__path.IsLeftMouseButtonPressed.restype = ctypes.c_bool
