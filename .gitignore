@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 JSGME.ini
 CamTool_2/data/
+!BACKUP/

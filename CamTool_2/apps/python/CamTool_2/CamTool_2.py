@@ -32,14 +32,19 @@ from classes.CamMode import CamMode
 from classes.InterpolateFrame import InterpolateFrame
 from classes.CubicBezierInterpolation import interpolation
 from classes.general import *
+from classes.constants import *
+from ui.button import Button
+from ui.editable_button import Editable_Button
+from ui.div import Div
+from ui.label import Label
+from ui.input import Input
+from ui.option import Option
 #=================================================
 
 gUI = None
 gTimer_mouse = 0
 gTimer_volume = 1
 gPrev_zoom_mode = "in"
-gFont = "Arial"
-gImgPath = os.path.dirname(__file__)+'/img/'
 gDataPath = os.path.abspath(__file__).replace("\\",'/').replace( os.path.basename(__file__),'') + "data/"
 gPrevCar = 0
 gInitVolume = 1
@@ -208,11 +213,11 @@ class CamTool2(object):
 
             self.divs = {}
 
-            self.divs["bg"] = self.Div(self.__app, vec(0, self.__margin.y + self.__btn_height), vec(self.__width, self.__margin.y - 1 + (self.__max_btns_in_column - 1) * self.__btn_height) )
+            self.divs["bg"] = Div(self.__app, vec(0, self.__margin.y + self.__btn_height), vec(self.__width, self.__margin.y - 1 + (self.__max_btns_in_column - 1) * self.__btn_height) )
 
-            self.divs["top"] = self.Div(self.__app, vec(0, self.__margin.y - self.__margin.x), vec(self.__width, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
+            self.divs["top"] = Div(self.__app, vec(0, self.__margin.y - self.__margin.x), vec(self.__width, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
 
-            self.divs["side"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
+            self.divs["side"] = Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
             self.__ui["divs"] = self.divs
 
 
@@ -231,15 +236,15 @@ class CamTool2(object):
             locUi = {}
             locUi["info"] = {"height" : self.__btn_height}
 
-            locUi["free_camera"] = self.Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
+            locUi["free_camera"] = Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
             ac.addOnClickedListener(locUi["free_camera"].get_btn(), header__free_camera)
 
-            locUi["title"] = self.Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
-            locUi["the_x"] = self.Label(self.__app, "()", locUi["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
+            locUi["title"] = Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
+            locUi["the_x"] = Label(self.__app, "()", locUi["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
 
             #Activate
-            locUi["activate"] = self.Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
-            locUi["activate"].set_background("off", 0, 0)
+            locUi["activate"] = Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
+            locUi["activate"].set_background(G_IMG_OFF, 0, 0)
             ac.addOnClickedListener(locUi["activate"].get_btn(), header__activate)
 
             keyboard.add_hotkey('f10', self.activate, args=())
@@ -250,17 +255,17 @@ class CamTool2(object):
             keyboard.add_hotkey('f6', self.desactivate, args=())
             keyboard.add_hotkey('f7', self.desactivate, args=())
             
-            # locUi["header_replay_mm"] = self.Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # locUi["header_replay_m"] = self.Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # locUi["header_jump_to_keyframe"] = self.Button(self.__app, "^", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
-            # locUi["header_replay_m"] = self.Button(self.__app, ">", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_mm"] = Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_m"] = Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_jump_to_keyframe"] = Button(self.__app, "^", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
+            # locUi["header_replay_m"] = Button(self.__app, ">", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
 
 
-            locUi["mode-pos"] = self.Button(self.__app, "", locUi["activate"].get_pos() - vec(self.__sizes["square"].x * 2 + self.__margin.x, 0), self.__sizes["square"])
-            locUi["mode-time"] = self.Button(self.__app, "", locUi["mode-pos"].get_next_pos(), self.__sizes["square"])
+            locUi["mode-pos"] = Button(self.__app, "", locUi["activate"].get_pos() - vec(self.__sizes["square"].x * 2 + self.__margin.x, 0), self.__sizes["square"])
+            locUi["mode-time"] = Button(self.__app, "", locUi["mode-pos"].get_next_pos(), self.__sizes["square"])
 
-            locUi["mode-pos"].set_background("pos", 0)
-            locUi["mode-time"].set_background("time", 0)
+            locUi["mode-pos"].set_background(G_IMG_POSITION, 0)
+            locUi["mode-time"].set_background(G_IMG_TIME, 0)
 
             ac.addOnClickedListener(locUi["mode-pos"].get_btn(), header__mode_pos)
             ac.addOnClickedListener(locUi["mode-time"].get_btn(), header__mode_time)
@@ -274,25 +279,25 @@ class CamTool2(object):
         try:
             locUi = {}
 
-            locUi["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
-            locUi["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
 
             ac.addOnClickedListener(locUi["bg"].get_btn(), side_c)
 
-            locUi["icon_camera"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
-            locUi["icon_camera"].set_background("camera", 0, 0)
+            locUi["icon_camera"] = Button(self.__app, "", vec(), self.__sizes["square"])
+            locUi["icon_camera"].set_background(G_IMG_CAMERA, 0, 0)
 
             locCameras = []
             for i in range(self.__max_cameras+1):
                 if i != 0:
-                    self.btn = self.Button(self.__app, i, vec(), self.__sizes["square"])
+                    self.btn = Button(self.__app, i, vec(), self.__sizes["square"])
                     locCameras.append(self.btn)
                 else:
-                    locUi["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
+                    locUi["remove"] = Button(self.__app, "-", vec(), self.__sizes["square"])
                     ac.addOnClickedListener(locUi["remove"].get_btn(), side_c__remove_camera)
             locUi["cameras"] = locCameras
 
-            locUi["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
+            locUi["add"] = Button(self.__app, "+", vec(), self.__sizes["square"])
             ac.addOnClickedListener(locUi["add"].get_btn(), side_c__add_camera)
 
             self.__ui["side_c"] = locUi
@@ -303,24 +308,24 @@ class CamTool2(object):
         try:
             locUi = {}
 
-            locUi["top"] = self.Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
-            locUi["bg"] = self.Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = Div(self.__app, vec(), vec(), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = Div(self.__app, vec(), vec(), vec3(0.2,0.2,0.2), 1)
 
             ac.addOnClickedListener(locUi["bg"].get_btn(), side_k)
 
-            locUi["icon_keyframe"] = self.Button(self.__app, "", vec(), self.__sizes["square"])
-            locUi["icon_keyframe"].set_background("keyframe", 0, 0)
+            locUi["icon_keyframe"] = Button(self.__app, "", vec(), self.__sizes["square"])
+            locUi["icon_keyframe"].set_background(G_IMG_KEYFRAME, 0, 0)
             locKeyframes = []
             for i in range(self.__max_keyframes+1):
                 if i != 0:
-                    self.btn = self.Button(self.__app, i, vec(), self.__sizes["square"])
+                    self.btn = Button(self.__app, i, vec(), self.__sizes["square"])
                     locKeyframes.append(self.btn)
                 else:
-                    locUi["remove"] = self.Button(self.__app, "-", vec(), self.__sizes["square"])
+                    locUi["remove"] = Button(self.__app, "-", vec(), self.__sizes["square"])
                     ac.addOnClickedListener(locUi["remove"].get_btn(), side_k__remove_keyframe)
 
             locUi["keyframes"] = locKeyframes
-            locUi["add"] = self.Button(self.__app, "+", vec(), self.__sizes["square"])
+            locUi["add"] = Button(self.__app, "+", vec(), self.__sizes["square"])
             ac.addOnClickedListener(locUi["add"].get_btn(), side_k__add_keyframe)
 
             self.__ui["side_k"] = locUi
@@ -336,11 +341,11 @@ class CamTool2(object):
             locAlignment = "left"
             locOffset = vec(0, self.__margin.y + self.__btn_height + self.__margin.x + 1)
 
-            locUi["camera"] = self.Button(self.__app, "Camera", locOffset, locSize, locColor, locAlignment)
-            locUi["transform"] = self.Button(self.__app, "Transform", locUi["camera"].get_next_pos_v(), locSize, locColor, locAlignment)
-            locUi["tracking"] = self.Button(self.__app, "Tracking", locUi["transform"].get_next_pos_v(), locSize, locColor, locAlignment)
-            locUi["spline"] = self.Button(self.__app, "Spline", locUi["tracking"].get_next_pos_v(), locSize, locColor, locAlignment)
-            locUi["settings"] = self.Button(self.__app, "Settings", locUi["spline"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["camera"] = Button(self.__app, "Camera", locOffset, locSize, locColor, locAlignment)
+            locUi["transform"] = Button(self.__app, "Transform", locUi["camera"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["tracking"] = Button(self.__app, "Tracking", locUi["transform"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["spline"] = Button(self.__app, "Spline", locUi["tracking"].get_next_pos_v(), locSize, locColor, locAlignment)
+            locUi["settings"] = Button(self.__app, "Settings", locUi["spline"].get_next_pos_v(), locSize, locColor, locAlignment)
 
             ac.addOnClickedListener(locUi["settings"].get_btn(), menu__settings)
             ac.addOnClickedListener(locUi["transform"].get_btn(), menu__transform)
@@ -361,22 +366,22 @@ class CamTool2(object):
             locBtn_size = vec(50, self.__btn_height)
 
 
-            locUi["top"] = self.Div(self.__app, locOffset, vec(locSize.x, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
-            locUi["bg_big"] = self.Div(self.__app, locUi["top"].get_pos() - vec(1, 0), vec(locSize.x + 2, self.__btn_height * self.__max_btns_in_column + locUi["top"].get_size().y + 1), vec3(0.15,0.15,0.15), 1)
-            locUi["bg"] = self.Div(self.__app, locUi["top"].get_next_pos_v(), vec(locSize.x, self.__btn_height * self.__max_btns_in_column), vec3(0.2,0.2,0.2), 1)
+            locUi["top"] = Div(self.__app, locOffset, vec(locSize.x, self.__btn_height + 2 * self.__margin.x), vec3(0.15,0.15,0.15), 1)
+            locUi["bg_big"] = Div(self.__app, locUi["top"].get_pos() - vec(1, 0), vec(locSize.x + 2, self.__btn_height * self.__max_btns_in_column + locUi["top"].get_size().y + 1), vec3(0.15,0.15,0.15), 1)
+            locUi["bg"] = Div(self.__app, locUi["top"].get_next_pos_v(), vec(locSize.x, self.__btn_height * self.__max_btns_in_column), vec3(0.2,0.2,0.2), 1)
 
-            locUi["cancel"] = self.Button(self.__app, "Cancel", locOffset + vec(locSize.x - locBtn_size.x, self.__margin.x), locBtn_size)
-            locUi["save"] = self.Button(self.__app, "Save", locUi["cancel"].get_pos() - vec(locUi["cancel"].get_size().x, 0), locBtn_size)
+            locUi["cancel"] = Button(self.__app, "Cancel", locOffset + vec(locSize.x - locBtn_size.x, self.__margin.x), locBtn_size)
+            locUi["save"] = Button(self.__app, "Save", locUi["cancel"].get_pos() - vec(locUi["cancel"].get_size().x, 0), locBtn_size)
 
-            locUi["input"] = self.Input(self.__app, "", locOffset + vec(0, self.__margin.x), vec( locSize.x - self.__margin.x - 2 * locBtn_size.x, self.__btn_height) )
+            locUi["input"] = Input(self.__app, "", locOffset + vec(0, self.__margin.x), vec( locSize.x - self.__margin.x - 2 * locBtn_size.x, self.__btn_height) )
 
             locUi["buttons"] = []
             locUi["buttons_x"] = []
             for i in range(self.__max_btns_in_column):
                 self.btn_pos = locUi["input"].get_next_pos_v() + vec(0, self.__margin.x + 1) + vec(0, i * self.__btn_height)
-                locUi["buttons"].append( self.Button(self.__app, "Slot", self.btn_pos, vec(locUi["top"].get_size().x - self.__btn_height, self.__btn_height) ))
-                self.__btn_x = self.Button(self.__app, "", self.btn_pos + vec(locUi["top"].get_size().x - self.__btn_height, 0), vec(self.__btn_height, self.__btn_height))
-                self.__btn_x.set_background("remove")
+                locUi["buttons"].append( Button(self.__app, "Slot", self.btn_pos, vec(locUi["top"].get_size().x - self.__btn_height, self.__btn_height) ))
+                self.__btn_x = Button(self.__app, "", self.btn_pos + vec(locUi["top"].get_size().x - self.__btn_height, 0), vec(self.__btn_height, self.__btn_height))
+                self.__btn_x.set_background(G_IMG_REMOVE)
                 locUi["buttons_x"].append(self.__btn_x)
 
             ac.addOnClickedListener(locUi["bg"].get_btn(), file_form__wrapper)
@@ -415,16 +420,16 @@ class CamTool2(object):
 
             #pos
             locSize = self.__sizes["square"] #arrow buttons
-            locUi["pos"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
-            locUi["pos"]["-"] = self.Button(self.__app, "", locUi["pos"]["--"].get_next_pos(), locSize)
-            locUi["pos"]["keyframe"] = self.Button(self.__app, "Keyframe", locUi["pos"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
-            locUi["pos"]["+"] = self.Button(self.__app, "", locUi["pos"]["keyframe"].get_next_pos(), locSize)
-            locUi["pos"]["++"] = self.Button(self.__app, "", locUi["pos"]["+"].get_next_pos(), locSize)
+            locUi["pos"]["--"] = Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
+            locUi["pos"]["-"] = Button(self.__app, "", locUi["pos"]["--"].get_next_pos(), locSize)
+            locUi["pos"]["keyframe"] = Button(self.__app, "Keyframe", locUi["pos"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
+            locUi["pos"]["+"] = Button(self.__app, "", locUi["pos"]["keyframe"].get_next_pos(), locSize)
+            locUi["pos"]["++"] = Button(self.__app, "", locUi["pos"]["+"].get_next_pos(), locSize)
 
-            locUi["pos"]["--"].set_background("prev+")
-            locUi["pos"]["-"].set_background("prev")
-            locUi["pos"]["+"].set_background("next")
-            locUi["pos"]["++"].set_background("next+")
+            locUi["pos"]["--"].set_background(G_IMG_PREVIOUS_PLUS)
+            locUi["pos"]["-"].set_background(G_IMG_PREVIOUS)
+            locUi["pos"]["+"].set_background(G_IMG_NEXT)
+            locUi["pos"]["++"].set_background(G_IMG_NEXT_PLUS)
 
             ac.addOnClickedListener(locUi["pos"]["keyframe"].get_btn(), keyframes__pos)
             ac.addOnClickedListener(locUi["pos"]["--"].get_btn(), keyframes__pos_mm)
@@ -433,18 +438,18 @@ class CamTool2(object):
             ac.addOnClickedListener(locUi["pos"]["+"].get_btn(), keyframes__pos_p)
 
             #time
-            locUi["time"]["--"] = self.Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
-            locUi["time"]["-"] = self.Button(self.__app, "", locUi["time"]["--"].get_next_pos(), locSize)
-            locUi["time"]["keyframe"] = self.Button(self.__app, "-", locUi["time"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
-            locUi["time"]["+"] = self.Button(self.__app, "", locUi["time"]["keyframe"].get_next_pos(), locSize)
-            locUi["time"]["++"] = self.Button(self.__app, "", locUi["time"]["+"].get_next_pos(), locSize)
+            locUi["time"]["--"] = Button(self.__app, "", self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), locSize)
+            locUi["time"]["-"] = Button(self.__app, "", locUi["time"]["--"].get_next_pos(), locSize)
+            locUi["time"]["keyframe"] = Button(self.__app, "-", locUi["time"]["-"].get_next_pos(), self.__ui["options"]["info"]["size"] - vec(4 * locSize.x, 0))
+            locUi["time"]["+"] = Button(self.__app, "", locUi["time"]["keyframe"].get_next_pos(), locSize)
+            locUi["time"]["++"] = Button(self.__app, "", locUi["time"]["+"].get_next_pos(), locSize)
 
-            locUi["time"]["replay_sync"] = self.Button(self.__app, "Sync" ,self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.__ui["options"]["info"]["size"])
+            locUi["time"]["replay_sync"] = Button(self.__app, "Sync" ,self.__ui["menu"]["camera"].get_next_pos() + vec(self.__margin.x, 0), self.__ui["options"]["info"]["size"])
 
-            locUi["time"]["--"].set_background("prev+")
-            locUi["time"]["-"].set_background("prev")
-            locUi["time"]["+"].set_background("next")
-            locUi["time"]["++"].set_background("next+")
+            locUi["time"]["--"].set_background(G_IMG_PREVIOUS_PLUS)
+            locUi["time"]["-"].set_background(G_IMG_PREVIOUS)
+            locUi["time"]["+"].set_background(G_IMG_NEXT)
+            locUi["time"]["++"].set_background(G_IMG_NEXT_PLUS)
 
             ac.addOnClickedListener(locUi["time"]["--"].get_btn(), keyframes__time_mm)
             ac.addOnClickedListener(locUi["time"]["-"].get_btn(), keyframes__time_m)
@@ -461,15 +466,15 @@ class CamTool2(object):
         try:
             locUi = {}
 
-            locUi["save"] = self.Button(self.__app, "Save", self.__ui["options"]["info"]["start_pos"], self.__ui["options"]["info"]["size"] * vec(0.5, 1) )
-            locUi["load"] = self.Button(self.__app, "Load", locUi["save"].get_next_pos(), locUi["save"].get_size() )
+            locUi["save"] = Button(self.__app, "Save", self.__ui["options"]["info"]["start_pos"], self.__ui["options"]["info"]["size"] * vec(0.5, 1) )
+            locUi["load"] = Button(self.__app, "Load", locUi["save"].get_next_pos(), locUi["save"].get_size() )
 
-            #locUi["settings_smart_tracking"] = self.Option(self.__app, self.Button, self.Label, "Smart tracking", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
+            #locUi["settings_smart_tracking"] = Option(self.__app, Button, Label, "Smart tracking", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
 
-            locUi["settings_track_spline"] = self.Option(self.__app, self.Button, self.Label, "Track spline", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
-            locUi["settings_pit_spline"] = self.Option(self.__app, self.Button, self.Label, "Pit spline", locUi["settings_track_spline"].get_next_pos_v(), self.__ui["options"]["info"]["size"], True, False)
+            locUi["settings_track_spline"] = Option(self.__app, Button, Label, "Track spline", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
+            locUi["settings_pit_spline"] = Option(self.__app, Button, Label, "Pit spline", locUi["settings_track_spline"].get_next_pos_v(), self.__ui["options"]["info"]["size"], True, False)
 
-            locUi["settings_reset"] = self.Button(self.__app, "Reset", locUi["settings_pit_spline"].get_next_pos_v() + vec(0, self.__margin.x), self.__ui["options"]["info"]["size"])
+            locUi["settings_reset"] = Button(self.__app, "Reset", locUi["settings_pit_spline"].get_next_pos_v() + vec(0, self.__margin.x), self.__ui["options"]["info"]["size"])
 
             ac.addOnClickedListener(locUi["save"].get_btn(), settings__show_form__save)
             ac.addOnClickedListener(locUi["load"].get_btn(), settings__show_form__load)
@@ -485,14 +490,14 @@ class CamTool2(object):
     def __create_transform(self):
         try:
             locUi = {}
-            locUi["lbl_location"] = self.Label(self.__app, "Location", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_location"] = Label(self.__app, "Location", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_location"].set_alignment("center")
             locUi["lbl_location"].set_bold(True)
 
-            locUi["loc_x"] = self.Option(self.__app, self.Button, self.Label, "X", locUi["lbl_location"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            locUi["loc_y"] = self.Option(self.__app, self.Button, self.Label, "Y", locUi["loc_x"].get_next_pos_v(), locUi["loc_x"].get_size())
-            locUi["loc_z"] = self.Option(self.__app, self.Button, self.Label, "Z", locUi["loc_y"].get_next_pos_v(), locUi["loc_y"].get_size())
-            locUi["transform_loc_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength", locUi["loc_z"].get_next_pos_v(), locUi["loc_z"].get_size())
+            locUi["loc_x"] = Option(self.__app, Button, Label, "X", locUi["lbl_location"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["loc_y"] = Option(self.__app, Button, Label, "Y", locUi["loc_x"].get_next_pos_v(), locUi["loc_x"].get_size())
+            locUi["loc_z"] = Option(self.__app, Button, Label, "Z", locUi["loc_y"].get_next_pos_v(), locUi["loc_y"].get_size())
+            locUi["transform_loc_strength"] = Option(self.__app, Button, Label, "Strength", locUi["loc_z"].get_next_pos_v(), locUi["loc_z"].get_size())
             ac.addOnClickedListener(locUi["loc_x"].get_btn(), transform__loc_x)
             ac.addOnClickedListener(locUi["loc_y"].get_btn(), transform__loc_y)
             ac.addOnClickedListener(locUi["loc_z"].get_btn(), transform__loc_z)
@@ -507,18 +512,18 @@ class CamTool2(object):
             ac.addOnClickedListener(locUi["transform_loc_strength"].get_btn_p(), transform__loc_strength_p)
 
 
-            locUi["lbl_rotation"] = self.Label(self.__app, "Rotation", locUi["transform_loc_strength"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_rotation"] = Label(self.__app, "Rotation", locUi["transform_loc_strength"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_rotation"].set_alignment("center")
             locUi["lbl_rotation"].set_bold(True)
-            locUi["rot_x"] = self.Option(self.__app, self.Button, self.Label, "Pitch" ,locUi["lbl_rotation"].get_next_pos_v(), locUi["loc_z"].get_size())
-            locUi["rot_y"] = self.Option(self.__app, self.Button, self.Label, "Roll", locUi["rot_x"].get_next_pos_v(), locUi["rot_x"].get_size())
-            locUi["rot_z"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["rot_y"].get_next_pos_v(), locUi["rot_y"].get_size())
+            locUi["rot_x"] = Option(self.__app, Button, Label, "Pitch" ,locUi["lbl_rotation"].get_next_pos_v(), locUi["loc_z"].get_size())
+            locUi["rot_y"] = Option(self.__app, Button, Label, "Roll", locUi["rot_x"].get_next_pos_v(), locUi["rot_x"].get_size())
+            locUi["rot_z"] = Option(self.__app, Button, Label, "Heading", locUi["rot_y"].get_next_pos_v(), locUi["rot_y"].get_size())
             locUi["rot_x"].show_reset_button()
             locUi["rot_y"].show_reset_button()
 
-            locUi["transform_rot_strength"] = self.Option(self.__app, self.Button, self.Label, "Strength*", locUi["rot_z"].get_next_pos_v(), locUi["rot_z"].get_size())
+            locUi["transform_rot_strength"] = Option(self.__app, Button, Label, "Strength*", locUi["rot_z"].get_next_pos_v(), locUi["rot_z"].get_size())
             
-            locUi["lbl_rot_strength_exception"] = self.Label(self.__app, "*except roll", vec(locUi["transform_rot_strength"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_rot_strength_exception"] = Label(self.__app, "*except roll", vec(locUi["transform_rot_strength"].get_next_pos_v().x, self.__height), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_rot_strength_exception"].set_font_size(12)
 
             ac.addOnClickedListener(locUi["rot_x"].get_btn(), transform__rot_x)
@@ -545,27 +550,27 @@ class CamTool2(object):
         try:
             locUi = {}
             locSize = self.__ui["options"]["info"]["size"]
-            locUi["spline_record"] = self.Button(self.__app, "Record", self.__ui["options"]["info"]["start_pos"], locSize)
-            locUi["spline_speed"] = self.Option(self.__app, self.Button, self.Label, "Speed", locUi["spline_record"].get_next_pos_v() + vec(0, self.__margin.x), locSize)
+            locUi["spline_record"] = Button(self.__app, "Record", self.__ui["options"]["info"]["start_pos"], locSize)
+            locUi["spline_speed"] = Option(self.__app, Button, Label, "Speed", locUi["spline_record"].get_next_pos_v() + vec(0, self.__margin.x), locSize)
 
-            locUi["lbl_affect"] = self.Label(self.__app, "Strength", locUi["spline_speed"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            locUi["lbl_affect"] = Label(self.__app, "Strength", locUi["spline_speed"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
             locUi["lbl_affect"].set_alignment("center")
             locUi["lbl_affect"].set_bold(True)
 
-            locUi["spline_affect_loc_xy"] = self.Option(self.__app, self.Button, self.Label, "Location XY", locUi["lbl_affect"].get_next_pos_v(), locSize)
-            locUi["spline_affect_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", locUi["spline_affect_loc_xy"].get_next_pos_v(), locSize)
-            locUi["spline_affect_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["spline_affect_loc_z"].get_next_pos_v(), locSize)
-            locUi["spline_affect_roll"] = self.Option(self.__app, self.Button, self.Label, "Roll", locUi["spline_affect_pitch"].get_next_pos_v(), locSize)
-            locUi["spline_affect_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["spline_affect_roll"].get_next_pos_v(), locSize)
+            locUi["spline_affect_loc_xy"] = Option(self.__app, Button, Label, "Location XY", locUi["lbl_affect"].get_next_pos_v(), locSize)
+            locUi["spline_affect_loc_z"] = Option(self.__app, Button, Label, "Location Z", locUi["spline_affect_loc_xy"].get_next_pos_v(), locSize)
+            locUi["spline_affect_pitch"] = Option(self.__app, Button, Label, "Pitch", locUi["spline_affect_loc_z"].get_next_pos_v(), locSize)
+            locUi["spline_affect_roll"] = Option(self.__app, Button, Label, "Roll", locUi["spline_affect_pitch"].get_next_pos_v(), locSize)
+            locUi["spline_affect_heading"] = Option(self.__app, Button, Label, "Heading", locUi["spline_affect_roll"].get_next_pos_v(), locSize)
 
-            locUi["lbl_offset"] = self.Label(self.__app, "Offset", locUi["spline_affect_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            locUi["lbl_offset"] = Label(self.__app, "Offset", locUi["spline_affect_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
             locUi["lbl_offset"].set_alignment("center")
             locUi["lbl_offset"].set_bold(True)
-            locUi["spline_offset_pitch"] = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["lbl_offset"].get_next_pos_v(), locSize)
-            locUi["spline_offset_heading"] = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["spline_offset_pitch"].get_next_pos_v(), locSize)
-            locUi["spline_offset_loc_x"] = self.Option(self.__app, self.Button, self.Label, "Location X", locUi["spline_offset_heading"].get_next_pos_v(), locSize)
-            locUi["spline_offset_loc_z"] = self.Option(self.__app, self.Button, self.Label, "Location Z", locUi["spline_offset_loc_x"].get_next_pos_v(), locSize)
-            locUi["spline_offset_spline"] = self.Option(self.__app, self.Button, self.Label, "Spline", locUi["spline_offset_loc_z"].get_next_pos_v(), locSize)
+            locUi["spline_offset_pitch"] = Option(self.__app, Button, Label, "Pitch", locUi["lbl_offset"].get_next_pos_v(), locSize)
+            locUi["spline_offset_heading"] = Option(self.__app, Button, Label, "Heading", locUi["spline_offset_pitch"].get_next_pos_v(), locSize)
+            locUi["spline_offset_loc_x"] = Option(self.__app, Button, Label, "Location X", locUi["spline_offset_heading"].get_next_pos_v(), locSize)
+            locUi["spline_offset_loc_z"] = Option(self.__app, Button, Label, "Location Z", locUi["spline_offset_loc_x"].get_next_pos_v(), locSize)
+            locUi["spline_offset_spline"] = Option(self.__app, Button, Label, "Spline", locUi["spline_offset_loc_z"].get_next_pos_v(), locSize)
             locUi["spline_offset_spline"].show_reset_button()
 
             ac.addOnClickedListener(locUi["spline_record"].get_btn(), spline__record)
@@ -612,30 +617,30 @@ class CamTool2(object):
         try:
             locUi = {}
 
-            locUi["lbl_tracking"] = self.Label(self.__app, "Tracking", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_tracking"] = Label(self.__app, "Tracking", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_tracking"].set_alignment("center")
             locUi["lbl_tracking"].set_bold(True)
 
-            locUi["car_1"] = self.Option(self.__app, self.Button, self.Label, "Active car", locUi["lbl_tracking"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            locUi["tracking_mix"] = self.Option(self.__app, self.Button, self.Label, "Mix", locUi["car_1"].get_next_pos_v(), locUi["car_1"].get_size())
-            locUi["car_2"] = self.Option(self.__app, self.Button, self.Label, "Extra car", locUi["tracking_mix"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["car_1"] = Option(self.__app, Button, Label, "Active car", locUi["lbl_tracking"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["tracking_mix"] = Option(self.__app, Button, Label, "Mix", locUi["car_1"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["car_2"] = Option(self.__app, Button, Label, "Extra car", locUi["tracking_mix"].get_next_pos_v(), locUi["car_1"].get_size())
 
 
-            locUi["lbl_offset"] = self.Label(self.__app, "Offset", locUi["car_2"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_offset"] = Label(self.__app, "Offset", locUi["car_2"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_offset"].set_alignment("center")
             locUi["lbl_offset"].set_bold(True)
 
-            locUi["tracking_offset"]  = self.Option(self.__app, self.Button, self.Label, "Tracking", locUi["lbl_offset"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["tracking_offset"]  = Option(self.__app, Button, Label, "Tracking", locUi["lbl_offset"].get_next_pos_v(), locUi["car_1"].get_size())
 
-            locUi["tracking_offset_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["tracking_offset"].get_next_pos_v() + vec(0, self.__margin.x), locUi["car_1"].get_size())
-            locUi["tracking_offset_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["tracking_offset_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["tracking_offset_pitch"]  = Option(self.__app, Button, Label, "Pitch", locUi["tracking_offset"].get_next_pos_v() + vec(0, self.__margin.x), locUi["car_1"].get_size())
+            locUi["tracking_offset_heading"]  = Option(self.__app, Button, Label, "Heading", locUi["tracking_offset_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
 
-            locUi["lbl_strength"] = self.Label(self.__app, "Strength", locUi["tracking_offset_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_strength"] = Label(self.__app, "Strength", locUi["tracking_offset_heading"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_strength"].set_alignment("center")
             locUi["lbl_strength"].set_bold(True)
 
-            locUi["tracking_strength_pitch"]  = self.Option(self.__app, self.Button, self.Label, "Pitch", locUi["lbl_strength"].get_next_pos_v(), locUi["car_1"].get_size())
-            locUi["tracking_strength_heading"]  = self.Option(self.__app, self.Button, self.Label, "Heading", locUi["tracking_strength_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["tracking_strength_pitch"]  = Option(self.__app, Button, Label, "Pitch", locUi["lbl_strength"].get_next_pos_v(), locUi["car_1"].get_size())
+            locUi["tracking_strength_heading"]  = Option(self.__app, Button, Label, "Heading", locUi["tracking_strength_pitch"].get_next_pos_v(), locUi["car_1"].get_size())
 
             ac.addOnClickedListener(locUi["tracking_offset"].get_btn_m(), tracking__offset_m)
             ac.addOnClickedListener(locUi["tracking_offset"].get_btn(), tracking__offset)
@@ -677,36 +682,36 @@ class CamTool2(object):
         try:
             locUi = {}
 
-            locUi["lbl_activation"] = self.Label(self.__app, "Activation", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_activation"] = Label(self.__app, "Activation", self.__ui["options"]["info"]["start_pos"], vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_activation"].set_alignment("center")
             locUi["lbl_activation"].set_bold(True)
 
-            locUi["camera_in"] = self.Editable_Button(self.__app, self.Button, self.Input, self.Label, "Camera in", locUi["lbl_activation"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
+            locUi["camera_in"] = Editable_Button(self.__app, Button, Input, Label, "Camera in", locUi["lbl_activation"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height) )
             ac.addOnClickedListener(locUi["camera_in"].get_btn(), camera__camera_in__show_input)
             ac.addOnValidateListener(locUi["camera_in"].get_input(), camera__camera_in__hide_input)
 
-            locUi["camera_pit"] = self.Option(self.__app, self.Button, self.Label, "True", locUi["camera_in"].get_next_pos_v(), locUi["camera_in"].get_size(), True, False, "Pit only")
+            locUi["camera_pit"] = Option(self.__app, Button, Label, "True", locUi["camera_in"].get_next_pos_v(), locUi["camera_in"].get_size(), True, False, "Pit only")
 
 
-            locUi["lbl_camera"] = self.Label(self.__app, "Camera", locUi["camera_pit"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_camera"] = Label(self.__app, "Camera", locUi["camera_pit"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_camera"].set_alignment("center")
             locUi["lbl_camera"].set_bold(True)
 
-            locUi["camera_focus_point"] = self.Option(self.__app, self.Button, self.Label, "Focus point", locUi["lbl_camera"].get_next_pos_v(), locUi["camera_pit"].get_size())
-            locUi["camera_use_tracking_point"] = self.Option( self.__app, self.Button, self.Label, "True", locUi["camera_focus_point"].get_next_pos_v(), locUi["camera_focus_point"].get_size(), True, False, "Autofocus" )
+            locUi["camera_focus_point"] = Option(self.__app, Button, Label, "Focus point", locUi["lbl_camera"].get_next_pos_v(), locUi["camera_pit"].get_size())
+            locUi["camera_use_tracking_point"] = Option( self.__app, Button, Label, "True", locUi["camera_focus_point"].get_next_pos_v(), locUi["camera_focus_point"].get_size(), True, False, "Autofocus" )
 
-            locUi["camera_fov"] = self.Option(self.__app, self.Button, self.Label, "FOV", locUi["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size())
+            locUi["camera_fov"] = Option(self.__app, Button, Label, "FOV", locUi["camera_focus_point"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size())
             
-            locUi["camera_use_specific_cam"] = self.Option( self.__app, self.Button, self.Label, "Camtool",locUi["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size(), True, True, "Specific cam" )
+            locUi["camera_use_specific_cam"] = Option( self.__app, Button, Label, "Camtool",locUi["camera_fov"].get_next_pos_v() + vec(0, self.__margin.x + self.__btn_height), locUi["camera_focus_point"].get_size(), True, True, "Specific cam" )
 
 
-            locUi["lbl_shake"] = self.Label(self.__app, "Shake", locUi["camera_use_specific_cam"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["lbl_shake"] = Label(self.__app, "Shake", locUi["camera_use_specific_cam"].get_next_pos_v() + vec(0, self.__margin.x), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
             locUi["lbl_shake"].set_alignment("center")
             locUi["lbl_shake"].set_bold(True)
 
 
-            locUi["camera_shake"] = self.Option(self.__app, self.Button, self.Label, "Camera", locUi["lbl_shake"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
-            locUi["camera_offset_shake"] = self.Option(self.__app, self.Button, self.Label, "Tracking", locUi["camera_shake"].get_next_pos_v(), locUi["camera_shake"].get_size())
+            locUi["camera_shake"] = Option(self.__app, Button, Label, "Camera", locUi["lbl_shake"].get_next_pos_v(), vec(self.__ui["options"]["info"]["width"], self.__btn_height))
+            locUi["camera_offset_shake"] = Option(self.__app, Button, Label, "Tracking", locUi["camera_shake"].get_next_pos_v(), locUi["camera_shake"].get_size())
 
 
             ac.addOnClickedListener(locUi["camera_shake"].get_btn_p(), camera__shake_p)
@@ -1108,11 +1113,11 @@ class CamTool2(object):
     def __update_mode(self):
         try:
             if data.active_mode == "pos":
-                self.__ui["header"]["mode-pos"].set_background("pos_active", 0)
-                self.__ui["header"]["mode-time"].set_background("time", 0)
+                self.__ui["header"]["mode-pos"].set_background(G_IMG_POSITION_ACTIVE, 0)
+                self.__ui["header"]["mode-time"].set_background(G_IMG_TIME, 0)
             else:
-                self.__ui["header"]["mode-pos"].set_background("pos", 0)
-                self.__ui["header"]["mode-time"].set_background("time_active", 0)
+                self.__ui["header"]["mode-pos"].set_background(G_IMG_POSITION, 0)
+                self.__ui["header"]["mode-time"].set_background(G_IMG_TIME_ACTIVE, 0)
         except Exception as e:
             debug(e)
 
@@ -1418,7 +1423,10 @@ class CamTool2(object):
             #if app is activated, take control over camera
             if self.__active_app:
                 locCameraData = self.data("camera", False)
-                InterpolateFrame.interpolate(self, locCameraData, interpolation, data, ctt, cam, dt, info, replay, strength_inv, self.__the_x)
+                loc_camera_use_specific_cam = locCameraData.camera_use_specific_cam
+
+                if loc_camera_use_specific_cam == -1:
+                    InterpolateFrame.interpolate(self, locCameraData, interpolation, data, ctt, cam, dt, info, replay, strength_inv, self.__the_x)
                 
                 #---------------------------------------------------------------
                 #things that only need to change when the looking cam changes
@@ -1427,34 +1435,33 @@ class CamTool2(object):
                     self.setLookingCamAsBold()  
                     #---------------------------------------------------------------
                     #set the specific cam mode 
-                    self.camera_use_specific_cam = locCameraData.camera_use_specific_cam
-                    if self.camera_use_specific_cam == 0:
+                    if loc_camera_use_specific_cam == 0:
                         self.cam_mod.setSterringWheel()
-                    elif self.camera_use_specific_cam == 1:
+                    elif loc_camera_use_specific_cam == 1:
                         self.cam_mod.setFreeOutside()
-                    elif self.camera_use_specific_cam == 2:
+                    elif loc_camera_use_specific_cam == 2:
                         self.cam_mod.setHelicopter()
-                    elif self.camera_use_specific_cam == 3:
+                    elif loc_camera_use_specific_cam == 3:
                         self.cam_mod.setRoof()
-                    elif self.camera_use_specific_cam == 4:
+                    elif loc_camera_use_specific_cam == 4:
                         self.cam_mod.setWheel()
-                    elif self.camera_use_specific_cam == 5:
+                    elif loc_camera_use_specific_cam == 5:
                         self.cam_mod.setInsideCar()
-                    elif self.camera_use_specific_cam == 6:
+                    elif loc_camera_use_specific_cam == 6:
                         self.cam_mod.setPassenger()
-                    elif self.camera_use_specific_cam == 7:
+                    elif loc_camera_use_specific_cam == 7:
                         self.cam_mod.setDriver()
-                    elif self.camera_use_specific_cam == 8:
+                    elif loc_camera_use_specific_cam == 8:
                         self.cam_mod.setBehind()
-                    elif self.camera_use_specific_cam == 9:
+                    elif loc_camera_use_specific_cam == 9:
                         self.cam_mod.setChaseCam()
-                    elif self.camera_use_specific_cam == 10:
+                    elif loc_camera_use_specific_cam == 10:
                         self.cam_mod.setChaseCamFar()
-                    elif self.camera_use_specific_cam == 11:
+                    elif loc_camera_use_specific_cam == 11:
                         self.cam_mod.setHood()
-                    elif self.camera_use_specific_cam == 12:
+                    elif loc_camera_use_specific_cam == 12:
                         self.cam_mod.setSubjective()
-                    elif self.camera_use_specific_cam == 13:
+                    elif loc_camera_use_specific_cam == 13:
                         self.cam_mod.setCockpit()
                     else:
                         self.cam_mod.setCamtool()
@@ -2075,11 +2082,11 @@ class CamTool2(object):
 
     def activate(self):
         self.__active_app = True
-        self.__ui["header"]["activate"].set_background("on", 0, 0)
+        self.__ui["header"]["activate"].set_background(G_IMG_ON, 0, 0)
 
     def desactivate(self):
             self.__active_app = False
-            self.__ui["header"]["activate"].set_background("off", 0, 0)
+            self.__ui["header"]["activate"].set_background(G_IMG_OFF, 0, 0)
 
     def on_click__activate(self):
         if self.__active_app:
@@ -2123,437 +2130,6 @@ class CamTool2(object):
 
 
 #-------------------------------------------------------------------------------
-    class Button(object):
-        def __init__(self, app, name="Button", pos=vec(0,20), size=vec(100, 20), color=vec3(0.5,0.5,0.5), align="center" ):
-            if align == "left":
-                self.__name = " "+name
-            else:
-                self.__name = name
-            self.__btn = ac.addButton( app, "{0}".format(self.__name) )
-            self.__size = size
-            self.__pos = pos
-            self.__enabled = True
-            self.__color = color
-            ac.setSize( self.__btn, self.__size.x, self.__size.y )
-            ac.setPosition( self.__btn, self.__pos.x, self.__pos.y)
-            ac.setBackgroundColor( self.__btn, color.x, color.y, color.z)
-            ac.setBackgroundOpacity( self.__btn, 0.5)
-            ac.setFontAlignment( self.__btn, "{0}".format(align) )
-            ac.setCustomFont(self.__btn, gFont, 0, 0)
-            ac.setFontSize(self.__btn, 14)
-
-        def bold(self, val):
-            if val:
-                ac.setCustomFont(self.__btn, gFont, 0, 1)
-            else:
-                ac.setCustomFont(self.__btn, gFont, 0, 0)
-            ac.setFontSize(self.__btn, 14)
-
-        def set_background(self, name, opacity=0.5, border=1):
-            try:
-                ac.drawBackground( self.__btn, 1 )
-                ac.drawBorder( self.__btn, border )
-                ac.setBackgroundOpacity( self.__btn, opacity)
-                ac.setBackgroundTexture( self.__btn, str(gImgPath) + str(name) + ".png" )
-            except Exception as e:
-                debug(e)
-
-        def disable(self):
-            self.__enabled = False
-            ac.setFontColor( self.__btn, 1, 1, 1, 0.5)
-
-        def enable(self):
-            self.__enabled = True
-            ac.setFontColor( self.__btn, 1, 1, 1, 1)
-
-        def is_enabled(self):
-            return self.__enabled
-
-        def get_btn(self):
-            return self.__btn
-
-        def get_size(self):
-            return self.__size
-
-        def get_pos(self):
-            return self.__pos
-
-        def get_next_pos(self):
-            return vec(self.__pos.x + self.__size.x, self.__pos.y)
-
-        def get_next_pos_v(self):
-            return vec(self.__pos.x, self.__pos.y + self.__size.y)
-
-        def get_text(self):
-            return ac.getText(self.__btn)
-
-        def set_pos(self, pos):
-            try:
-                self.__pos.x = pos.x
-                self.__pos.y = pos.y
-                ac.setPosition( self.__btn, self.__pos.x, self.__pos.y )
-            except Exception as e:
-                debug(e)
-
-        def set_size(self, size):
-            self.__size = size
-            ac.setSize( self.__btn, self.__size.x, self.__size.y )
-
-        def set_text(self, text, b_round=False, unit=None):
-            locValue = text
-            self.unit = ""
-            if b_round:
-                if unit == "%":
-                    locValue *= 100
-                    self.unit = "%"
-
-                if unit == "degrees":
-                    locValue = math.degrees(locValue)
-                    self.unit = "°"
-
-                if unit == "time":
-                    self.unit = " s"
-
-                if unit == "m":
-                    self.unit = " m"
-
-                if unit == "%":
-                    ac.setText(self.__btn, "{0:.0f}{1}".format(float(locValue), self.unit))
-                else:
-                    ac.setText(self.__btn, "{0:.2f}{1}".format(float(locValue), self.unit))
-            else:
-                ac.setText(self.__btn, "{0}".format(locValue))
-
-        def show(self):
-            ac.setVisible(self.__btn, 1)
-
-        def hide(self):
-            ac.setVisible(self.__btn, 0)
-
-        def highlight(self, b_highlight):
-            if b_highlight:
-                ac.setBackgroundColor( self.__btn, 0.75, 0.1, 0.1 )
-                ac.setBackgroundOpacity( self.__btn, 1 )
-            else:
-                ac.setBackgroundColor( self.__btn, 0.5,0.5,0.5 )
-                ac.setBackgroundOpacity( self.__btn, 0.5 )
-
-    class Div(object):
-        def __init__(self, app, pos=vec(0,0), size=vec(100, 100), color=vec3(0,0,0), opacity=0.5):
-            try:
-                self.__div = ac.addButton( app, "" )
-                self.__size = size
-                self.__pos = pos
-                ac.setSize( self.__div, self.__size.x, self.__size.y )
-                ac.setPosition( self.__div, self.__pos.x, self.__pos.y )
-                ac.setBackgroundColor( self.__div, color.x, color.y, color.z)
-                ac.setBackgroundOpacity( self.__div, opacity)
-                ac.drawBorder(self.__div, 0)
-            except Exception as e:
-                debug(e)
-
-        def get_btn(self):
-            return self.__div
-
-        def get_size(self):
-            return self.__size
-
-        def get_next_pos_v(self):
-            return self.__pos + vec(0, self.__size.y)
-
-        def show(self):
-            ac.setVisible(self.__div, 1)
-
-        def hide(self):
-            ac.setVisible(self.__div, 0)
-
-        def get_pos(self):
-            return self.__pos
-
-        def set_pos(self, pos):
-            self.__pos = pos
-            ac.setPosition( self.__div, self.__pos.x, self.__pos.y )
-
-        def set_size(self, size):
-            self.__size = size
-            ac.setSize( self.__div, self.__size.x, self.__size.y )
-
-    class Label(object):
-        def __init__(self, app, text, pos, size=vec(100, 24), font_size=14):
-            self.__lbl = ac.addLabel(app, "{0}".format(text))
-            self.__size = size
-            self.__pos = pos
-            self.__font_size = font_size
-            self.set_pos(pos)
-            self.set_size(size)
-            ac.setCustomFont(self.__lbl, gFont, 0, 0)
-            ac.setFontSize(self.__lbl, font_size)
-
-        def set_alignment(self, value):
-            ac.setFontAlignment(self.__lbl, value)
-
-        def get_pos(self):
-            return self.__pos
-
-        def hide(self):
-            ac.setVisible(self.__lbl, 0)
-        def show(self):
-            ac.setVisible(self.__lbl, 1)
-
-        def get_label(self):
-            return self.__lbl
-
-        def get_size(self):
-            return self.__size
-
-        def set_size(self, size):
-            try:
-                ac.setSize(self.__lbl, size.x, size.y)
-            except Exception as e:
-                debug(e)
-
-        def set_bold(self, value):
-            if value:
-                ac.setCustomFont(self.__lbl, gFont, 0, 1)
-            else:
-                ac.setCustomFont(self.__lbl, gFont, 0, 0)
-            ac.setFontSize(self.__lbl, self.__font_size)
-
-        def set_text(self, text):
-            ac.setText(self.__lbl, "{0}".format(text))
-
-        def set_font_size(self, size):
-            ac.setFontSize( self.__lbl, size )
-
-        def set_pos(self, pos):
-            try:
-                ac.setPosition(self.__lbl, pos.x, pos.y)
-            except Exception as e:
-                debug(e)
-
-        def get_next_pos(self):
-            return vec(self.__pos.x + self.__size.x, self.__pos.y)
-
-        def get_next_pos_v(self):
-            return vec(self.__pos.x, self.__pos.y + self.__size.y)
-
-    class Input(object):
-        def __init__(self, app, name="Button", pos=vec(), size=vec(200,30), bgcol=vec3(0.5,0.5,0.5)):
-            self.__input = ac.addTextInput( app, "{0}".format(name))
-            ac.setPosition( self.__input, pos.x, pos.y )
-            ac.setSize( self.__input, size.x, size.y )
-            ac.setText( self.__input, "{0}".format(name))
-            ac.setFontAlignment( self.__input, "center")
-            ac.setBackgroundColor( self.__input, bgcol.x, bgcol.y, bgcol.z)
-
-        def get_text(self):
-            return ac.getText(self.__input)
-
-        def get_input(self):
-            return self.__input
-
-        def get_next_pos_v(self):
-            return vec(ac.getPosition(self.__input)[0], ac.getPosition(self.__input)[1] + ac.getSize(self.__input)[1])
-
-        def set_text(self, text):
-            ac.setText(self.__input, "{0}".format(text))
-
-        def hide(self):
-            ac.setVisible(self.__input, 0)
-
-        def show(self):
-            ac.setVisible(self.__input, 1)
-
-    class Editable_Button(object):
-        def __init__(self, app, Button, Input, Label, name="", pos=vec(200,200), size=vec(100,24) ):
-            self.active = False
-            if name == "":
-                self.__lbl_size = vec(0, 0)
-            else:
-                self.__lbl_size = vec(100, size.y)
-
-            self.__pos = pos
-            self.__size = size
-            self.__btn = Button(app, name, vec(pos.x + self.__lbl_size.x, pos.y), vec(size.x - self.__lbl_size.x, size.y))
-            self.__input = Input(app, name, vec(pos.x + self.__lbl_size.x, pos.y), vec(size.x - self.__lbl_size.x, size.y), vec3(1,0,0))
-            self.__label = Label(app, name+':', pos, self.__lbl_size)
-            ac.setFontSize( self.__label.get_label(), 14 )
-            self.__input.hide()
-
-        def get_btn(self):
-            return self.__btn.get_btn()
-
-        def get_input(self):
-            return self.__input.get_input()
-
-        def set_focus(self):
-            ac.setFocus( self.__input.get_input(), 1)
-
-        def hide_input(self):
-            self.active = False
-            locValue = ac.getText(self.get_input())
-            locValue = locValue.replace(",", ".")
-            self.__btn.set_text(locValue, True, "m")
-            ac.setVisible(self.get_input(), 0)
-            ac.setVisible(self.get_btn(), 1)
-
-        def show_input(self):
-            try:
-                self.active = True
-                #ac.setText(self.get_input(), ac.getText(self.get_btn()))
-                ac.setText(self.get_input(), "")
-                self.__input.show()
-                self.__btn.hide()
-            except Exception as e:
-                debug(e)
-
-        def hide(self):
-            self.__btn.hide()
-            self.__input.hide()
-            self.__label.hide()
-
-        def show(self):
-            if self.active:
-                self.__btn.hide()
-                self.__input.show()
-                self.__label.show()
-            else:
-                self.__btn.show()
-                self.__input.hide()
-                self.__label.show()
-
-        def get_size(self):
-            return self.__size
-
-        def get_true_size(self):
-            return self.__size - vec(self.__lbl_size.x, 0)
-
-        def get_next_pos_v(self):
-            return vec(self.__pos.x, self.__pos.y + self.__size.y)
-
-        def get_next_true_pos_v(self):
-            return vec(self.__pos.x + self.__lbl_size.x, self.__pos.y + self.__size.y)
-
-        def get_input_text(self):
-            return self.__input.get_text()
-
-        def set_text(self, text, b_round=False, unit=None):
-            self.__btn.set_text(text, b_round, unit)
-
-    class Option(object):
-        def __init__(self, app, Button, Label, name="Option", pos=vec(200,200), size=vec(100,24), label=True, arrows=True, label_text="" ):
-            if label:
-                self.__lbl_width = 100
-                if label_text == "":
-                    self.__lbl_name = name
-                else:
-                    self.__lbl_name = label_text
-            else:
-                self.__lbl_width = 0
-
-            self.__pos = pos
-            self.__size = size
-            self.__enabled = True
-            self.__value = None
-            self.__reset_btn_enabled = False
-
-            if arrows:
-                self.__btn_sub = Button(app, "", pos + vec(self.__lbl_width, 0), vec(size.y, size.y))
-                self.__btn = Button(app, name, self.__btn_sub.get_next_pos(), size - vec(self.__lbl_width + size.y * 2, 0))
-                self.__btn_add = Button(app, "", self.__btn.get_next_pos(), vec(size.y, size.y))
-                self.__btn_sub.set_background("prev")
-                self.__btn_add.set_background("next")
-            else:
-                self.__btn_sub = Button(app, "", vec(-999999, -99999), vec())
-                self.__btn_add = Button(app, "", vec(-999999, -99999), vec())
-
-                self.__btn = Button(app, name, pos + vec(self.__lbl_width, 0), size - vec(self.__lbl_width, 0))
-
-            self.__btn_reset = Button(app, "", self.__btn_add.get_pos() - vec(self.__btn_add.get_size().x, 0), vec(size.y, size.y))
-            self.__btn_reset.set_background("reset")
-            self.__btn_reset.hide()
-
-            if self.__lbl_name != "":
-                self.__lbl_name += ':'
-            self.__lbl = Label(app, self.__lbl_name, pos, vec( self.__lbl_width, size.y ))
-            self.__lbl.set_font_size(14)
-
-        def show_reset_button(self):
-            self.__reset_btn_enabled = True
-            self.__btn.set_size(vec(self.__btn.get_size().x - self.__btn_reset.get_size().x, self.__btn.get_size().y))
-            self.__btn_reset.show()
-
-        def disable(self):
-            self.__enabled = False
-            self.__btn.disable()
-            self.__btn_sub.set_background("prev_disabled")
-            self.__btn_add.set_background("next_disabled")
-
-        def enable(self):
-            self.__enabled = True
-            self.__btn.enable()
-            self.__btn_sub.set_background("prev")
-            self.__btn_add.set_background("next")
-
-        def is_enabled(self):
-            return self.__enabled
-
-        def highlight(self, b_highlight):
-            if b_highlight:
-                self.__btn.highlight(True)
-            else:
-                self.__btn.highlight(False)
-
-        def hide(self):
-            self.__lbl.hide()
-            self.__btn_sub.hide()
-            self.__btn.hide()
-            self.__btn_add.hide()
-            self.__btn_reset.hide()
-
-        def show(self):
-            self.__lbl.show()
-            self.__btn_sub.show()
-            self.__btn.show()
-            self.__btn_add.show()
-            if self.__reset_btn_enabled:
-                self.__btn_reset.show()
-
-        def get_btn_reset(self):
-            return self.__btn_reset.get_btn()
-
-        def get_btn(self):
-            return self.__btn.get_btn()
-
-        def get_btn_m(self):
-            return self.__btn_sub.get_btn()
-
-        def get_btn_p(self):
-            return self.__btn_add.get_btn()
-
-        def set_text(self, value, b_round=False, unit=None):
-            try:
-                self.__btn.set_text(value, b_round, unit)
-
-            except Exception as e:
-                debug(e)
-
-        def get_value(self):
-            return self.__value
-
-        def get_text(self):
-            ac.getText( self.__btn.get_btn() )
-
-        def get_true_next_pos_v(self):
-            return self.__btn_sub.get_pos() + vec(0, self.__size.y)
-
-        def get_next_pos_v(self):
-            return vec(self.__pos.x, self.__pos.y + self.__size.y)
-
-        def get_size(self):
-            return self.__size
-
-#===============================================================================
 
 def file_form__wrapper(*arg):
     click_pos = arg
