@@ -33,6 +33,7 @@ from classes.InterpolateFrame import InterpolateFrame
 from classes.CubicBezierInterpolation import interpolation
 from classes.general import *
 from classes.constants import *
+from files.data_files import data_files
 from ui.button import Button
 from ui.editable_button import Editable_Button
 from ui.div import Div
@@ -45,7 +46,6 @@ gUI = None
 gTimer_mouse = 0
 gTimer_volume = 1
 gPrev_zoom_mode = "in"
-gDataPath = os.path.abspath(__file__).replace("\\",'/').replace( os.path.basename(__file__),'') + "data/"
 gPrevCar = 0
 gInitVolume = 1
 def acMain(ac_version):
@@ -146,7 +146,6 @@ class CamTool2(object):
             self.__lock = {"interpolate_init" : False}
 
             self.mouselook_start_camera = None
-
             self.__max_keyframes = self.__max_btns_in_column * 3 - 1
             self.__max_cameras = self.__max_btns_in_column * 10 - 1
             self.__btn_height = 24 * self.__scale
@@ -247,6 +246,8 @@ class CamTool2(object):
             locUi["activate"].set_background(G_IMG_OFF, 0, 0)
             ac.addOnClickedListener(locUi["activate"].get_btn(), header__activate)
 
+            data_files.load_datas_for_hotkey()
+
             keyboard.add_hotkey('f10', self.activate, args=())
             keyboard.add_hotkey('f1', self.desactivate, args=())
             keyboard.add_hotkey('f2', self.desactivate, args=())
@@ -254,7 +255,13 @@ class CamTool2(object):
             keyboard.add_hotkey('f5', self.desactivate, args=())
             keyboard.add_hotkey('f6', self.desactivate, args=())
             keyboard.add_hotkey('f7', self.desactivate, args=())
-            
+
+            keyboard.add_hotkey('y', self.load_from_hotkey_1, args=())
+            keyboard.add_hotkey('u', self.load_from_hotkey_2, args=())
+            keyboard.add_hotkey('i', self.load_from_hotkey_3, args=())
+            keyboard.add_hotkey('o', self.load_from_hotkey_4, args=())
+            keyboard.add_hotkey('p', self.load_from_hotkey_5, args=())
+
             # locUi["header_replay_mm"] = Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
             # locUi["header_replay_m"] = Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
             # locUi["header_jump_to_keyframe"] = Button(self.__app, "^", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
@@ -961,7 +968,7 @@ class CamTool2(object):
 
     def __update_file_form(self):
         try:
-            self.files = []
+            config_files = []
 
             #visibility
             for locKey, locVal in self.__ui["file_form"].items():
@@ -981,17 +988,8 @@ class CamTool2(object):
 
             if self.__file_form_visible:
                 #update files
-                for file in os.listdir(gDataPath):
-                    if file.endswith(".json"):
-                        self.file_name = file.split(".")[0]
-                        self.file_name = self.file_name.split("-")
-
-                        self.track_name = ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0)
-
-                        if self.file_name[0] == self.track_name:
-                            self.files.append(self.file_name[1])
-
-                self.__n_files = len(self.files)
+                config_files = data_files.get_datas_for_current_track()
+                self.__n_files = len(config_files)
 
                 #update text
                 for i in range(self.__max_btns_in_column):
@@ -1007,7 +1005,7 @@ class CamTool2(object):
                             self.__ui["file_form"]["buttons"][0].set_text("Show previous")
 
                         else:
-                            self.__ui["file_form"]["buttons"][i].set_text(self.files[self.file_index])
+                            self.__ui["file_form"]["buttons"][i].set_text(config_files[self.file_index])
 
                         if i == self.__max_btns_in_column - 1:
                             if self.__n_files - (self.__max_btns_in_column * self.__file_form_page) > self.__max_btns_in_column:
@@ -2079,6 +2077,17 @@ class CamTool2(object):
                 self.set_active_cam(data.get_n_cameras() - 1)
         except Exception as e:
             debug(e)
+
+    def load_from_hotkey_1(self):
+        data.load_from_hotkey(0)
+    def load_from_hotkey_2(self):
+        data.load_from_hotkey(1)
+    def load_from_hotkey_3(self):
+        data.load_from_hotkey(2)
+    def load_from_hotkey_4(self):
+        data.load_from_hotkey(3)
+    def load_from_hotkey_5(self):
+        data.load_from_hotkey(4)
 
     def activate(self):
         self.__active_app = True
