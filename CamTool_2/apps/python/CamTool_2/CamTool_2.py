@@ -4,7 +4,6 @@ kasperski95@gmail.com
 '''
 
 from classes.general import debug, normalize_angle, vec, vec3
-import keyboard
 
 import sys
 import os
@@ -21,6 +20,8 @@ else:
     sysdir=os.path.dirname(__file__)+'/stdlib'
 sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
+
+import keyboard
 
 from stdlib.sim_info import info
 from stdlib64.CamToolTool import ctt
