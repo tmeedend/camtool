@@ -4,6 +4,7 @@ import os
 import json
 
 from classes.general import *
+from files.data_files import data_files
 
 
 class Data(object):
@@ -27,9 +28,12 @@ class Data(object):
             if not self.init:
                 self.init = True
                 try:
-                    self.load(main_file, "init")
-                except Exception:
-                    pass
+                    # loading first data file if found
+                    data = data_files.get_data_for_hotkey(0)
+                    if data != None:
+                        self.load_data(data)
+                except Exception as e:
+                    debug(e)
 
             for self.i in range(32): #max_cars
                 if ac.isConnected(self.i) == 1:
@@ -194,118 +198,116 @@ class Data(object):
 
     def __save(self, main_file, name):
         try:
-            self.file_name = name
-            self.file_name = self.file_name.replace("-", "_")
-            self.file_name = self.file_name.replace(".", "_")
-            self.track_name = ac.getTrackName(0)
-            self.layout = ac.getTrackConfiguration(0)
-            self.file_name = self.track_name + "_" + self.layout + "-" + self.file_name
-            self.path = os.path.abspath(main_file).replace("\\",'/').replace( os.path.basename(main_file),'')+"data/"+self.file_name+".json"
-
-            self.data = {}
+            data = {}
 
             #modes
-            self.data["pit_spline"] = self.pit_spline
-            self.data["track_spline"] = self.track_spline
+            data["pit_spline"] = self.pit_spline
+            data["track_spline"] = self.track_spline
             for self.key0, self.val0 in self.mode.items():
-                self.data[self.key0] = {}
-                self.data[self.key0] = []
+                data[self.key0] = {}
+                data[self.key0] = []
 
                 #cameras
                 for self.i in range(len(self.mode[self.key0])):
-                    self.data[self.key0].append({})
+                    data[self.key0].append({})
 
                     #cameras attributes
                     for self.key1, self.val1 in vars(self.mode[self.key0][self.i]).items():
                         if self.key1 != "keyframes":
-                            self.data[self.key0][self.i][self.key1] = self.val1
+                            data[self.key0][self.i][self.key1] = self.val1
 
                         # if self.key1 == "spline":
-                        #     self.data[self.key0][self.i]["spline"] = {}
+                        #     data[self.key0][self.i]["spline"] = {}
                         #     for self.key2, self.val2 in self.mode[self.key0][self.i].spline.items():
                         #         for self.k in range(len(self.mode[self.key0][self.i].spline["the_x"])):
-                        #             self.data[self.key0][self.i]["spline"][self.key2] = self.val2[self.k]
+                        #             data[self.key0][self.i]["spline"][self.key2] = self.val2[self.k]
 
                         if self.key1 == "keyframes":
                             #keyframes
-                            self.data[self.key0][self.i]["keyframes"] = []
+                            data[self.key0][self.i]["keyframes"] = []
                             for self.j in range(len(self.mode[self.key0][self.i].keyframes)):
-                                self.data[self.key0][self.i]["keyframes"].append({})
+                                data[self.key0][self.i]["keyframes"].append({})
 
                                 #keyframes attributes
                                 for self.key2, self.val2 in vars(self.mode[self.key0][self.i].keyframes[self.j]).items():
 
                                     if self.key2 != "interpolation":
                                         if self.val2 != None:
-                                            self.data[self.key0][self.i]["keyframes"][self.j][self.key2] = self.val2
+                                            data[self.key0][self.i]["keyframes"][self.j][self.key2] = self.val2
                                     else:
                                         #interpolation values:
-                                        self.data[self.key0][self.i]["keyframes"][self.j]["interpolation"] = {}
+                                        data[self.key0][self.i]["keyframes"][self.j]["interpolation"] = {}
                                         for self.key3, self.val3 in self.mode[self.key0][self.i].keyframes[self.j].interpolation.items():
                                             if self.val3 != None:
-                                                self.data[self.key0][self.i]["keyframes"][self.j]["interpolation"][self.key3] = self.val3
+                                                data[self.key0][self.i]["keyframes"][self.j]["interpolation"][self.key3] = self.val3
 
-
-            with open(self.path,"w") as output_file:
-                json.dump(self.data, output_file, indent=2)
+            data_files.save_data(data, name)
 
             return True
         except Exception as e:
-            debug(e)
+            debug(e) 
 
         return False
 
-    def load(self, main_file, file_name):
-        try:
-            self.track_name = ac.getTrackName(0)
-            self.layout = ac.getTrackConfiguration(0)
-            self.file_name = self.track_name + "_" + self.layout + "-" + file_name
-            self.path = os.path.abspath(main_file).replace("\\",'/').replace( os.path.basename(main_file),'')+"data/"+self.file_name+".json"
-            with open(self.path) as data_file:
-                self.data = json.load(data_file)
+    def load_from_hotkey(self, i):
+        data = data_files.get_data_for_hotkey(i)
+        if data != None:
+            self.load_data(data)
+        else:
+            ac.log("no data for hotkey" + str(i))
 
+    def load(self, main_file, data_name):  
+
+        try:
+            return data_files.load_data(data_name)
+        except Exception as e:
+            debug(e)
+        return False
+
+    def load_data(self, data):
+        try:
             self.mode = {"pos": [self.Camera_Data()], "time": [self.Camera_Data()]}
 
             #self.mode = {}
 
 
             #modes
-            for self.key0, self.val0 in self.data.items():
+            for self.key0, self.val0 in data.items():
                 if self.key0 != "pit_spline" and self.key0 != "track_spline":
                     self.mode[self.key0] = []
 
                     #cameras
-                    for self.i in range(len(self.data[self.key0])):
+                    for self.i in range(len(data[self.key0])):
                         self.mode[self.key0].append(self.Camera_Data())
 
                         #cameras attributes
-                        for self.key1, self.val1 in self.data[self.key0][self.i].items():
+                        for self.key1, self.val1 in data[self.key0][self.i].items():
                             if self.key1 != "keyframes":
                                 self.mode[self.key0][self.i].set_attr(self.key1, self.val1)
                             else:
 
                                 #keyframes
                                 self.mode[self.key0][self.i].keyframes = []
-                                for self.j in range(len(self.data[self.key0][self.i]["keyframes"])):
+                                for self.j in range(len(data[self.key0][self.i]["keyframes"])):
                                     self.mode[self.key0][self.i].add_keyframe()
 
                                     #keyframes value
-                                    for self.key2, self.val2 in self.data[self.key0][self.i]["keyframes"][self.j].items():
+                                    for self.key2, self.val2 in data[self.key0][self.i]["keyframes"][self.j].items():
                                         if self.key2 != "interpolation":
                                             self.mode[self.key0][self.i].keyframes[self.j].set_attr(self.key2, self.val2)
                                         else:
 
                                             #interpolation
-                                            for self.key3, self.val3 in self.data[self.key0][self.i]["keyframes"][self.j]["interpolation"].items():
+                                            for self.key3, self.val3 in data[self.key0][self.i]["keyframes"][self.j]["interpolation"].items():
                                                 self.mode[self.key0][self.i].keyframes[self.j].interpolation[self.key3] = self.val3
 
             self.pit_spline = {"the_x":[], "loc_x":[], "loc_y":[], "loc_z":[], "rot_x":[], "rot_y":[], "rot_z":[]}
             self.track_spline = {"the_x":[], "loc_x":[], "loc_y":[], "loc_z":[], "rot_x":[], "rot_y":[], "rot_z":[]}
-            for self.key, self.val in self.data["pit_spline"].items():
+            for self.key, self.val in data["pit_spline"].items():
                 for self.i in range(len(self.val)):
                     self.pit_spline[self.key].append(self.val[self.i])
 
-            for self.key, self.val in self.data["track_spline"].items():
+            for self.key, self.val in data["track_spline"].items():
                 for self.i in range(len(self.val)):
                     self.track_spline[self.key].append(self.val[self.i])
 

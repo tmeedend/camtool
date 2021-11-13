@@ -2,6 +2,9 @@
 import os
 
 G_FONT = "Arial"
+
+G_DATA_PATH = "./apps/python/CamTool_2/data/"
+
 G_IMG_ROOT = "apps/python/CamTool_2/img/"
 
 

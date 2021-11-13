@@ -81,7 +81,7 @@ def debug(e):
     if running_in_ac:
         ac.console( 'CamTool 2: EXCEPTION IN (LINE {}): {}'.format(lineno, exc_obj) )
         ac.log( 'CamTool 2: EXCEPTION IN ({} LINE {}): {}'.format(filename, lineno, exc_obj) )
-    else:
+   # else:
         print( 'CamTool 2: EXCEPTION IN ({} LINE {}): {}'.format(filename, lineno, exc_obj) )
 
 def normalize_angle(current, val):
