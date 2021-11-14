@@ -5,7 +5,7 @@ from classes.general import debug
 
 class DataFiles:
     def __init__(self):
-        _data_for_hotkey = []
+        self._data_for_hotkey = []
 
     def _get_data_path(self, data_name):
         return G_DATA_PATH + ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0) + "-" + data_name +".json"
@@ -49,13 +49,22 @@ class DataFiles:
         return None
 
 
-    def save_data(self, data, data_name):
+    def save_data(self, data, name):
         #cleanup (but why?)
-        data_name = self.file_name.replace("-", "_")
-        data_name = self.file_name.replace(".", "_")
+        name = name.replace("-", "_")
+        name = name.replace(".", "_")
 
-        with open(self._get_data_path(data_name),"w") as output_file:
+        with open(self._get_data_path(name),"w") as output_file:
             json.dump(data, output_file, indent=2)
+        self.load_datas_for_hotkey()
 
     
+    def remove_data(self, name):
+        try:
+            path = self._get_data_path(name)
+            os.remove(path)
+        except Exception as e:
+            debug(e)
+        self.load_datas_for_hotkey()
+
 data_files = DataFiles()
