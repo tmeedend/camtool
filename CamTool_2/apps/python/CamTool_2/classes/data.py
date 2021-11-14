@@ -186,17 +186,20 @@ class Data(object):
         self.track_spline = {"the_x":[], "loc_x":[], "loc_y":[], "loc_z":[], "rot_x":[], "rot_y":[], "rot_z":[]}
         self.active_cam = 0
 
+    def remove_data(self, name):
+            data_files.remove_data(name)
+
     def save(self, main_file, name):
         try:
-            if self.__save(main_file, "tmp"):
-                self.__save(main_file, name)
-            self.remove_file(main_file, "tmp")
+            if self.__save("remove_me_tmp"):
+                self.__save(name)
+            data_files.remove_data("remove_me_tmp")
             return True
         except Exception as e:
             debug(e)
         return False
 
-    def __save(self, main_file, name):
+    def __save(self, name):
         try:
             data = {}
 
@@ -253,8 +256,6 @@ class Data(object):
         data = data_files.get_data_for_hotkey(i)
         if data != None:
             self.load_data(data)
-        else:
-            ac.log("no data for hotkey" + str(i))
 
     def load(self, main_file, data_name):  
 
@@ -317,16 +318,6 @@ class Data(object):
             debug(e)
 
         return False
-
-    def remove_file(self, main_file, file_name):
-        try:
-            self.track_name = ac.getTrackName(0)
-            self.layout = ac.getTrackConfiguration(0)
-            self.file_name = self.track_name + "_" + self.layout + "-" + file_name
-            self.path = os.path.abspath(main_file).replace("\\",'/').replace( os.path.basename(main_file),'')+"data/"+self.file_name+".json"
-            os.remove(self.path)
-        except Exception as e:
-            debug(e)
 
     #---------------------------------------------------------------------------
     #OTHER

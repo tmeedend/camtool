@@ -2131,7 +2131,7 @@ class CamTool2(object):
                     self.file_index = button_id + self.__file_form_page * self.__max_btns_in_column
                     self.file_index -= 2 * self.__file_form_page
                     if self.file_index < self.__n_files:
-                        data.remove_file(__file__, self.btn_text)
+                        data.remove_data(self.btn_text)
 
             if action == "close":
                 self.__file_form_visible = False
