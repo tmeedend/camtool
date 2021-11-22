@@ -16,13 +16,16 @@ class DataFiles:
         config_files = []
         for file in os.listdir(G_DATA_PATH):
             if file.endswith(".json"):
-                file_name = file.split(".")[0]
-                file_name = file_name.split("-")
+                index = file.rfind(".")
+                track_name = file[0:index]
+                index2 = track_name.rfind("-")
+                track_name = track_name[0:index2]
 
-                self.track_name = ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0)
+                expected_track_name = ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0)
+                if expected_track_name == track_name:
+                    dataname = file[index2+1:len(file) - 5]
+                    config_files.append(dataname)
 
-                if file_name[0] == self.track_name:
-                    config_files.append(file_name[1])
         return config_files
 
     def load_data(self, data_name):

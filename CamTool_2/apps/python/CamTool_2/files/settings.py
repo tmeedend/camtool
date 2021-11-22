@@ -1,4 +1,5 @@
 import json
+import ac
 
 from classes.general import debug
 from os.path import exists
@@ -11,7 +12,7 @@ class Settings:
         self.settings = {
             "enable_hotkeys": True,
             "load_last_used_data": True,
-            "last_used_data": None
+            "last_used_data": {}
         }
 
     def load_settings(self):
@@ -27,11 +28,16 @@ class Settings:
             json.dump(self.settings, output_file, indent=2)
 
     def set_last_used_data(self, name):
-        self.settings["last_used_data"] = name
+        track = ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0)
+        self.settings["last_used_data"][track] = name
         self.save_settings()
 
     def get_last_used_data(self):
-        return self.settings["last_used_data"]
+        last_used_data = self.settings["last_used_data"]
+        track = ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0)
+        if track in last_used_data:
+            return last_used_data[track]
+        return None
 
         
     def set_enable_hotkeys(self, enable):
