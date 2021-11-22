@@ -61,6 +61,10 @@ class Button(object):
         def get_size(self):
             return self.__size
 
+        def set_pos(self, pos):
+            self.__pos = pos
+            ac.setPosition( self.__btn, self.__pos.x, self.__pos.y)
+
         def get_pos(self):
             return self.__pos
 
@@ -74,12 +78,18 @@ class Button(object):
             return ac.getText(self.__btn)
 
         def set_pos(self, pos):
-            try:
-                self.__pos.x = pos.x
-                self.__pos.y = pos.y
-                ac.setPosition( self.__btn, self.__pos.x, self.__pos.y )
-            except Exception as e:
-                debug(e)
+            self.__pos.x = pos.x
+            self.__pos.y = pos.y
+            ac.setPosition( self.__btn, self.__pos.x, self.__pos.y )
+
+
+        def set_height(self, height):
+            self.__size.y = height
+            ac.setSize( self.__btn, self.__size.x, self.__size.y )
+
+        def set_width(self, width):
+            self.__size.x = width
+            ac.setSize( self.__btn, self.__size.x, self.__size.y )
 
         def set_size(self, size):
             self.__size = size

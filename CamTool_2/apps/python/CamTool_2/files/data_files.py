@@ -2,10 +2,12 @@ import json
 import ac,os
 from classes.constants import G_DATA_PATH
 from classes.general import debug
+from files.settings import settings
 
 class DataFiles:
     def __init__(self):
         self._data_for_hotkey = []
+        self._data_for_hotkey_name = []
 
     def _get_data_path(self, data_name):
         return G_DATA_PATH + ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0) + "-" + data_name +".json"
@@ -30,15 +32,20 @@ class DataFiles:
                 return json.load(data_file)
         except Exception as e:
             debug(e) 
+            return None
     
+    def number_of_data_loaded(self):
+        return len(self._data_for_hotkey)
 
     def load_datas_for_hotkey(self):
         self._data_for_hotkey = []
+        self._data_for_hotkey_name = []
         i = 0
         for data_name in self.get_datas_for_current_track():
-            if i < 5: # we have 10 hotkeys
+            if i < 5: # we have 5 hotkeys
                 jsonData = self.load_data(data_name)
                 self._data_for_hotkey.append(jsonData)
+                self._data_for_hotkey_name.append(data_name)
                 i+=1
             else:
                 break
