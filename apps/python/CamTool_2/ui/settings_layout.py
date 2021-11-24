@@ -4,7 +4,7 @@
 import ac
 
 from classes.general import debug
-from files.data_files import DataFiles
+from files.settings import settings
 from classes.data import data
 from classes.Camera import cam
 from ui.button import Button
@@ -29,8 +29,8 @@ class SettingsLayout(VerticalLayout):
         self.save = Button(self.__app, "Save")
         self.load = Button(self.__app, "Load")
 
-        self.load_last_used_data = Option( self.__app,"True", label=True, arrows=True, label_text="Load on startup" )
-        self.data_hotkeys = Option( self.__app, "True", label=True, arrows=True, label_text="Enable hotkeys")
+        self.load_last_used_data = Option( self.__app, str(settings.get_load_last_used_data()), label=True, arrows=True, label_text="Load on startup" )
+        self.data_hotkeys = Option( self.__app, str(settings.get_enable_hotkeys()), label=True, arrows=True, label_text="Enable hotkeys")
               
         #locUi["settings_smart_tracking"] = Option(self.__app, "Smart tracking", self.__ui["options"]["info"]["start_pos"] + vec(0, self.__btn_height + self.__margin.x), self.__ui["options"]["info"]["size"], True, False)
 
@@ -45,6 +45,13 @@ class SettingsLayout(VerticalLayout):
         ac.addOnClickedListener(self.settings_track_spline_btn.get_btn(), settings_track_spline)
         ac.addOnClickedListener(self.settings_pit_spline_btn.get_btn(), settings_pit_spline)
         ac.addOnClickedListener(self.settings_reset_btn.get_btn(), settings_reset)
+
+
+
+        ac.addOnClickedListener(self.load_last_used_data.get_btn_m(), load_last_used_data_m)
+        ac.addOnClickedListener(self.load_last_used_data.get_btn_p(), load_last_used_data_p)
+        ac.addOnClickedListener(self.data_hotkeys.get_btn_m(), data_hotkeys_m)
+        ac.addOnClickedListener(self.data_hotkeys.get_btn_p(), data_hotkeys_p)
 
         super().append(self.save)
         super().append(self.load)
@@ -104,7 +111,20 @@ class SettingsLayout(VerticalLayout):
                 self.settings_pit_spline_btn.set_text("Record")
         self.__gUI.refreshGuiOnly()
 
+    def load_last_used_data_m(self):
+        settings.set_load_last_used_data( not settings.get_load_last_used_data())
+        self.update()
 
+    def load_last_used_data_p(self):
+        self.load_last_used_data_m()
+
+    def data_hotkeys_m(self):
+        settings.set_enable_hotkeys( not settings.get_enable_hotkeys())
+        self.__gUI.hotkey.enable(settings.get_enable_hotkeys())
+        self.update()
+        
+    def data_hotkeys_p(self):
+        self.data_hotkeys_m()
 
 
 
@@ -129,6 +149,15 @@ class SettingsLayout(VerticalLayout):
                 self.settings_pit_spline_btn.set_text("Record")
             else:
                 self.settings_pit_spline_btn.set_text("Remove")
+        if settings.get_enable_hotkeys():
+            self.data_hotkeys.set_text("True")
+        else:
+            self.data_hotkeys.set_text("False")
+
+        if settings.get_load_last_used_data():
+            self.load_last_used_data.set_text("True")
+        else:
+            self.load_last_used_data.set_text("False")
 
 def settings_pit_spline(*arg):
     gSettingsLayout.settings_pit_spline()
@@ -144,3 +173,16 @@ def settings__show_form__save(*arg):
 
 def settings__show_form__load(*arg):
     gSettingsLayout.settings__show_form__load()
+
+
+def load_last_used_data_m(*arg):
+    gSettingsLayout.load_last_used_data_m()
+
+def load_last_used_data_p(*arg):
+    gSettingsLayout.load_last_used_data_p()
+
+def data_hotkeys_m(*arg):
+    gSettingsLayout.data_hotkeys_m()
+
+def data_hotkeys_p(*arg):
+    gSettingsLayout.data_hotkeys_p()

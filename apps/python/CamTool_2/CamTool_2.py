@@ -125,7 +125,7 @@ def acUpdate(dt):
 class CamTool2(object):
     def __init__(self):
         try:
-            self.__hotkey = HotKey(self)
+            self.hotkey = HotKey(self)
             self.__app = ac.newApp("CamTool_2")
             self.__scale = 1
             self.__active_cam = 0
@@ -253,7 +253,7 @@ class CamTool2(object):
 
             data_files.load_datas_for_hotkey()
 
-            self.__hotkey.enable(settings.get_enable_hotkeys())
+            self.hotkey.enable(settings.get_enable_hotkeys())
 
             # locUi["header_replay_mm"] = Button(self.__app, "<<", locUi["title"].get_next_pos() + vec(self.__margin.x, 0), self.__sizes["square"])
             # locUi["header_replay_m"] = Button(self.__app, "<", locUi["title"].header_replay_mm() + vec(self.__margin.x, 0), self.__sizes["square"])
