@@ -1,3 +1,4 @@
-
+**
 !apps/python/CamTool_2/
-!content/gui/icons/
+apps/python/CamTool_2/data/
+!content/gui/icons/**
