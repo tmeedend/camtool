@@ -1,9 +1,11 @@
 import ac
 from classes.general import debug, vec, vec3
 from classes.constants import *
+from ui.button import Button
+from ui.label import Label
 
 class Option(object):
-        def __init__(self, app, Button, Label, name="Option", pos=vec(200,200), size=vec(100,24), label=True, arrows=True, label_text="" ):
+        def __init__(self, app, name="Option", pos=vec(200,200), size=vec(100,24), label=True, arrows=True, label_text="" ):
             if label:
                 self.__lbl_width = 100
                 if label_text == "":
@@ -17,6 +19,7 @@ class Option(object):
             self.__size = size
             self.__enabled = True
             self.__value = None
+            self.__arrows = arrows
             self.__reset_btn_enabled = False
 
             if arrows:
@@ -66,6 +69,32 @@ class Option(object):
             else:
                 self.__btn.highlight(False)
 
+        def redraw(self):
+
+            if self.__arrows:
+                self.__btn_sub.set_pos(self.__pos + vec(self.__lbl_width, 0)) 
+                self.__btn_sub.set_size(vec(self.__size.y, self.__size.y))
+                self.__btn.set_pos(self.__btn_sub.get_next_pos())
+                self.__btn.set_size(self.__size - vec(self.__lbl_width + self.__size.y * 2, 0))
+                self.__btn_add.set_pos(self.__btn.get_next_pos())
+                self.__btn_add.set_size(vec(self.__size.y, self.__size.y))
+            else:
+                self.__btn.set_pos(self.__pos + vec(self.__lbl_width, 0))
+                self.__btn.set_size(self.__size - vec(self.__lbl_width, 0))
+
+            self.__btn_reset.set_pos(self.__btn_add.get_pos() - vec(self.__btn_add.get_size().x, 0))
+            self.__btn_reset.set_size(vec(self.__size.y, self.__size.y))
+
+            self.__lbl.set_pos(self.__pos)
+            self.__lbl.set_size( vec( self.__lbl_width, self.__size.y ))
+            
+        def set_pos(self, pos):
+            self.__pos = pos
+            self.redraw()
+
+        def get_pos(self):
+            return self.__pos
+
         def hide(self):
             self.__lbl.hide()
             self.__btn_sub.hide()
@@ -114,3 +143,7 @@ class Option(object):
 
         def get_size(self):
             return self.__size
+
+        def set_width(self, width):
+            self.__size.x = width
+            self.redraw()

@@ -5,6 +5,7 @@ import json
 
 from classes.general import *
 from files.data_files import data_files
+from files.settings import settings
 
 
 class Data(object):
@@ -20,6 +21,21 @@ class Data(object):
             self.car_is_in_pitline = [False] * 32
             self.car_is_out = {"status": [False] * 32, "duration": [0] * 32, "pos_expected": [vec3()] * 32}
             self.init = False
+            self._last_data_loaded_index = -1
+        except Exception as e:
+            debug(e)
+
+    def __load_last_data_or_first_existing_data(self):
+        try:
+            if settings.get_last_used_data() != None:
+                data = data_files.load_data(settings.get_last_used_data())
+                if data != None:
+                    self.load_data(data)
+                else: # cannot load from last used file, try to load first data file
+                    self.load_from_hotkey(0)
+            else:
+                # no last used file, try to load first data file
+                self.load_from_hotkey(0)
         except Exception as e:
             debug(e)
 
@@ -27,13 +43,8 @@ class Data(object):
         try:
             if not self.init:
                 self.init = True
-                try:
-                    # loading first data file if found
-                    data = data_files.get_data_for_hotkey(0)
-                    if data != None:
-                        self.load_data(data)
-                except Exception as e:
-                    debug(e)
+                if settings.get_load_last_used_data():
+                    self.__load_last_data_or_first_existing_data()
 
             for self.i in range(32): #max_cars
                 if ac.isConnected(self.i) == 1:
@@ -188,12 +199,15 @@ class Data(object):
 
     def remove_data(self, name):
             data_files.remove_data(name)
+            self._last_data_loaded_index = -1
 
-    def save(self, main_file, name):
+    def save(self, name):
         try:
             if self.__save("remove_me_tmp"):
                 self.__save(name)
             data_files.remove_data("remove_me_tmp")
+            settings.set_last_used_data(name)
+            self._last_data_loaded_index = -1
             return True
         except Exception as e:
             debug(e)
@@ -252,15 +266,31 @@ class Data(object):
 
         return False
 
+    def cycle_load(self):
+        if data_files.number_of_data_loaded() == 0:
+            return
+
+        if self._last_data_loaded_index == -1 or self._last_data_loaded_index + 1 == data_files.number_of_data_loaded():
+            self._last_data_loaded_index = 0
+        else:
+            self._last_data_loaded_index += 1
+        
+        data = data_files.get_data_for_hotkey(self._last_data_loaded_index)
+        self.load_data(data)
+
     def load_from_hotkey(self, i):
         data = data_files.get_data_for_hotkey(i)
         if data != None:
-            self.load_data(data)
+            result = self.load_data(data)
+            if result:
+                self._last_data_loaded_index = i
+            return result
+        return False
 
-    def load(self, main_file, data_name):  
-
+    def load(self, data_name):  
         try:
-            return data_files.load_data(data_name)
+            settings.set_last_used_data(data_name)
+            return self.load_data(data_files.load_data(data_name))
         except Exception as e:
             debug(e)
         return False
@@ -270,8 +300,6 @@ class Data(object):
             self.mode = {"pos": [self.Camera_Data()], "time": [self.Camera_Data()]}
 
             #self.mode = {}
-
-
             #modes
             for self.key0, self.val0 in data.items():
                 if self.key0 != "pit_spline" and self.key0 != "track_spline":

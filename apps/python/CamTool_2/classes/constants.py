@@ -8,6 +8,11 @@ G_DATA_PATH = "./apps/python/CamTool_2/data/"
 G_IMG_ROOT = "apps/python/CamTool_2/img/"
 
 
+# UI
+GOLDEN_RATIO = 1.618
+MAX_BUTTONS_IN_COLUMN = 17
+
+# Images
 G_IMG_CAMERA = G_IMG_ROOT + "camera.png"
 G_IMG_KEYFRAME = G_IMG_ROOT + "keyframe.png"
 G_IMG_NEXT = G_IMG_ROOT + "next.png"
