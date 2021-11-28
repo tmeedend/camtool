@@ -19,10 +19,14 @@ import sys
 import linecache
 from ctypes import*
 
+from classes.general import vec3
+
 class CamToolTool(object):
     def __init__(self):
         self.__path = WinDLL( (os.path.abspath(__file__)+'CamTool_1-16.dll').replace("\\",'/').replace( os.path.basename(__file__),'') )
-
+        self.cache_position = None
+        self.cache_heading = None
+        self.cache_roll = None
     def is_lmb_pressed(self):
         # self.__path.IsLeftMouseButtonPressed.restype = ctypes.c_bool
         # return self.__path.IsLeftMouseButtonPressed()
@@ -34,6 +38,12 @@ class CamToolTool(object):
         return self.__path.IsAsyncKeyPressed(value)
         # return ac.ext_isButtonPressed(value) # keys not working
 
+
+    def clear_cache(self):
+        self.cache_position = None
+        self.cache_heading = None
+        self.cache_roll = None
+
     def get_position(self, axis):
         axisCSP = 2
         if axis == 1:
@@ -42,13 +52,22 @@ class CamToolTool(object):
             axisCSP = 0
         elif axis == 2:
             axisCSP = 1
+        return ac.ext_getCameraPositionAxis(axisCSP)
 
-        #self.__path.GetPosition.restype = ctypes.c_float
-        #ac.log("axis:" + str(axis) + " pos dll:" + str(self.__path.GetPosition(axis)) + " pos csp: " + str(ac.ext_getCameraPositionAxis(axisCSP)))
-        #return self.__path.GetPosition(axis)
-        return ac.ext_getCameraPositionAxis(axisCSP)  # not working
+    # we still need to use this for one case, otherwise we have struttering (see this issue: https://github.com/tmeedend/camtool/issues/20)
+    def get_position_old(self, axis):
+        if self.cache_position == None:
+            self.__path.GetPosition.restype = ctypes.c_float
+            self.cache_position = vec3(self.__path.GetPosition(0), self.__path.GetPosition(1),  self.__path.GetPosition(2)) #ctt.get_position_vec()
+        if axis == 0:
+            return self.cache_position.x  
+        elif axis == 1:
+            return self.cache_position.y
+        elif axis == 2:
+            return self.cache_position.z   
 
     def set_position(self, axis, value):
+        self.cache_position = None
         axisCSP = 2
         if axis == 1:
             axisCSP = 2
@@ -62,16 +81,20 @@ class CamToolTool(object):
         return ac.ext_setCameraPositionAxis(axisCSP, value)  # not working
 
     def get_heading(self):
-        self.__path.GetHeading.restype = ctypes.c_float
+        if self.cache_heading == None:
+            self.__path.GetHeading.restype = ctypes.c_float
+            self.cache_heading = (-1) * self.__path.GetHeading()
+
+        return self.cache_heading
         #ac.log("heading: " + str(self.__path.GetHeading()))
         #ac.log("ext_getCameraYawRad: " + str(ac.ext_getCameraYawRad()))
         #ac.log("dir 0: " + str(ac.ext_getCameraDirection()[0]))
         #ac.log("dir 1: " + str(ac.ext_getCameraDirection()[1]))
         #ac.log("dir 2: " + str(ac.ext_getCameraDirection()[2]))
-        return (-1) * self.__path.GetHeading()
         # return (-1) *  ac.ext_getCameraYawRad() # not working
 
     def set_heading(self, angle, absolute=True):
+        self.cache_heading = None
         try:
             self.prev_pitch = self.get_pitch()
             self.prev_roll = self.get_roll()
@@ -122,11 +145,14 @@ class CamToolTool(object):
         ac.freeCameraRotateRoll(roll)
 
     def get_roll(self):
-        self.__path.GetRoll.restype = ctypes.c_float
-        return math.asin( max(-1, min(1, self.__path.GetRoll() )) )
+        if self.cache_roll == None:
+            self.__path.GetRoll.restype = ctypes.c_float
+            self.cache_roll = math.asin( max(-1, min(1, self.__path.GetRoll() )) )
+        return self.cache_roll
         # return ac.ext_getCameraRollRad() # not working
 
     def set_roll(self, angle, absolute=True):
+        self.cache_roll = None
         if absolute:
             ac.freeCameraRotateRoll( angle - self.get_roll())
         else:

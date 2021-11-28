@@ -59,6 +59,8 @@ def acMain(ac_version):
         debug(e)
 
 def acUpdate(dt):
+    # camera info cache must be clear at each frame. acUpdate is called at each calculated frame
+    ctt.clear_cache()
     try:
         global gTimer_mouse, gPrev_zoom_mode, gPrevCar, gTimer_volume
          

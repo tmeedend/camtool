@@ -117,8 +117,8 @@ class Camera(object):
             self.__pred_car_pos.y = self.__tracked_car_positions[0][car_id].y + (self.__tracked_car_positions[0][car_id].y - self.__avg_car_pos.y)
             self.__pred_car_pos.z = self.__tracked_car_positions[0][car_id].z + (self.__tracked_car_positions[0][car_id].z - self.__avg_car_pos.z)
 
-            self.cam_pos = vec3( ctt.get_position(0), ctt.get_position(1), ctt.get_position(2) )
-
+            self.cam_pos = vec3( ctt.get_position_old(0), ctt.get_position_old(1), ctt.get_position_old(2) )
+            
             #camera rot raw momentum for offset shake
             self.x = self.car_pos[0] - self.cam_pos.x
             self.y = self.car_pos[2] - self.cam_pos.y
