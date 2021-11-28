@@ -96,7 +96,7 @@ def acUpdate(dt):
             mouse.zoom(ctt, gPrev_zoom_mode, dt, True)
 
         cam.refresh(ctt, replay, info, dt, data, gUI.get_the_x())
-        data.refresh(gUI.get_the_x(), dt, interpolation, __file__)
+        data.refresh(gUI.get_the_x(), dt, interpolation, gUI.get_save_load_input())
 
 
         if data.has_camera_changed() or ac.getFocusedCar() != gPrevCar:
@@ -168,6 +168,9 @@ class CamTool2(object):
 
         except Exception as e:
             debug(e)
+
+    def get_save_load_input(self):
+        return self.__ui["file_form"]["input"]
 
     def get_app(self):
         return self.__app
