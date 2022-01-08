@@ -619,29 +619,29 @@ class Camera(object):
                 self.avg /= (self.__n_prev_cam_heading - 1)
                 self.__cam_rot_momentum = min(1, abs(self.__prev_cam_heading[0] - self.avg) * 25)
 
+            if len(data.mode[data.active_mode]) > data.active_cam:
+                self.strength = data.mode[data.active_mode][data.active_cam].camera_offset_shake_strength
 
-            self.strength = data.mode[data.active_mode][data.active_cam].camera_offset_shake_strength
-
-            #update timer responsible for shake
-            if info.graphics.status == 1 and replay.is_sync():
-                self.__t_shake = replay.get_interpolated_replay_pos() / (1000 / replay.get_refresh_rate())
-            else:
-                if info.graphics.replayTimeMultiplier != 0:
-                    self.__t_shake += dt * info.graphics.replayTimeMultiplier
+                #update timer responsible for shake
+                if info.graphics.status == 1 and replay.is_sync():
+                    self.__t_shake = replay.get_interpolated_replay_pos() / (1000 / replay.get_refresh_rate())
                 else:
-                    self.__t_shake = 0
+                    if info.graphics.replayTimeMultiplier != 0:
+                        self.__t_shake += dt * info.graphics.replayTimeMultiplier
+                    else:
+                        self.__t_shake = 0
 
 
 
 
-            self.__shake_offset = (math.sin((self.__t_shake) * 3) * math.sin((self.__t_shake) * 4)) * (1 - self.__cam_rot_momentum) + math.sin((self.__t_shake) * 9) * self.__cam_rot_momentum
+                self.__shake_offset = (math.sin((self.__t_shake) * 3) * math.sin((self.__t_shake) * 4)) * (1 - self.__cam_rot_momentum) + math.sin((self.__t_shake) * 9) * self.__cam_rot_momentum
 
-            self.__shake_offset *= (self.__cam_rot_momentum * 0.2) + 0.8
+                self.__shake_offset *= (self.__cam_rot_momentum * 0.2) + 0.8
 
-            self.__shake_offset *= self.strength
-            self.__shake_offset *= 0.25
-            if  info.graphics.replayTimeMultiplier != 0:
-                self.__shake_offset / info.graphics.replayTimeMultiplier
+                self.__shake_offset *= self.strength
+                self.__shake_offset *= 0.25
+                if  info.graphics.replayTimeMultiplier != 0:
+                    self.__shake_offset / info.graphics.replayTimeMultiplier
 
 
         except Exception as e:
