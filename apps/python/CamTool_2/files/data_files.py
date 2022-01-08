@@ -58,6 +58,10 @@ class DataFiles:
             return self._data_for_hotkey[i]
         return None
 
+    def get_data_name_for_hotkey(self, i):
+        if i < len(self._data_for_hotkey_name):
+            return self._data_for_hotkey_name[i]
+        return None
 
     def save_data(self, data, name):
         #cleanup (but why?)
