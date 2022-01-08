@@ -248,8 +248,8 @@ class CamTool2(object):
             locUi["free_camera"] = Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
             ac.addOnClickedListener(locUi["free_camera"].get_btn(), header__free_camera)
 
-            locUi["title"] = Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
-            locUi["the_x"] = Label(self.__app, "()", locUi["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
+            locUi["title"] = Label(self.__app, "CamTool v" + CAMTOOL_VERSION, vec(0, self.__offset.y), vec(85, self.__btn_height) )
+            locUi["the_x"] = Label(self.__app, "()", locUi["title"].get_pos() + vec(95, 0), vec(85, self.__btn_height) )
 
             #Activate
             locUi["activate"] = Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
