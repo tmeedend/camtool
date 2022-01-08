@@ -59,6 +59,8 @@ def acMain(ac_version):
         debug(e)
 
 def acUpdate(dt):
+    # camera info cache must be clear at each frame. acUpdate is called at each calculated frame
+    ctt.clear_cache()
     try:
         global gTimer_mouse, gPrev_zoom_mode, gPrevCar, gTimer_volume
          
@@ -96,7 +98,7 @@ def acUpdate(dt):
             mouse.zoom(ctt, gPrev_zoom_mode, dt, True)
 
         cam.refresh(ctt, replay, info, dt, data, gUI.get_the_x())
-        data.refresh(gUI.get_the_x(), dt, interpolation, __file__)
+        data.refresh(gUI.get_the_x(), dt, interpolation, gUI.get_save_load_input())
 
 
         if data.has_camera_changed() or ac.getFocusedCar() != gPrevCar:
@@ -168,6 +170,9 @@ class CamTool2(object):
 
         except Exception as e:
             debug(e)
+
+    def get_save_load_input(self):
+        return self.__ui["file_form"]["input"]
 
     def get_app(self):
         return self.__app

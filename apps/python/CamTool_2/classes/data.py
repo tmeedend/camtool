@@ -25,10 +25,11 @@ class Data(object):
         except Exception as e:
             debug(e)
 
-    def __load_last_data_or_first_existing_data(self):
+    def __load_last_data_or_first_existing_data(self, ui_input):
         try:
             if settings.get_last_used_data() != None:
                 data = data_files.load_data(settings.get_last_used_data())
+                ui_input.set_text(settings.get_last_used_data())
                 if data != None:
                     self.load_data(data)
                 else: # cannot load from last used file, try to load first data file
@@ -39,12 +40,12 @@ class Data(object):
         except Exception as e:
             debug(e)
 
-    def refresh(self, x, dt, interpolation, main_file):
+    def refresh(self, x, dt, interpolation, ui_input):
         try:
             if not self.init:
                 self.init = True
                 if settings.get_load_last_used_data():
-                    self.__load_last_data_or_first_existing_data()
+                    self.__load_last_data_or_first_existing_data(ui_input)
 
             for self.i in range(32): #max_cars
                 if ac.isConnected(self.i) == 1:
