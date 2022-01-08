@@ -2,7 +2,7 @@
 
 
 import ac
-
+from functools import partial
 from classes.general import debug
 from files.settings import settings
 from classes.data import data
@@ -27,7 +27,12 @@ class SettingsLayout(VerticalLayout):
         self.__app = camtool.get_app()
 
         self.save = Button(self.__app, "Save")
+        self.settings__show_form_save_fct = partial(self.settings__show_form_save)
+        ac.addOnClickedListener(self.save.get_btn(), self.settings__show_form_save_fct)
+
         self.load = Button(self.__app, "Load")
+        self.settings__show_form_load_fct = partial(self.settings__show_form__load)
+        ac.addOnClickedListener(self.load.get_btn(), self.settings__show_form_load_fct)
 
         self.load_last_used_data = Option( self.__app, str(settings.get_load_last_used_data()), label=True, arrows=True, label_text="Load on startup" )
         self.data_hotkeys = Option( self.__app, str(settings.get_enable_hotkeys()), label=True, arrows=True, label_text="Enable hotkeys")
@@ -39,8 +44,6 @@ class SettingsLayout(VerticalLayout):
 
         self.settings_reset_btn = Button(self.__app, "Reset")
 
-        ac.addOnClickedListener(self.save.get_btn(), settings__show_form__save)
-        ac.addOnClickedListener(self.load.get_btn(), settings__show_form__load)
         #ac.addOnClickedListener(locUi["settings_smart_tracking"].get_btn(), settings__smart_tracking)
         ac.addOnClickedListener(self.settings_track_spline_btn.get_btn(), settings_track_spline)
         ac.addOnClickedListener(self.settings_pit_spline_btn.get_btn(), settings_pit_spline)
@@ -62,9 +65,10 @@ class SettingsLayout(VerticalLayout):
         super().append(self.settings_reset_btn)
 
 
-    def settings__show_form__save(self):
+    def settings__show_form_save(self, *args):
         self.__camtool.settings__show_form__save()
-    def settings__show_form__load(self):
+
+    def settings__show_form__load(self, *args):
         self.__camtool.settings__show_form__load()
 
     def settings_reset(self):
@@ -167,13 +171,6 @@ def settings_track_spline(*arg):
 
 def settings_reset(*arg):
     gSettingsLayout.settings_reset()
-
-def settings__show_form__save(*arg):
-    gSettingsLayout.settings__show_form__save()
-
-def settings__show_form__load(*arg):
-    gSettingsLayout.settings__show_form__load()
-
 
 def load_last_used_data_m(*arg):
     gSettingsLayout.load_last_used_data_m()
