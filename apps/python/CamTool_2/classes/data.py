@@ -29,14 +29,13 @@ class Data(object):
         try:
             if settings.get_last_used_data() != None:
                 data = data_files.load_data(settings.get_last_used_data())
-                ui_input.set_text(settings.get_last_used_data())
                 if data != None:
-                    self.load_data(data)
+                    self.load_data(data, settings.get_last_used_data(), ui_input)
                 else: # cannot load from last used file, try to load first data file
-                    self.load_from_hotkey(0)
+                    self.load_from_hotkey(0, ui_input)
             else:
                 # no last used file, try to load first data file
-                self.load_from_hotkey(0)
+                self.load_from_hotkey(0, ui_input)
         except Exception as e:
             debug(e)
 
@@ -267,7 +266,7 @@ class Data(object):
 
         return False
 
-    def cycle_load(self):
+    def cycle_load(self, ui_input):
         if data_files.number_of_data_loaded() == 0:
             return
 
@@ -277,26 +276,27 @@ class Data(object):
             self._last_data_loaded_index += 1
         
         data = data_files.get_data_for_hotkey(self._last_data_loaded_index)
-        self.load_data(data)
+        data_name = data_files.get_data_name_for_hotkey(self._last_data_loaded_index)
+        self.load_data(data, data_name, ui_input)
 
-    def load_from_hotkey(self, i):
+    def load_from_hotkey(self, i, ui_input):
         data = data_files.get_data_for_hotkey(i)
+        data_name = data_files.get_data_name_for_hotkey(i)
         if data != None:
-            result = self.load_data(data)
+            result = self.load_data(data, data_name, ui_input)
             if result:
                 self._last_data_loaded_index = i
             return result
         return False
 
-    def load(self, data_name):  
+    def load(self, data_name, ui_input):  
         try:
-            settings.set_last_used_data(data_name)
-            return self.load_data(data_files.load_data(data_name))
+            return self.load_data(data_files.load_data(data_name), data_name, ui_input)
         except Exception as e:
             debug(e)
         return False
 
-    def load_data(self, data):
+    def load_data(self, data, data_name, ui_input):
         try:
             self.mode = {"pos": [self.Camera_Data()], "time": [self.Camera_Data()]}
 
@@ -342,6 +342,8 @@ class Data(object):
                     self.track_spline[self.key].append(self.val[self.i])
 
 
+            settings.set_last_used_data(data_name)
+            ui_input.set_text(data_name)
             return True
         except Exception as e:
             debug(e)

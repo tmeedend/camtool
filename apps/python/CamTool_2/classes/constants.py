@@ -1,6 +1,8 @@
 
 import os
 
+CAMTOOL_VERSION = "2.2.0"
+
 G_FONT = "Arial"
 
 G_DATA_PATH = "./apps/python/CamTool_2/data/"

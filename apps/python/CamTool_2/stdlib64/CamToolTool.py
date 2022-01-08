@@ -240,10 +240,9 @@ class CamToolTool(object):
         return ac.ext_setReplayPosition(keyframe)
 
     def set_replay_speed(self, value):
-        # self.__path.SetReplaySpeed.argtypes = [ctypes.c_float]
-        # self.__path.SetReplaySpeed.restype = ctypes.c_bool
-        # return self.__path.SetReplaySpeed(value)
-        return ac.ext_setReplaySpeed(value)
+        self.__path.SetReplaySpeed.argtypes = [ctypes.c_float]
+        self.__path.SetReplaySpeed.restype = ctypes.c_bool
+        return self.__path.SetReplaySpeed(value)
 
     def get_volume(self):
         self.__path.GetVolume.restype = ctypes.c_float

@@ -39,12 +39,17 @@ class HotKey:
         ac.log("calling")
         self.__camtool.activate()
     def load_from_hotkey_1(self):
-        data.load_from_hotkey(0)
+        if not self.__camtool.is_file_form_visible(): #to avoid switching data files while writing in the filename input field
+            data.load_from_hotkey(0, self.__camtool.get_save_load_input())
     def load_from_hotkey_2(self):
-        data.load_from_hotkey(1)
+        if not self.__camtool.is_file_form_visible():
+            data.load_from_hotkey(1, self.__camtool.get_save_load_input())
     def load_from_hotkey_3(self):
-        data.load_from_hotkey(2)
+        if not self.__camtool.is_file_form_visible():
+            data.load_from_hotkey(2, self.__camtool.get_save_load_input())
     def load_from_hotkey_4(self):
-        data.load_from_hotkey(3)
+        if not self.__camtool.is_file_form_visible():
+            data.load_from_hotkey(3, self.__camtool.get_save_load_input())
     def load_from_hotkey_5(self):
-        data.load_from_hotkey(4)
+        if not self.__camtool.is_file_form_visible():
+            data.load_from_hotkey(4, self.__camtool.get_save_load_input())

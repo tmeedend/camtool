@@ -171,8 +171,6 @@ class CamTool2(object):
         except Exception as e:
             debug(e)
 
-    def get_save_load_input(self):
-        return self.__ui["file_form"]["input"]
 
     def get_app(self):
         return self.__app
@@ -248,8 +246,8 @@ class CamTool2(object):
             locUi["free_camera"] = Button(self.__app, "Activate Free Camera", vec(0, 2), vec(self.__width, self.__btn_height))
             ac.addOnClickedListener(locUi["free_camera"].get_btn(), header__free_camera)
 
-            locUi["title"] = Label(self.__app, " CamTool 2", vec(0, self.__offset.y), vec(85, self.__btn_height) )
-            locUi["the_x"] = Label(self.__app, "()", locUi["title"].get_pos() + vec(80, 0), vec(85, self.__btn_height) )
+            locUi["title"] = Label(self.__app, "CamTool v" + CAMTOOL_VERSION, vec(0, self.__offset.y), vec(85, self.__btn_height) )
+            locUi["the_x"] = Label(self.__app, "()", locUi["title"].get_pos() + vec(95, 0), vec(85, self.__btn_height) )
 
             #Activate
             locUi["activate"] = Button(self.__app, "", vec( self.__width - self.__sizes["square"].x - self.__margin.x, self.__offset.y), self.__sizes["square"])
@@ -1633,9 +1631,12 @@ class CamTool2(object):
     def get_the_x(self):
         return self.__the_x
 
-    def get_file_form_input(self):
+    def get_save_load_input_text(self):
         return self.__ui["file_form"]["input"].get_text()
         #return ac.getTrackName(0) + "_" + ac.getTrackConfiguration(0) + "-" + self.__ui["file_form"]["input"].get_text()
+
+    def get_save_load_input(self):
+        return self.__ui["file_form"]["input"]
 
     def get_file_form_mode(self):
         return self.__ui["file_form"]["save"].get_text()
@@ -2001,7 +2002,7 @@ class CamTool2(object):
             self.__active_app = True
             self.__ui["header"]["activate"].set_background(G_IMG_ON, 0, 0)
         else: # app aloready activated, so we cycle through existing camera datas
-            data.cycle_load()
+            data.cycle_load(self.get_save_load_input())
 
     def desactivate(self):
             self.__active_app = False
@@ -2012,6 +2013,9 @@ class CamTool2(object):
             self.desactivate()
         else:
             self.activate()
+
+    def is_file_form_visible(self):
+        return self.__file_form_visible
 
     def settings__show_form__save(self):
         self.__file_form_visible = True
@@ -2077,10 +2081,10 @@ def file_form__cancel(*arg):
 
 def file_form__save_or_load(*arg):
     if gUI.get_file_form_mode() == "Save":
-        if data.save(gUI.get_file_form_input()):
+        if data.save(gUI.get_save_load_input_text()):
             gUI.on_click__file_form("close")
     else:
-        if data.load(gUI.get_file_form_input()):
+        if data.load(gUI.get_save_load_input_text(), gUI.get_save_load_input()):
             gUI.on_click__file_form("close")
     gUI.refreshGuiOnly()
 
