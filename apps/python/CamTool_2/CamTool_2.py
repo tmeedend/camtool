@@ -22,6 +22,8 @@ sys.path.insert(0, sysdir)
 os.environ['PATH'] = os.environ['PATH'] + ";."
 
 
+from classes.hotkey import HotKey
+
 from stdlib.sim_info import info
 from stdlib64.CamToolTool import ctt
 from classes.data import data
@@ -29,7 +31,6 @@ from classes.Replay import replay
 from classes.MouseLook import mouse
 from classes.Camera import cam
 from classes.CamMode import CamMode
-from classes.hotkey import HotKey
 from classes.InterpolateFrame import InterpolateFrame
 from classes.CubicBezierInterpolation import interpolation
 from classes.general import *
