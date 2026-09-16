@@ -119,6 +119,43 @@ Principes :
 
 - Les fichiers JSON existants des utilisateurs (`data/*.json`) doivent rester chargeables. Exemples de référence : `data/spa_-init.json`, `data/ks_red_bull_ring_layout_gp-init.json` (à copier en fixtures de test).
 - Introduire un champ `version` de schéma + fonctions de migration pures et testées. Jamais de rupture silencieuse.
+### Registre des bizarreries du legacy
+
+Quatre comportements confirmés **en exécutant le vrai code Python**, pas déduits
+par lecture. Tous reproduits à l'identique dans le portage Lua et épinglés par
+un test, pour qu'aucune correction n'arrive par accident.
+
+| # | Comportement | Déclencheur | Effet observable | Test |
+|---|---|---|---|---|
+| 1 | `SolveCubic` écrit `return result` au lieu de `self.result` → `NameError` | racine double exacte, racine simple dans [0,1] | `GetY` avale → `None` → `interpolate` avale son `TypeError` → **paramètre caméra `None` pour la frame** | `test_cubic.lua` |
+| 2 | `convert_fov_2_focal_length` renvoie la sentinelle `0.00001` **dans les deux sens** | `val == 0` | `encode` et `decode` ne sont pas inverses : `decode(encode(0))` = 99985 | `test_fov.lua` |
+| 3 | `1/(val+15)` non gardé | FOV exactement −15 | division par zéro. Python lève (comportement exact du gestionnaire appelant **non vérifié**) ; Lua renvoie `inf` qui se propage | `test_fov.lua` |
+| 4 | `SolveQuadratic(0, 0, c)` renvoie `c` | cubique dégénérée, tous coefficients nuls sauf `d` | la constante est servie comme paramètre de courbe `t`, sans borne [0,1] | `cubic_golden.lua` |
+
+Nature différente, donc traitement différent :
+
+- **#2 est un choix d'encodage**, donc il disparaît de lui-même si CamTool 3
+  stocke le FOV en degrés : la bizarrerie ne vit plus que dans le lecteur des
+  anciens fichiers.
+- **#1 et #4 sont des bugs de calcul.** Les corriger déplace les courbes, donc
+  change des vidéos déjà montées. À mettre derrière le sélecteur de version.
+- **#3 est un trou de validation.** Le corriger est sûr quelle que soit la
+  version : l'ancien code ne produisait aucune valeur exploitable (exception
+  d'un côté, `inf` de l'autre), donc aucune vidéo ne peut en dépendre.
+
+### Direction envisagée par Théo (à confirmer)
+
+Ne pas forcément garder la compatibilité CamTool 2, ou la garder en **lecture
+seule** ; mais **les nouveaux fichiers CamTool 3 ne doivent pas porter ces
+erreurs**.
+
+Conception qui en découle : **la version du fichier sélectionne le
+comportement**, plutôt qu'un réglage global que l'utilisateur doit penser à
+armer. Fichier sans `version` (ou 0) → sémantique legacy à l'identique ;
+`version` ≥ 1 → unités honnêtes et calculs corrigés. Cela satisfait
+mécaniquement la règle « toute nouvelle méthode d'interpolation doit être
+optionnelle, mode legacy par défaut ».
+
 - La compatibilité porte sur la **sémantique**, pas seulement la syntaxe JSON : `camera_fov` est stocké sous forme convertie `1/(fov+15)` (voir `convert_fov_2_focal_length`), les angles sont en radians, `camera_in`/`the_x` sont des positions normalisées 0..1, deux modes `pos` et `time`. Toute nouvelle implémentation doit reproduire ces conventions à l'identique (vérifié par golden master).
 
 ## Tests
@@ -188,16 +225,9 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
 
 - **#38 artefacts à petit FOV** : l'ancien `set_fov` ajustait le near clipping (`near = clamp(2 - fov/50, 0.1, 2)`, lignes commentées dans `CamToolTool.set_fov`) ; la version CSP ne le fait plus → z-fighting probable.
 - **#37 interpolation** : chaque paramètre est interpolé indépendamment. Position/rotation : Bézier cubique par canal (`interpolate`) avec corrections spéciales sur le premier et le dernier segment ; FOV, shake, offsets/forces de tracking : easing sinus (`interpolate_sin`) qui marque un arrêt à chaque keyframe ; splines enregistrées : linéaire (`interpolate_spline`). Rotations en angles d'Euler séparés, sans normalisation ±π visible dans l'interpolation des keyframes (contrairement au tracking dans `Camera.py`).
-- **BUG confirmé dans `SolveCubic` (à trancher par Théo)** : dans la branche
-  `disc == 0`, le code écrit `return result` là où toutes les lignes voisines
-  écrivent `self.result` → `NameError`. `GetY` l'avale et renvoie `None`,
-  `interpolate` fait alors de l'arithmétique sur `None`, avale son propre
-  `TypeError`, et **le paramètre de caméra vaut `None` pour cette frame**.
-  Déclenché quand la cubique a une racine double exacte et que la racine simple
-  tombe dans [0,1] — rare, d'où le fait que personne ne l'ait signalé.
-  Reproduit tel quel dans le portage Lua et épinglé par un test
-  (`tests/test_cubic.lua`) : corriger changerait des vidéos déjà montées.
-  **Décision ouverte : corriger, ou garder le comportement actuel ?**
+- Voir aussi le **registre des bizarreries du legacy** dans « Compatibilité des
+  données » : quatre comportements confirmés, chacun reproduit et épinglé par un
+  test dans le portage Lua.
 - **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
 - **#23 dernière caméra buguée**, **#25 shake non keyframable**, **#16 glissement à l'activation** : à reproduire en test.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
