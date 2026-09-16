@@ -24,6 +24,111 @@
 
 local interpolation = {}
 
+--------------------------------------------------------------------------------
+-- Cubic solving, for the bezier curve below.
+--------------------------------------------------------------------------------
+
+local function squared(f) return f * f end
+local function cubed(f) return f * f * f end
+local function cubicRoot(f) return f ^ (1 / 3) end
+
+---Solve ax^2 + bx + c = 0, returning the first root in [0, 1], else nil.
+---
+---When the discriminant is negative, Python raises a TypeError comparing a
+---complex root against a number, and the caller swallows that into None. Lua
+---gets nan instead, and every comparison against nan is false, so it falls
+---through to nil on its own. Same answer, no special case needed.
+local function solveQuadratic(a, b, c)
+  if a == 0 then
+    -- Legacy oddity: with no equation left it hands back the constant, which is
+    -- not a curve parameter at all and can land far outside [0, 1].
+    if b == 0 then return c end
+    return -c / b
+  end
+
+  local root = (squared(b) - 4 * a * c) ^ 0.5
+
+  local result = (-b + root) / (2 * a)
+  if result >= 0 and result <= 1 then return result end
+
+  result = (-b - root) / (2 * a)
+  if result >= 0 and result <= 1 then return result end
+
+  return nil
+end
+
+---Solve ax^3 + bx^2 + cx + d = 0, returning the first root in [0, 1], else nil.
+---@return number|nil
+local function solveCubic(a, b, c, d)
+  if a == 0 then return solveQuadratic(b, c, d) end
+  if d == 0 then return 0 end
+
+  b = b / a
+  c = c / a
+  d = d / a
+
+  local q = (3.0 * c - squared(b)) / 9.0
+  local r = (-27.0 * d + b * (9.0 * c - 2.0 * squared(b))) / 54.0
+  local disc = cubed(q) + squared(r)
+  local term1 = b / 3.0
+
+  if disc > 0 then
+    local s = r + disc ^ 0.5
+    if s < 0 then s = -cubicRoot(-s) else s = cubicRoot(s) end
+
+    local t = r - disc ^ 0.5
+    if t < 0 then t = -cubicRoot(-t) else t = cubicRoot(t) end
+
+    local result = -term1 + s + t
+    if result >= 0 and result <= 1 then return result end
+
+  elseif disc == 0 then
+    local r13
+    if r < 0 then r13 = -cubicRoot(-r) else r13 = cubicRoot(r) end
+
+    local result = -term1 + 2.0 * r13
+    if result >= 0 and result <= 1 then
+      -- LEGACY BUG, reproduced deliberately. The Python here reads
+      -- `return result` where every other line says `self.result`, so it raises
+      -- NameError. GetY swallows that into None, interpolate then does
+      -- arithmetic on None and swallows its own TypeError, and the parameter
+      -- ends up nil for that frame.
+      --
+      -- Returning the root instead would be the obvious fix, and it would also
+      -- silently change footage people have already cut. Not ours to decide:
+      -- see the note in CLAUDE.md.
+      --
+      -- Python raises before trying the second root, so we stop here too.
+      return nil
+    end
+
+    result = -(r13 + term1)
+    if result >= 0 and result <= 1 then return result end
+
+  else
+    q = -q
+    local dum1 = q * q * q
+    dum1 = math.acos(r / (dum1 ^ 0.5))
+    local r13 = 2.0 * (q ^ 0.5)
+
+    local result = -term1 + r13 * math.cos(dum1 / 3.0)
+    if result >= 0 and result <= 1 then return result end
+
+    result = -term1 + r13 * math.cos((dum1 + 2.0 * math.pi) / 3.0)
+    if result >= 0 and result <= 1 then return result end
+
+    result = -term1 + r13 * math.cos((dum1 + 4.0 * math.pi) / 3.0)
+    if result >= 0 and result <= 1 then return result end
+  end
+
+  return nil
+end
+
+-- Exposed for the golden-master tests, which drive the solver directly: it is
+-- where the numerics live, and reaching every branch through interpolate alone
+-- would take contrived keyframe geometry.
+interpolation._solveCubic = solveCubic
+
 ---Drop entries with no position or no value, and pair the rest up.
 ---Faithful to __sanitize: it does NOT sort and does NOT deduplicate, so
 ---callers keep whatever order they stored.
