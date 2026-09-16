@@ -6,8 +6,8 @@
   change here silently changes their videos.
 ]]
 
-local runner = require('tests.runner')
-local fov = require('core.fov')
+local runner = require('tests/runner')
+local fov = require('core/fov')
 
 local test, eq, near = runner.test, runner.eq, runner.near
 

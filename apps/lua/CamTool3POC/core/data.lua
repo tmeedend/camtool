@@ -19,7 +19,7 @@
   See the legacy quirk register in CLAUDE.md for what 'legacy' actually means.
 ]]
 
-local fov = require('core.fov')
+local fov = require('core/fov')
 
 local data = {}
 

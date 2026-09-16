@@ -6,10 +6,10 @@
   so the fixture is real data rather than something invented to pass.
 ]]
 
-local runner = require('tests.runner')
-local data = require('core.data')
-local fov = require('core.fov')
-local rawFile = require('tests.fixtures.camera_file_v0')
+local runner = require('tests/runner')
+local data = require('core/data')
+local fov = require('core/fov')
+local rawFile = require('tests/fixtures/camera_file_v0')
 
 local test, eq, near = runner.test, runner.eq, runner.near
 

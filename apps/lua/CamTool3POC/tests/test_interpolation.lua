@@ -6,9 +6,9 @@
   edit it to make a test pass.
 ]]
 
-local runner = require('tests.runner')
-local interpolation = require('core.interpolation')
-local golden = require('tests.fixtures.interpolation_golden')
+local runner = require('tests/runner')
+local interpolation = require('core/interpolation')
+local golden = require('tests/fixtures/interpolation_golden')
 
 local test, eq, near = runner.test, runner.eq, runner.near
 

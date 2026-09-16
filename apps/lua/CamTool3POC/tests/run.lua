@@ -12,11 +12,13 @@
 
 package.path = './?.lua;' .. package.path
 
-local runner = require('tests.runner')
+local runner = require('tests/runner')
 
-require('tests.test_fov')
-require('tests.test_cubic')
-require('tests.test_interpolation')
-require('tests.test_data')
+require('tests/test_fov')
+require('tests/test_cubic')
+require('tests/test_interpolation')
+require('tests/test_data')
+require('tests/test_evaluate')
+require('tests/test_app_smoke')
 
 os.exit(runner.run() and 0 or 1)
