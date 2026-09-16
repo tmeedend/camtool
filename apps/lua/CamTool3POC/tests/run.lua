@@ -17,5 +17,6 @@ local runner = require('tests.runner')
 require('tests.test_fov')
 require('tests.test_cubic')
 require('tests.test_interpolation')
+require('tests.test_data')
 
 os.exit(runner.run() and 0 or 1)
