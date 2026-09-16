@@ -43,6 +43,8 @@ end
 
 local MODE_HOLD = 'hold'
 local MODE_ORBIT = 'orbit'
+local MODE_SNAPSHOT = 'snapshot'
+local MODE_MOUSELOOK = 'mouselook'
 
 local cam = nil
 local grabError = nil
@@ -65,6 +67,45 @@ local fovDeg = 40
 local applyDof = false
 local dofFactor = 1
 local dofDistance = 20
+
+--------------------------------------------------------------------------------
+-- Probe 10 -- read AC's live camera WITHOUT holding it.
+-- This is the gap the first round found: CamTool works by aiming the view and
+-- then keyframing it, but at ownShare = 1 AC lets go of the camera and
+-- transformOriginal freezes. ac.getCamera* should keep reporting the live
+-- camera while we are not holding it. A snapshot taken this way, then replayed
+-- through a grab, is the whole keyframe round trip in miniature.
+--------------------------------------------------------------------------------
+
+local snapshot = nil
+
+local function snapshotTake()
+  local p = ac.getCameraPosition()
+  local f = ac.getCameraForward()
+  local u = ac.getCameraUp()
+  -- Copy: these may return reused vectors that change next frame.
+  snapshot = {
+    pos = vec3(p.x, p.y, p.z),
+    look = vec3(f.x, f.y, f.z),
+    up = vec3(u.x, u.y, u.z),
+    fov = ac.getCameraFOV(),
+  }
+  log(string.format('snapshot: pos %s look %s fov %.2f',
+    fmtVec(snapshot.pos), fmtVec(snapshot.look), snapshot.fov))
+end
+
+--------------------------------------------------------------------------------
+-- Probe 11 -- mouse look.
+-- CamTool 2 gates mouse look behind Alt/Shift/Ctrl (DLL row IsAsyncKeyPressed),
+-- so gate on Shift here too: it keeps the mouse usable for the AC UI the rest
+-- of the time. uiState.mouseDelta is global, unlike ui.mouseDelta() which only
+-- reports inside this window.
+--------------------------------------------------------------------------------
+
+local lookYaw = 0
+local lookPitch = 0
+local lookSensitivity = 0.4
+local lookActive = false
 
 local function cameraActive()
   return cam ~= nil and cam:active()
@@ -220,6 +261,28 @@ function script.update(dt)
     dir:normalize()
     transform.look = dir
     transform.up = vec3(0, 1, 0)
+  elseif mode == MODE_SNAPSHOT and snapshot ~= nil then
+    -- Replay a pose captured while AC still owned the camera. Feed copies: the
+    -- matrix gets normalized after this, which could otherwise edit the stored
+    -- snapshot in place and let it drift frame after frame.
+    local sp, sl, su = snapshot.pos, snapshot.look, snapshot.up
+    transform.position = vec3(sp.x, sp.y, sp.z)
+    transform.look = vec3(sl.x, sl.y, sl.z)
+    transform.up = vec3(su.x, su.y, su.z)
+  elseif mode == MODE_MOUSELOOK and anchor ~= nil then
+    lookActive = ac.isKeyDown(ac.KeyIndex.Shift)
+    if lookActive then
+      local delta = uiState.mouseDelta
+      lookYaw = lookYaw - delta.x * lookSensitivity * 0.01
+      lookPitch = lookPitch - delta.y * lookSensitivity * 0.01
+      -- Stop just short of straight up/down, where yaw becomes meaningless.
+      if lookPitch > 1.5 then lookPitch = 1.5 end
+      if lookPitch < -1.5 then lookPitch = -1.5 end
+    end
+    local cp = math.cos(lookPitch)
+    transform.position = vec3(anchor.x, anchor.y, anchor.z)
+    transform.look = vec3(cp * math.sin(lookYaw), math.sin(lookPitch), cp * math.cos(lookYaw))
+    transform.up = vec3(0, 1, 0)
   else
     -- MODE_HOLD: re-apply AC's own transform. With ownShare = 1 the view must
     -- stay visually identical to AC. If it does not, the grab itself is lossy.
@@ -265,6 +328,22 @@ function script.windowMain(dt)
     sim.replayCurrentFrame, sim.replayPlaybackRate))
 
   ui.separator()
+  ui.header('10. AC live camera (read without holding)')
+  ui.text('pos:  ' .. fmtVec(ac.getCameraPosition()))
+  ui.text('fwd:  ' .. fmtVec(ac.getCameraForward()))
+  ui.text('up:   ' .. fmtVec(ac.getCameraUp()))
+  ui.text(string.format('fov:  %.2f deg', ac.getCameraFOV()))
+  if cameraActive() then
+    ui.textColored('camera is held -- these may be frozen, release to test', COLOR_BAD)
+  end
+  if ui.button('Take snapshot') then snapshotTake() end
+  if snapshot ~= nil then
+    ui.text('snapshot pos: ' .. fmtVec(snapshot.pos))
+  else
+    ui.textColored('no snapshot yet', COLOR_IDLE)
+  end
+
+  ui.separator()
   ui.header('1-2. Camera grab and read-back')
   if cameraActive() then
     ui.textColored('camera HELD by this app', COLOR_OK)
@@ -288,6 +367,18 @@ function script.windowMain(dt)
     ui.header('3. Motion -- stutter test (#20)')
     if ui.radioButton('Hold (mirror AC)', mode == MODE_HOLD) then mode = MODE_HOLD end
     if ui.radioButton('Orbit anchor', mode == MODE_ORBIT) then mode = MODE_ORBIT end
+    if ui.radioButton('Restore snapshot (10)', mode == MODE_SNAPSHOT) then mode = MODE_SNAPSHOT end
+    if snapshot == nil and mode == MODE_SNAPSHOT then
+      ui.textColored('take a snapshot first, before grabbing', COLOR_BAD)
+    end
+    if ui.radioButton('Mouse look (11)', mode == MODE_MOUSELOOK) then mode = MODE_MOUSELOOK end
+
+    if mode == MODE_MOUSELOOK then
+      ui.textColored(lookActive and 'LOOKING (Shift held)' or 'hold Shift to look around',
+        lookActive and COLOR_OK or COLOR_IDLE)
+      lookSensitivity = ui.slider('##lookSens', lookSensitivity, 0.05, 2, 'sensitivity %.2f')
+      ui.text(string.format('yaw %.2f rad   pitch %.2f rad', lookYaw, lookPitch))
+    end
 
     ui.separator()
     ui.header('4. ownShare ramp (#16)')
