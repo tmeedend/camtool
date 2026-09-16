@@ -14,6 +14,7 @@ local test, eq, near = runner.test, runner.eq, runner.near
 
 -- Column order in a fixture row.
 local TIME = 1
+local COL_BEZIER = 2
 local COL_SIN = 3
 local COL_SPLINE = 4
 local COL_SPLINE_CYCLIC = 5
@@ -58,6 +59,11 @@ end)
 
 test('interpolate_sin matches the legacy on every sampled point', function()
   local checked = checkColumn(COL_SIN, interpolation.interpolate_sin, 'interpolate_sin')
+  if checked == 0 then error('no points were checked', 2) end
+end)
+
+test('interpolate matches the legacy on every sampled point', function()
+  local checked = checkColumn(COL_BEZIER, interpolation.interpolate, 'interpolate')
   if checked == 0 then error('no points were checked', 2) end
 end)
 

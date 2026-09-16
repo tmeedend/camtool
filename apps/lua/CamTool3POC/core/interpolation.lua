@@ -129,6 +129,145 @@ end
 -- would take contrived keyframe geometry.
 interpolation._solveCubic = solveCubic
 
+---Evaluate a cubic bezier segment at `time`, given its four x and four y
+---coordinates (knot, control, control, knot).
+---Returns nil when the solver cannot place `time` on the curve -- the legacy
+---swallows that into None the same way.
+local function getY(time, x, y)
+  local t
+
+  if time == x[1] then
+    -- Handled explicitly to dodge rounding at the ends.
+    t = 0
+  elseif time == x[4] then
+    t = 1
+  else
+    local a = -x[1] + 3 * x[2] - 3 * x[3] + x[4]
+    local b = 3 * x[1] - 6 * x[2] + 3 * x[3]
+    local c = -3 * x[1] + 3 * x[2]
+    local d = x[1] - time
+    t = solveCubic(a, b, c, d)
+    if t == nil then return nil end
+  end
+
+  return cubed(1 - t) * y[1]
+    + 3 * t * squared(1 - t) * y[2]
+    + 3 * squared(t) * (1 - t) * y[3]
+    + cubed(t) * y[4]
+end
+
+---Fit control points through the knots, so consecutive bezier segments join
+---smoothly. Tridiagonal system solved with the Thomas algorithm.
+---
+---Ported from CubicCurveAlgorithm.controlPointsFromPoints. Two y coordinates
+---are overridden rather than used as computed -- the first control point takes
+---the first knot's y, and the last second-control-point takes the last knot's y.
+---Those are the special first and last segment corrections CLAUDE.md mentions;
+---they are what makes the curve leave and arrive flat.
+---
+---Returns a list of segments, one per interval, each {cp1 = vec, cp2 = vec}.
+local function controlPointsFromPoints(dataPoints)
+  local firstControlPoints = {}
+  local secondControlPoints = {}
+
+  local count = #dataPoints - 1
+
+  if count == 1 then
+    local p0, p3 = dataPoints[1], dataPoints[2]
+
+    -- 3*P1 = 2*P0 + P3
+    local p1x = (2 * p0.x + p3.x) / 3
+    local p1y = (2 * p0.y + p3.y) / 3
+    firstControlPoints[1] = { x = p1x, y = p1y }
+
+    -- P2 = 2*P1 - P0
+    secondControlPoints[1] = { x = 2 * p1x - p0.x, y = 2 * p1y - p0.y }
+  else
+    local rhs = {}
+    local a, b, c = {}, {}, {}
+
+    for i = 1, count do
+      local p0, p3 = dataPoints[i], dataPoints[i + 1]
+      local rx, ry
+
+      if i == 1 then
+        a[i], b[i], c[i] = 0, 2, 1
+        rx = p0.x + 2 * p3.x
+        ry = p0.y + 2 * p3.y
+      elseif i == count then
+        a[i], b[i], c[i] = 2, 7, 0
+        rx = 8 * p0.x + p3.x
+        ry = 8 * p0.y + p3.y
+      else
+        a[i], b[i], c[i] = 1, 4, 1
+        rx = 4 * p0.x + 2 * p3.x
+        ry = 4 * p0.y + 2 * p3.y
+      end
+
+      rhs[i] = { x = rx, y = ry }
+    end
+
+    -- Forward sweep of the Thomas algorithm.
+    for i = 2, count do
+      local m = a[i] / b[i - 1]
+      b[i] = b[i] - m * c[i - 1]
+      rhs[i] = {
+        x = rhs[i].x - m * rhs[i - 1].x,
+        y = rhs[i].y - m * rhs[i - 1].y,
+      }
+    end
+
+    -- Back substitution, starting from the last control point.
+    firstControlPoints[count] = {
+      x = rhs[count].x / b[count],
+      y = rhs[count].y / b[count],
+    }
+
+    for i = count - 1, 1, -1 do
+      local nextPoint = firstControlPoints[i + 1]
+      local cx = (rhs[i].x - c[i] * nextPoint.x) / b[i]
+      local cy = (rhs[i].y - c[i] * nextPoint.y) / b[i]
+
+      if i == 1 then
+        -- First correction: y comes from the knot, not the solve.
+        firstControlPoints[i] = { x = cx, y = dataPoints[1].y }
+      else
+        firstControlPoints[i] = { x = cx, y = cy }
+      end
+    end
+
+    -- Second control points follow from the first.
+    for i = 1, count do
+      local p3 = dataPoints[i + 1]
+
+      if i == count then
+        local p1 = firstControlPoints[i]
+        -- Last correction: y comes from the final knot, not the midpoint.
+        secondControlPoints[i] = {
+          x = (p3.x + p1.x) / 2,
+          y = dataPoints[count + 1].y,
+        }
+      else
+        local nextP1 = firstControlPoints[i + 1]
+        secondControlPoints[i] = {
+          x = 2 * p3.x - nextP1.x,
+          y = 2 * p3.y - nextP1.y,
+        }
+      end
+    end
+  end
+
+  local segments = {}
+  for i = 1, count do
+    segments[i] = {
+      cp1 = firstControlPoints[i],
+      cp2 = secondControlPoints[i],
+    }
+  end
+
+  return segments
+end
+
 ---Drop entries with no position or no value, and pair the rest up.
 ---Faithful to __sanitize: it does NOT sort and does NOT deduplicate, so
 ---callers keep whatever order they stored.
@@ -196,6 +335,77 @@ function interpolation.interpolate_sin(time, x, y)
   if ratio > 1 then ratio = 1 elseif ratio < 0 then ratio = 0 end
 
   return from.y * (1 - ratio) + to.y * ratio
+end
+
+---Cubic bezier through the keyframes. This is what carries position and
+---rotation, so it is the one you actually see on screen.
+---
+---The first and last segments get an extra sine ramp on top of the curve,
+---blending toward the end knot's value. That is what makes a camera ease out of
+---its first keyframe and into its last.
+---@param time number
+---@param x number[] @keyframe positions
+---@param y number[] @keyframe values
+---@return number|nil
+function interpolation.interpolate(time, x, y)
+  if #y == 0 then return nil end
+
+  local points = sanitize(x, y)
+  if #points == 0 then return nil end
+  if #points == 1 then return points[1].y end
+
+  local n = #points
+  local last = points[n]
+
+  -- As in interpolate_sin, the legacy tests this inside the search loop even
+  -- though it cannot change across iterations. Hoisted; same outcome.
+  if time >= last.x then return last.y end
+
+  -- Note the range: the legacy stops one short of the end here, unlike
+  -- interpolate_sin which walks every point. Kept as is.
+  local activeIndex = nil
+  for i = 1, n - 1 do
+    if time > points[i].x then activeIndex = i end
+  end
+
+  if activeIndex == nil then return points[1].y end
+
+  local controlPoints = controlPointsFromPoints(points)
+  local segment = controlPoints[activeIndex]
+
+  local cx = {
+    points[activeIndex].x, segment.cp1.x, segment.cp2.x, points[activeIndex + 1].x,
+  }
+  local cy = {
+    points[activeIndex].y, segment.cp1.y, segment.cp2.y, points[activeIndex + 1].y,
+  }
+
+  -- With only two keyframes the whole curve is both the first and the last
+  -- segment, so the ramps have to run twice as fast to fit.
+  local multiplier = (n == 2) and 2 or 1
+
+  -- Ease out of the first keyframe.
+  if activeIndex == 1 then
+    local smooth = (time - points[1].x) / (points[2].x - points[1].x)
+    if smooth < (1 / multiplier) then
+      smooth = math.sin(math.min(smooth * multiplier, 1) * 90 * math.pi / 180)
+      local value = getY(time, cx, cy)
+      if value == nil then return nil end
+      return value * smooth + points[1].y * (1 - smooth)
+    end
+  end
+
+  -- Ease into the last keyframe.
+  if activeIndex == n - 1 then
+    local duration = points[n].x - points[n - 1].x
+    local smooth = 1 - (math.max((time - points[n - 1].x - (duration / 2)) / duration, 0) * multiplier)
+    smooth = math.sin(smooth * 90 * math.pi / 180)
+    local value = getY(time, cx, cy)
+    if value == nil then return nil end
+    return value * smooth + points[n].y * (1 - smooth)
+  end
+
+  return getY(time, cx, cy)
 end
 
 ---Plain linear interpolation, used for recorded splines.
