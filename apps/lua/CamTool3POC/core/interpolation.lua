@@ -93,4 +93,65 @@ function interpolation.interpolate_sin(time, x, y)
   return from.y * (1 - ratio) + to.y * ratio
 end
 
+---Plain linear interpolation, used for recorded splines.
+---With cyclic = true the ends are joined through a wrap of length 1, which is
+---how a lap closes: track position is normalised 0..1, so the gap from the last
+---sample back to the first is (x[1] + 1 - x[n]).
+---
+---Unlike the other two, this one does NOT sanitize: it indexes x and y
+---directly, so a nil in either blows up rather than being skipped. Faithful to
+---the legacy.
+---@param time number
+---@param x number[] @sample positions
+---@param y number[] @sample values
+---@param cyclic boolean|nil
+---@return number|nil
+function interpolation.interpolate_spline(time, x, y, cyclic)
+  local n = #y
+  if n == 0 then return nil end
+  if n == 1 then return y[1] end
+
+  local first, last = 1, n
+
+  -- Before the first sample.
+  if x[first] >= time then
+    if not cyclic then return y[first] end
+    local t = time - x[last] + 1
+    local tx = x[first] - x[last] + 1
+    local ratio = tx ~= 0 and (t / tx) or 1
+    return y[last] * (1 - ratio) + y[first] * ratio
+  end
+
+  -- At or after the last sample.
+  if x[last] <= time then
+    if not cyclic then return y[last] end
+    local t = time - x[last]
+    local tx = x[first] + 1 - x[last]
+    local ratio = tx ~= 0 and (t / tx) or 1
+    return y[last] * (1 - ratio) + y[first] * ratio
+  end
+
+  -- First sample at or past the query point; the segment starts just before it.
+  -- The guards above already rule out i == first, so the legacy's early return
+  -- for that case is unreachable. Kept out rather than ported as dead code.
+  local index = nil
+  for i = 1, n do
+    if x[i] >= time then
+      index = i - 1
+      break
+    end
+  end
+
+  -- The legacy leaves this index on the instance between calls and exposes it
+  -- through get_last_active_index(). Nothing outside the module reads it
+  -- (Camera.py keeps its own spline index), so it is dropped here.
+  if index == nil or index < first then return y[first] end
+
+  local t = time - x[index]
+  local tx = x[index + 1] - x[index]
+  local ratio = tx ~= 0 and (t / tx) or 1
+
+  return y[index] * (1 - ratio) + y[index + 1] * ratio
+end
+
 return interpolation

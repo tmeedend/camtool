@@ -15,6 +15,8 @@ local test, eq, near = runner.test, runner.eq, runner.near
 -- Column order in a fixture row.
 local TIME = 1
 local COL_SIN = 3
+local COL_SPLINE = 4
+local COL_SPLINE_CYCLIC = 5
 
 -- Values here span 1e-6 to a few hundred metres, so scale the tolerance with
 -- the magnitude rather than trusting one absolute epsilon everywhere.
@@ -57,6 +59,18 @@ end)
 test('interpolate_sin matches the legacy on every sampled point', function()
   local checked = checkColumn(COL_SIN, interpolation.interpolate_sin, 'interpolate_sin')
   if checked == 0 then error('no points were checked', 2) end
+end)
+
+test('interpolate_spline matches the legacy on every sampled point', function()
+  checkColumn(COL_SPLINE, function(t, x, y)
+    return interpolation.interpolate_spline(t, x, y, false)
+  end, 'interpolate_spline')
+end)
+
+test('interpolate_spline cyclic matches the legacy on every sampled point', function()
+  checkColumn(COL_SPLINE_CYCLIC, function(t, x, y)
+    return interpolation.interpolate_spline(t, x, y, true)
+  end, 'interpolate_spline cyclic')
 end)
 
 test('interpolate_sin does not leak state between calls', function()
