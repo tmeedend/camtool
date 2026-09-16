@@ -2,7 +2,8 @@ content/
 !apps/python/CamTool_2/**
 apps/python/CamTool_2/data/
 !content/gui/icons/**
-apps/lua/
+apps/lua/*
+!apps/lua/CamTool3POC/
 cfg/
 system/
 server/
