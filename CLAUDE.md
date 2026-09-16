@@ -188,6 +188,16 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
 
 - **#38 artefacts à petit FOV** : l'ancien `set_fov` ajustait le near clipping (`near = clamp(2 - fov/50, 0.1, 2)`, lignes commentées dans `CamToolTool.set_fov`) ; la version CSP ne le fait plus → z-fighting probable.
 - **#37 interpolation** : chaque paramètre est interpolé indépendamment. Position/rotation : Bézier cubique par canal (`interpolate`) avec corrections spéciales sur le premier et le dernier segment ; FOV, shake, offsets/forces de tracking : easing sinus (`interpolate_sin`) qui marque un arrêt à chaque keyframe ; splines enregistrées : linéaire (`interpolate_spline`). Rotations en angles d'Euler séparés, sans normalisation ±π visible dans l'interpolation des keyframes (contrairement au tracking dans `Camera.py`).
+- **BUG confirmé dans `SolveCubic` (à trancher par Théo)** : dans la branche
+  `disc == 0`, le code écrit `return result` là où toutes les lignes voisines
+  écrivent `self.result` → `NameError`. `GetY` l'avale et renvoie `None`,
+  `interpolate` fait alors de l'arithmétique sur `None`, avale son propre
+  `TypeError`, et **le paramètre de caméra vaut `None` pour cette frame**.
+  Déclenché quand la cubique a une racine double exacte et que la racine simple
+  tombe dans [0,1] — rare, d'où le fait que personne ne l'ait signalé.
+  Reproduit tel quel dans le portage Lua et épinglé par un test
+  (`tests/test_cubic.lua`) : corriger changerait des vidéos déjà montées.
+  **Décision ouverte : corriger, ou garder le comportement actuel ?**
 - **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
 - **#23 dernière caméra buguée**, **#25 shake non keyframable**, **#16 glissement à l'activation** : à reproduire en test.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
