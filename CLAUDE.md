@@ -1,0 +1,185 @@
+# CLAUDE.md — CamTool 3 (Assetto Corsa)
+
+## ⛔ Périmètre — règle absolue
+
+Ce dépôt est extrait **dans le dossier d'installation d'Assetto Corsa**.
+
+Périmètre autorisé, et rien d'autre :
+
+| Chemin | Accès |
+|---|---|
+| `apps/python/CamTool_2/` | lecture + écriture (CamTool 2) |
+| `apps/lua/CamTool3POC/` | lecture + écriture (POC Lua, branche `poc/lua`) |
+| `content/gui/icons/CamTool_2_*.png` | lecture seule |
+| `extension/internal/lua-sdk/` | lecture seule (définitions EmmyLua de l'API CSP) |
+
+- Ne JAMAIS lire, lister, rechercher (grep/glob) ni modifier quoi que ce soit en dehors de ces chemins : ni le reste de `content/`, ni le reste d'`extension/`, ni `system/`, `cfg/`, les autres apps (Python ou Lua), les exécutables ou les DLL du jeu.
+- `extension/internal/lua-sdk/` est de la **documentation d'API** : on la lit pour connaître les signatures CSP, on n'y écrit jamais.
+- Toujours lancer les recherches avec un chemin explicite dans le périmètre (jamais `grep -r` depuis la racine du jeu).
+- Si une information hors périmètre semble nécessaire (ex. SDK CSP dans `extension/internal/`), **s'arrêter et demander à Théo**.
+- Ne jamais modifier `data/` (fichiers caméras des utilisateurs, ignorés par git) ni `settings.json` locaux, sauf demande explicite.
+
+## Le projet
+
+- CamTool : app de caméra cinématique pour les replays AC (keyframes le long de la piste, tracking de voiture, FOV/DOF, spline de piste). Utilisée pour faire des vidéos.
+- Auteur original : kasperski95. Fork maintenu par tmeedend (Théo), GPL v3. Code écrit à l'origine par un non-développeur : peu de structure, beaucoup d'état global.
+- Objectif de la version 3 : 1) refactoring pour la maintenabilité, 2) refonte UX (maquette proposée par ATR, vidéaste : `atr-new-ui.png`), 3) nouvelles fonctionnalités.
+- **CamTool 3 exige Custom Shaders Patch (CSP).** On utilise les API CSP plutôt que les appels bas niveau / la DLL. Pas de mode dégradé sans CSP.
+
+## Environnement d'exécution (contraintes dures)
+
+- Python **embarqué par AC = Python 3.3** (vérifier `sys.version` dans le log si doute). Pas de pip, pas de dépendances externes.
+  - Interdit : f-strings, annotations de variables, `typing`, `pathlib`, `enum`, `dataclasses`, `asyncio`, `math.isclose`, unpacking `*`/`**` généralisé, module `imp` (casse les tests sur Python récent).
+  - L'ordre des `dict` n'est PAS garanti : toujours `sort_keys=True` à l'écriture JSON.
+- Points d'entrée : `acMain(ac_version)` (une fois) et `acUpdate(dt)` (**à chaque frame**). Tout ce qui est dans `acUpdate` est chemin chaud : pas d'I/O, pas de log par frame, allocations minimales.
+- Le répertoire courant est la racine d'AC : les chemins sont du type `./apps/python/CamTool_2/...` (voir `classes/constants.py`, `files/settings.py`).
+- `stdlib/`, `stdlib64/` : `_ctypes.pyd` + wrapper DLL. `keyboard/` : bibliothèque tierce vendorisée → ne pas refactorer, ne pas styliser.
+- Les exceptions sont avalées par `debug(e)` (log AC `Documents/Assetto Corsa/logs/py_log.txt` + console) : une erreur n'arrête pas le jeu, elle se voit dans le log.
+
+## Carte du code actuel
+
+- `CamTool_2.py` (~2600 lignes) : entrée, boucle `acUpdate`, classe UI géante `CamTool2`.
+- `classes/Camera.py` : logique caméra (tracking, application des paramètres) — fortement couplé à `ac`/`ctt`.
+- `classes/data.py` : modèle caméras/keyframes, sauvegarde/chargement.
+- `classes/CubicBezierInterpolation.py` : interpolation — **déjà pur (aucun import `ac`)**, premier candidat aux tests.
+- `classes/InterpolateFrame.py`, `MouseLook.py`, `Replay.py`, `CamMode.py`, `hotkey.py`, `general.py` (vec3, debug).
+- `files/` : fichiers de données JSON par piste (`<track>_<layout>-<nom>.json`) et settings.
+- `ui/` : widgets maison au-dessus de `ac.addButton` & co.
+- `stdlib64/CamToolTool.py` : **seule** façade vers la caméra/replay (`ctt`), mélange `ac.ext_*` (CSP) et DLL.
+
+## DLL sans code source (`CamTool_1-16.dll`)
+
+Code source indisponible, liée à une version précise d'AC. Objectif : **zéro appel DLL dans CamTool 3**.
+Appels encore utilisés dans `CamToolTool.py` :
+
+| Fonction DLL | Usage | Piste de remplacement CSP | Statut |
+|---|---|---|---|
+| `IsAsyncKeyPressed` | Alt/Shift/Ctrl pour mouse look | `ac.ext_isButtonPressed` (commenté "keys not working") | à investiguer |
+| `GetPosition` (`get_position_old`) | évite le stuttering, issue #20 | `ac.ext_getCameraPositionAxis` (timing de frame ?) | à investiguer |
+| `GetHeading` | cap caméra | `ac.ext_getCameraYawRad` / `ext_getCameraDirection` (convention de signe/axe ?) | à investiguer |
+| `GetRoll` | roulis (via asin) | `ac.ext_getCameraRollRad` (commenté "not working") | à investiguer |
+| `SetReplaySpeed` | vitesse replay | à trouver | à investiguer |
+| `GetVolume` / `SetVolume` | fondu audio au changement de caméra | `ac.ext_*AudioVolume` cause des bugs son | à investiguer |
+
+Les statuts ci-dessus restent « à investiguer » : ils concernent le remplacement
+**en Python**, dans `CamToolTool.py`, et personne n'a testé ces `ac.ext_*`.
+
+### Équivalents Lua/CSP — validés en jeu par Théo (POC `apps/lua/CamTool3POC/`)
+
+| Fonction DLL | Équivalent Lua | Validé en jeu |
+|---|---|---|
+| `IsAsyncKeyPressed` | `ac.isKeyDown(ac.KeyIndex.Shift/Control/Menu)` | ✅ les 3 détectées |
+| `GetPosition` | `ac.grabCamera()` → `.transform.position` | ✅ orbite continue **sans stuttering** (#20) |
+| `GetHeading` | `.transform.look` (vecteur, plus d'angle) | ✅ via la même orbite |
+| `GetRoll` | `.transform.up` (vecteur, plus d'`asin`) | ✅ via la même orbite |
+| `SetReplaySpeed` | **pas d'équivalent** : `ac.setReplayPosition(frame, playCounter)` piloté par frame | ✅ ralenti et accéléré fluides |
+| `GetVolume` / `SetVolume` | `ac.getAudioVolume` / `ac.setAudioVolume` | ✅ rampes sans artefact sonore |
+
+Également validé en jeu : `.fov` (degrés, direct), `.dofFactor`/`.dofDistance`,
+et `.ownShare` (fondu natif AC ↔ script, transition douce → piste sérieuse pour **#16**).
+
+**#38 non reproduit** : aucun artefact observé en descendant le FOV jusqu'à 2°.
+Cela ne veut pas dire que c'est réglé — il faut d'abord un cas qui reproduit le
+bug dans la version Python pour comparer à scène égale.
+
+**Lire la caméra vivante d'AC** (pour créer un keyframe depuis la vue courante) :
+résolu. `transformOriginal` se fige à `ownShare = 1` parce qu'AC lâche la caméra,
+mais `ac.getCameraPosition/Forward/Up/FOV` continuent de reporter la caméra
+vivante tant qu'on ne la tient pas. ✅ Validé en jeu, y compris l'aller-retour
+complet : capture de la vue courante → grab → restitution exacte de la pose.
+**C'est le cycle « je place la vue → je keyframe → je rejoue » : la brique
+centrale de CamTool est prouvée en Lua.**
+
+**Mouse look** : ✅ fonctionne (`uiState.mouseDelta`, gaté par une touche
+modificatrice comme dans CamTool 2). Réserve d'ergonomie : la visée est moins
+douce que la caméra libre d'AC (F7), qui applique visiblement un lissage. Le POC
+envoie le delta souris brut — à corriger par un lissage exponentiel, ce n'est pas
+une limite de l'API.
+
+Règles :
+- Ne jamais ajouter de nouvel appel DLL.
+- Ne supprimer un appel DLL qu'avec un équivalent CSP **validé en jeu** (voir "Sondes de comparaison").
+- Documenter chaque conversion d'axe/signe dans le code (AC : Y vertical ; mapping d'axes CSP déjà présent dans `get_position`).
+- Mettre à jour ce tableau à chaque avancée.
+
+## Architecture cible
+
+Trois couches, dépendances vers l'intérieur uniquement :
+
+1. **core/** — logique pure : modèle caméras/keyframes, interpolation, tracking, calculs d'angles, sérialisation JSON. **Aucun `import ac`, `acsys`, `ctypes`, `keyboard`.** Entrées/sorties = valeurs simples.
+2. **adapters/** — seul endroit qui parle au jeu : `sim.py` (voitures, piste, replay), `camera.py` (lecture/écriture caméra), `input.py` (clavier/souris), `storage.py` (fichiers). Une interface par adaptateur, une implémentation AC/CSP, une implémentation fake pour les tests.
+3. **ui/** — présentation, ne contient pas de logique métier ; appelle le core, affiche l'état.
+
+Principes :
+- Pas de singletons globaux instanciés à l'import (`data = Data()`, `ctt = CamToolTool()`…) : composition explicite dans `acMain`.
+- Un état applicatif unique et explicite, passé aux fonctions, plutôt que des globales `gXxx`.
+- Unités explicites dans les noms (`_rad`, `_deg`, `_m`, `track_pos_norm` pour la position normalisée 0..1 appelée `the_x` dans le code legacy).
+
+## Compatibilité des données
+
+- Les fichiers JSON existants des utilisateurs (`data/*.json`) doivent rester chargeables. Exemples de référence : `data/spa_-init.json`, `data/ks_red_bull_ring_layout_gp-init.json` (à copier en fixtures de test).
+- Introduire un champ `version` de schéma + fonctions de migration pures et testées. Jamais de rupture silencieuse.
+- La compatibilité porte sur la **sémantique**, pas seulement la syntaxe JSON : `camera_fov` est stocké sous forme convertie `1/(fov+15)` (voir `convert_fov_2_focal_length`), les angles sont en radians, `camera_in`/`the_x` sont des positions normalisées 0..1, deux modes `pos` et `time`. Toute nouvelle implémentation doit reproduire ces conventions à l'identique (vérifié par golden master).
+
+## Tests
+
+Claude ne peut pas lancer Assetto Corsa. La vérification repose sur trois niveaux :
+
+### 1. Tests automatiques hors jeu (obligatoires)
+- `pytest` sur Python récent, dossier `tests/` (exclu du package de release).
+- `tests/fakes/` : faux modules `ac`, `acsys`, `keyboard`, faux `ctt` injectés via `sys.modules` → permettent d'importer et d'exécuter le code, y compris le legacy non modifié.
+- Tests unitaires du core (interpolation, angles, migrations JSON).
+- **Golden master / caractérisation** : avant de refactorer une zone, figer son comportement actuel (entrées rejouées → sorties caméra par frame : position, rotation, fov, dof) et vérifier après refactoring que les sorties sont identiques à epsilon près.
+- Traces de jeu : en mode dev (`settings.json` → `"dev_record_trace": true`), enregistrer par frame les entrées (dt, position replay, état des voitures utilisées) et les sorties caméra dans un JSONL hors du chemin chaud (buffer + écriture différée). Quelques traces courtes sont versionnées en fixtures.
+- Compatibilité 3.3 : `vermin --no-tips -t=3.3- --violations .` (hors `keyboard/` et `tests/`) doit passer.
+
+Commande de validation avant de proposer une modification : `pytest -q && vermin --no-tips -t=3.3- --violations classes files ui core adapters CamTool_2.py`.
+
+### 2. Sondes de comparaison (en jeu, pour la DLL)
+Petit module de debug activable qui logge côte à côte, pendant quelques secondes, la valeur DLL et la valeur CSP candidate (heading, roll, position…) pour déduire mapping d'axes, signe et décalage de frame.
+
+### 3. Checklist de test en jeu
+Toute modification touchant `adapters/`, l'UI ou `acUpdate` se termine par une **checklist courte et concrète** pour Théo (quoi lancer, quoi cliquer, quoi observer, quoi chercher dans `py_log.txt`). Ne jamais affirmer que "ça marche en jeu".
+
+## Méthode de travail
+
+- **Refactoring et changement de comportement ne sont jamais mélangés** dans un même commit.
+- Petits pas : un commit = une transformation, tests verts à chaque étape.
+- Avant toute tâche non triviale : proposer un plan et attendre validation.
+- Ne pas "corriger au passage" un comportement bizarre du legacy : le signaler, il est peut-être voulu (ou utilisé par les vidéastes).
+- Supprimer le code commenté mort seulement quand l'équivalent est validé (le code commenté documente souvent les tentatives CSP échouées — reporter l'info dans le tableau DLL avant suppression).
+- Code, identifiants, commentaires et messages de commit en anglais. Échanges avec Théo en français.
+- Branche `camtool-3` pour la refonte ; les correctifs 2.x restent possibles sur `main`.
+
+## Refonte UX — règles actées
+
+- **Cible : le panneau du haut de `atr-new-ui.png`** ("CAMTOOL 2.5", 3 colonnes colorées). Les captures du bas sont l'UI actuelle à onglets (Camera → violet, Transform → vert, Tracking → orange).
+- **Vue unique, pas d'onglets** : tous les paramètres d'une caméra visibles en même temps (ATR perd du temps à changer d'onglet).
+- **ISO fonctionnel** : la nouvelle UI couvre 100 % de `docs/ui-inventory.md`. Tout élément absent de la maquette est un **oubli** et doit être réintégré. Aucun bouton, raccourci ou comportement supprimé sans accord explicite de Théo.
+- **Saisie rapide souhaitée** : glisser la souris sur une valeur et saisie clavier directe, en plus des flèches. Attention : le clic sur la valeur est déjà le *toggle de keyframe* (voir inventaire) → choisir un autre geste et rendre visible l'état keyframé/non keyframé de chaque paramètre. Proposer le geste à Théo avant d'implémenter.
+- Conserver les modificateurs Ctrl (pas ÷ 4) et Shift (pas × 4).
+
+## Problèmes connus et pistes (issues GitHub)
+
+Hypothèses issues de la lecture du code, **à confirmer par un test** avant toute correction :
+
+- **#38 artefacts à petit FOV** : l'ancien `set_fov` ajustait le near clipping (`near = clamp(2 - fov/50, 0.1, 2)`, lignes commentées dans `CamToolTool.set_fov`) ; la version CSP ne le fait plus → z-fighting probable.
+- **#37 interpolation** : chaque paramètre est interpolé indépendamment. Position/rotation : Bézier cubique par canal (`interpolate`) avec corrections spéciales sur le premier et le dernier segment ; FOV, shake, offsets/forces de tracking : easing sinus (`interpolate_sin`) qui marque un arrêt à chaque keyframe ; splines enregistrées : linéaire (`interpolate_spline`). Rotations en angles d'Euler séparés, sans normalisation ±π visible dans l'interpolation des keyframes (contrairement au tracking dans `Camera.py`).
+- **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
+- **#23 dernière caméra buguée**, **#25 shake non keyframable**, **#16 glissement à l'activation** : à reproduire en test.
+- Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
+- Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
+- Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
+
+## Décisions ouvertes (ne pas trancher seul)
+
+- **Python (ac.ext_*) ou réécriture en app Lua CSP** (`ac.grabCamera()`, UI ImGui) pour CamTool 3.
+  - En cours d'instruction : POC de sondes de capacités sur la branche `poc/lua`
+    (`apps/lua/CamTool3POC/`). Il teste en jeu si le Lua peut remplacer les 6
+    appels DLL restants. **Rien n'est tranché tant que Théo n'a pas fait tourner
+    les sondes** — voir le tableau DLL ci-dessus, aucune ligne n'est validée.
+  - Point déjà acquis par lecture du SDK : `sim.replayPlaybackRate` est en
+    lecture seule, il n'existe pas d'équivalent direct à `SetReplaySpeed`. Le
+    contournement testé par le POC est de piloter `ac.setReplayPosition()` frame
+    par frame.
+- Déplacement éventuel du dépôt hors du dossier du jeu (jonction Windows vers `apps/python/CamTool_2`).
