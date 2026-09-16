@@ -143,18 +143,36 @@ Nature différente, donc traitement différent :
   version : l'ancien code ne produisait aucune valeur exploitable (exception
   d'un côté, `inf` de l'autre), donc aucune vidéo ne peut en dépendre.
 
-### Direction envisagée par Théo (à confirmer)
+### Migration à sens unique — acté par Théo
 
-Ne pas forcément garder la compatibilité CamTool 2, ou la garder en **lecture
-seule** ; mais **les nouveaux fichiers CamTool 3 ne doivent pas porter ces
-erreurs**.
+**CamTool 3 lit les fichiers CamTool 2 et écrit toujours le nouveau format.**
+Les nouveaux fichiers ne doivent pas porter les erreurs du registre ci-dessus.
 
-Conception qui en découle : **la version du fichier sélectionne le
-comportement**, plutôt qu'un réglage global que l'utilisateur doit penser à
-armer. Fichier sans `version` (ou 0) → sémantique legacy à l'identique ;
-`version` ≥ 1 → unités honnêtes et calculs corrigés. Cela satisfait
-mécaniquement la règle « toute nouvelle méthode d'interpolation doit être
-optionnelle, mode legacy par défaut ».
+**Deux axes distincts, ne jamais les fusionner :**
+
+| Champ | Sens |
+|---|---|
+| `version` | comment les valeurs sont **encodées** sur disque |
+| `interpolation_mode` | quels **calculs** de courbe s'appliquent (`legacy` / `fixed`) |
+
+Les confondre est l'erreur facile : migrer un fichier vers le nouvel encodage ne
+doit **pas** le basculer vers les courbes corrigées, sinon des vidéos déjà
+montées changeraient. Un fichier migré est donc `version = 1` **et**
+`interpolation_mode = 'legacy'`. Seules les caméras créées dans CamTool 3
+obtiennent `'fixed'`, et le mode est conservé à la sauvegarde.
+
+Implémenté dans `core/data.lua`, qui prend une table déjà parsée (le parsing
+JSON reste à l'adaptateur, côté CSP) — c'est ce qui rend la migration testable
+hors jeu.
+
+État de la validation : les **32** fichiers de référence passent le chargeur Lua,
+566 caméras, 1768 valeurs de FOV, toutes décodées entre 0,5° et 55,4°, aucune
+nulle ni négative. `camera_fov` est le seul champ encodé ;
+`camera_focus_point` contient des mètres bruts.
+
+Reste ouvert : `interpolation_mode` est **par fichier**. Le mettre par caméra
+permettrait de mélanger anciennes et nouvelles caméras dans un même set, au prix
+de plus de complexité. À trancher si le besoin apparaît.
 
 - La compatibilité porte sur la **sémantique**, pas seulement la syntaxe JSON : `camera_fov` est stocké sous forme convertie `1/(fov+15)` (voir `convert_fov_2_focal_length`), les angles sont en radians, `camera_in`/`the_x` sont des positions normalisées 0..1, deux modes `pos` et `time`. Toute nouvelle implémentation doit reproduire ces conventions à l'identique (vérifié par golden master).
 
