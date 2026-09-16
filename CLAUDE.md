@@ -135,6 +135,29 @@ Claude ne peut pas lancer Assetto Corsa. La vérification repose sur trois nivea
 
 Commande de validation avant de proposer une modification : `pytest -q && vermin --no-tips -t=3.3- --violations classes files ui core adapters CamTool_2.py`.
 
+### 1 bis. Tests Lua hors jeu (branche `poc/lua`)
+
+Même principe côté Lua, mêmes exigences. **Outillage : un seul binaire.**
+
+- Runtime : **LuaJIT 2.1** (`winget install DEVCOM.LuaJIT`), parce que CSP tourne
+  sur LuaJIT. `_VERSION` = **Lua 5.1** : c'est le carcan de syntaxe du Lua, le
+  pendant de Python 3.3 côté Python.
+- Runner : `apps/lua/CamTool3POC/tests/runner.lua`, ~70 lignes de Lua pur
+  versionnées. Pas de `busted`, pas de `luarocks` (chaîne de compilation C sous
+  Windows), cohérent avec un projet qui tourne sur des interpréteurs embarqués
+  où rien ne s'installe.
+- Les fichiers de test sont listés explicitement dans `tests/run.lua` : scanner
+  un dossier demanderait `lfs`, donc une dépendance C.
+
+Commande de validation, depuis `apps/lua/CamTool3POC/` : `luajit tests/run.lua`
+(code de sortie non nul si un test échoue).
+
+Piège de portage déjà identifié et couvert par un test : **Lua ne lève pas sur
+une division par zéro**, il renvoie `inf`. Là où Python lève une exception
+avalée par `debug(e)` (l'appelant garde sa valeur précédente), le Lua propage un
+`inf` jusqu'à la caméra. Tout ce qui lit une saisie utilisateur ou un fichier
+doit rejeter ces cas en amont.
+
 ### 2. Sondes de comparaison (en jeu, pour la DLL)
 Petit module de debug activable qui logge côte à côte, pendant quelques secondes, la valeur DLL et la valeur CSP candidate (heading, roll, position…) pour déduire mapping d'axes, signe et décalage de frame.
 
