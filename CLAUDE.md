@@ -246,6 +246,24 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
 - Voir aussi le **registre des bizarreries du legacy** dans « Compatibilité des
   données » : quatre comportements confirmés, chacun reproduit et épinglé par un
   test dans le portage Lua.
+- **Le cap n'est PAS `rot_z`.** Erreur coûteuse, à ne pas refaire. Le cap final
+  est un mélange pondéré de trois sources (`InterpolateFrame.py` ~283), chacune
+  ramenée à la révolution la plus proche par `normalize_angle` avant le blend :
+  1. `rot_z` keyframé, pondéré par `transform_rot_strength`, mélangé au cap courant
+  2. la spline enregistrée
+  3. **la direction vers la voiture suivie**, pondérée par `tracking_strength_heading`
+  **98 % des 566 caméras de référence utilisent le tracking** (8 seulement visent
+  sans lui) : pour presque toutes, c'est la source 3 qui donne la visée. Toute
+  lecture de caméra qui n'applique que `rot_z` pointera n'importe où.
+- **Convention d'angles, explicite dans `Camera.calculate_cam_rot_to_tracking_car`** —
+  inutile de la deviner :
+  `heading = atan2(dx, dy) + pi/2` et `pitch = atan2(dz, sqrt(dx²+dy²))`,
+  deltas en espace CamTool (Z-up). Portée dans `core/angles.lua`, avec un test
+  d'aller-retour qui vérifie que `lookVector` inverse exactement `aimAt`.
+- **Axes** : CamTool stocke en **Z-up**, AC est en **Y-up**. `position AC =
+  vec3(loc_x, loc_z, loc_y)`. Confirmé deux fois : les splines de piste mettent
+  tout le dénivelé dans `loc_z` (Spa 102 m, Red Bull Ring 63 m), et
+  `CamToolTool.get_position` mappe l'axe CamTool 2 vers l'axe CSP 1.
 - **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
 - **#23 dernière caméra buguée**, **#25 shake non keyframable**, **#16 glissement à l'activation** : à reproduire en test.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
