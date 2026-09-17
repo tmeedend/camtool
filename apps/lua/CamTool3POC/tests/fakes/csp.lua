@@ -49,6 +49,9 @@ function fakes.install(opts)
     focusedCar = 0,
     carsCount = 1,
     dt = 0.016,
+    -- Render frame index, used by the app to run its per-frame work once even
+    -- when both entry points fire.
+    frame = 0,
   }
 
   local grabbedCamera = {

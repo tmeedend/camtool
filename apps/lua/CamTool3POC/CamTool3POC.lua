@@ -505,7 +505,18 @@ local function runPlayback(transform)
   end
 end
 
-function script.update(dt)
+-- Both entry points below can fire in the same render frame depending on how
+-- CSP is configured, and the work must happen exactly once: running twice would
+-- advance the replay cursor and the car history double.
+local lastFrame = -1
+
+local function perFrame(dt)
+  local frame = sim.frame
+  if frame ~= nil then
+    if frame == lastFrame then return end
+    lastFrame = frame
+  end
+
   -- Real-time dt. sim.dt is scaled by replay speed and would feed back into the
   -- replay driving below.
   local rt = uiState.dt
@@ -620,6 +631,20 @@ function script.update(dt)
   else
     cam.dofFactor = cam.dofFactorOriginal
   end
+end
+
+-- The app has to keep working with its window closed: watching a replay means
+-- not having a panel on screen. LAZY = PARTIAL keeps the script loaded, and
+-- WORLD_UPDATE drives it per frame regardless of the window. script.update is
+-- kept as well, since which of the two CSP calls is not something that can be
+-- settled by reading the SDK -- the shipped apps disagree. The frame guard
+-- above makes running both harmless.
+function script.update(dt)
+  perFrame(dt)
+end
+
+function script.simUpdate(dt)
+  perFrame(dt)
 end
 
 --------------------------------------------------------------------------------

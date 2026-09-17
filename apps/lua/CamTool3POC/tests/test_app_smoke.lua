@@ -231,3 +231,51 @@ test('a real spline camera set plays back without raising', function()
 
   handle.restoreIo()
 end)
+
+test('both per-frame entry points exist', function()
+  -- CSP may call script.update, or the WORLD_UPDATE callback, depending on how
+  -- the manifest is read. The app has to keep driving the camera with its
+  -- window closed, so both are wired.
+  local handle = loadApp({ cameraFile = rawFile })
+  eq(type(_G.script.update), 'function')
+  eq(type(_G.script.simUpdate), 'function')
+  handle.restoreIo()
+end)
+
+test('the work happens once per frame even if both entry points fire', function()
+  -- Running twice in one frame would advance the replay cursor and the car
+  -- history double, which would show up as the replay playing at 2x.
+  --
+  -- Replay driving is switched on through the UI so there is a per-frame side
+  -- effect to count; without it this test would pass on an empty list and prove
+  -- nothing.
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    clicks = { ['Drive replay'] = true },
+  })
+  local chunk = assert(loadfile('CamTool3POC.lua'))
+  chunk()
+
+  handle.sim.frame = 1
+  _G.script.windowMain(0.016)   -- lands the click
+  _G.script.update(0.016)
+
+  local afterFirst = #handle.replayPositions
+  if afterFirst == 0 then
+    error('replay driving did not start, so this test proves nothing', 2)
+  end
+
+  _G.script.simUpdate(0.016)
+  eq(#handle.replayPositions, afterFirst,
+    'a second call in the same frame must do nothing')
+
+  handle.sim.frame = 2
+  _G.script.simUpdate(0.016)
+  eq(#handle.replayPositions, afterFirst + 1, 'a new frame must be processed once')
+
+  handle.sim.frame = 3
+  _G.script.update(0.016)
+  eq(#handle.replayPositions, afterFirst + 2, 'either entry point drives it')
+
+  handle.restoreIo()
+end)
