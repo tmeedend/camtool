@@ -238,6 +238,12 @@ Toute modification touchant `adapters/`, l'UI ou `acUpdate` se termine par une *
 - **ISO fonctionnel** : la nouvelle UI couvre 100 % de `docs/ui-inventory.md`. Tout élément absent de la maquette est un **oubli** et doit être réintégré. Aucun bouton, raccourci ou comportement supprimé sans accord explicite de Théo.
 - **Saisie rapide souhaitée** : glisser la souris sur une valeur et saisie clavier directe, en plus des flèches. Attention : le clic sur la valeur est déjà le *toggle de keyframe* (voir inventaire) → choisir un autre geste et rendre visible l'état keyframé/non keyframé de chaque paramètre. Proposer le geste à Théo avant d'implémenter.
 - Conserver les modificateurs Ctrl (pas ÷ 4) et Shift (pas × 4).
+- **L'app doit continuer à piloter la caméra fenêtre fermée.** On regarde un
+  replay sans vouloir un panneau à l'écran — c'est l'usage normal, pas un cas
+  limite. Côté Lua : `LAZY = PARTIAL` (surtout pas `FULL`, qui décharge l'app à
+  la fermeture de la fenêtre) + `[SIM_CALLBACKS] WORLD_UPDATE` pour le travail
+  par frame. Contrepartie assumée : fermer la fenêtre alors qu'une caméra est
+  tenue la laisse tenue ; il faut rouvrir l'app pour la relâcher.
 
 ## Problèmes connus et pistes (issues GitHub)
 
