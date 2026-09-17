@@ -65,6 +65,23 @@ test('it survives many frames while holding the camera', function()
   handle.restoreIo()
 end)
 
+test('the tracking path runs when a car has a world position', function()
+  -- Guards the aim code added after the first in-game session: without a
+  -- position on the fake car it would quietly skip, and the new path would go
+  -- untested while still looking green.
+  local handle = loadApp({ cameraFile = rawFile, splinePosition = 0.04 })
+
+  for _ = 1, 30 do
+    local ok, err = pcall(_G.script.update, 0.016)
+    if not ok then error('update raised with tracking: ' .. tostring(err), 2) end
+  end
+
+  local ok, err = pcall(_G.script.windowMain, 0.016)
+  eq(ok, true, ok and '' or ('windowMain raised with tracking: ' .. tostring(err)))
+
+  handle.restoreIo()
+end)
+
 test('the teardown hook releases cleanly', function()
   local handle = loadApp({ cameraFile = rawFile })
   eq(type(handle.releaseCallback), 'function', 'the app must register ac.onRelease')

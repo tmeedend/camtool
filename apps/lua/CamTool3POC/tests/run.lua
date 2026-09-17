@@ -15,6 +15,7 @@ package.path = './?.lua;' .. package.path
 local runner = require('tests/runner')
 
 require('tests/test_fov')
+require('tests/test_angles')
 require('tests/test_cubic')
 require('tests/test_interpolation')
 require('tests/test_data')

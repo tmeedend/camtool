@@ -12,6 +12,7 @@
 
 local storage = require('adapters/storage')
 local evaluate = require('core/evaluate')
+local angles = require('core/angles')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -141,6 +142,10 @@ local trackPos = 0
 local activeCam = nil
 local evaluated = {}
 
+-- Readouts, refreshed each frame so the panel can show what the aim resolved to.
+local appliedHeading, appliedPitch = 0, 0
+local aimedHeading, aimedPitch, aimStrength = 0, 0, 0
+
 -- CamTool stores Z-up; AC is Y-up. Confirmed twice: the track splines put all
 -- the elevation in loc_z (Spa spans 102 m, which is Eau Rouge), and
 -- CamToolTool.get_position maps CamTool axis 2 to CSP axis 1.
@@ -148,14 +153,16 @@ local function toWorld(x, y, z)
   return vec3(x, z, y)
 end
 
--- The angle conventions are the one thing here that cannot be settled by
--- reading code: CamTool's heading zero and sign have to match AC's, and the
--- legacy went through the DLL for this. Rather than guess and iterate over
--- several sessions, expose the choices and let one in-game pass settle it.
-local yawSign = 1
-local pitchSign = 1
-local yawOffsetDeg = 0
+-- Aim. The heading and pitch conventions are no longer guessed: they come from
+-- Camera.calculate_cam_rot_to_tracking_car via core/angles.lua.
+--
+-- Tracking here is SIMPLIFIED and does not yet match CamTool 2. It aims at the
+-- focused car's current position, where the legacy averages several frames of
+-- history and extrapolates one step ahead to lead the car. Expect the aim to
+-- lag in fast corners.
+local applyTracking = true
 local applyRoll = true
+local trackingOverride = -1   -- -1 means use the file's own strength
 
 -- Set by the playback branch each frame, cleared at the top of every update.
 local playbackFov = nil
@@ -181,6 +188,22 @@ local function loadSelectedFile()
   log(string.format('loaded %s -- %d cameras, version %s, mode %s',
     name, dataModule.cameraCount(loaded), tostring(loaded.version),
     tostring(loaded.interpolation_mode)))
+end
+
+---Pick the keyframed value, else the camera-level one, else a default.
+local function pick(keyframed, cameraLevel, fallback)
+  if keyframed ~= nil then return keyframed end
+  if cameraLevel ~= nil then return cameraLevel end
+  return fallback
+end
+
+---World position of the focused car, converted to CamTool space (Z-up).
+local function focusedCarPosition()
+  local index = sim.focusedCar
+  if index == nil or index < 0 then return nil end
+  local car = ac.getCar(index)
+  if car == nil or car.position == nil then return nil end
+  return car.position.x, car.position.z, car.position.y
 end
 
 ---Track position of the car the replay is following, 0..1.
@@ -372,13 +395,44 @@ function script.update(dt)
           transform.position = toWorld(v.loc_x, v.loc_y, v.loc_z)
         end
 
-        -- rot_x is pitch, rot_y is roll, rot_z is heading. Named explicitly in
-        -- InterpolateFrame.py, so this part is not guesswork -- only the sign
-        -- and zero of the angles are.
-        local yaw = (v.rot_z or 0) * yawSign + yawOffsetDeg * math.pi / 180
-        local pitch = (v.rot_x or 0) * pitchSign
-        local cp = math.cos(pitch)
-        local look = vec3(cp * math.sin(yaw), math.sin(pitch), cp * math.cos(yaw))
+        -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
+        -- InterpolateFrame.py. The transform component is what the keyframes
+        -- hold; the aim most cameras actually use comes from tracking below.
+        local camera = cameras[activeCam]
+        local heading = v.rot_z or 0
+        local pitch = v.rot_x or 0
+
+        -- The legacy blends the keyframed heading against the camera's current
+        -- one by transform_rot_strength before anything else. Not reproduced
+        -- yet: it needs the previous frame's heading, so it is part of the same
+        -- work as proper tracking.
+
+        if applyTracking then
+          local carX, carY, carZ = focusedCarPosition()
+          if carX ~= nil and v.loc_x ~= nil and v.loc_y ~= nil and v.loc_z ~= nil then
+            local aimHeading, aimPitch =
+              angles.aimAt(v.loc_x, v.loc_y, v.loc_z, carX, carY, carZ)
+
+            aimHeading = aimHeading
+              + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
+            aimPitch = aimPitch
+              + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
+
+            local sh = pick(v.tracking_strength_heading, camera.tracking_strength_heading, 0)
+            local sp = pick(v.tracking_strength_pitch, camera.tracking_strength_pitch, 0)
+            if trackingOverride >= 0 then sh, sp = trackingOverride, trackingOverride end
+
+            heading = angles.blend(heading, aimHeading, sh)
+            pitch = angles.blend(pitch, aimPitch, sp)
+
+            aimedHeading, aimedPitch, aimStrength = aimHeading, aimPitch, sh
+          end
+        end
+
+        appliedHeading, appliedPitch = heading, pitch
+
+        local lx, ly, lz = angles.lookVector(heading, pitch)
+        local look = vec3(lx, ly, lz)
         transform.look = look
 
         if applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
@@ -616,12 +670,22 @@ local function drawPlayback()
       v.rot_x or 0, v.rot_y or 0, v.rot_z or 0))
 
     ui.separator()
-    ui.text('Angle convention -- flip these until it matches CamTool 2')
-    if ui.checkbox('invert heading', yawSign < 0) then yawSign = -yawSign end
+    ui.text('Aim')
+    if ui.checkbox('track the car', applyTracking) then applyTracking = not applyTracking end
     ui.sameLine()
-    if ui.checkbox('invert pitch', pitchSign < 0) then pitchSign = -pitchSign end
     if ui.checkbox('apply roll', applyRoll) then applyRoll = not applyRoll end
-    yawOffsetDeg = ui.slider('##yawOffset', yawOffsetDeg, -180, 180, 'heading offset %.0f deg')
+
+    ui.text(string.format('heading applied %.3f  (keyframed %.3f, aim %.3f)',
+      num(appliedHeading), num(v.rot_z), num(aimedHeading)))
+    ui.text(string.format('pitch   applied %.3f  (keyframed %.3f, aim %.3f)',
+      num(appliedPitch), num(v.rot_x), num(aimedPitch)))
+    ui.textColored(string.format('tracking strength in use: %.2f', num(aimStrength)),
+      aimStrength > 0 and COLOR_OK or COLOR_IDLE)
+
+    -- Forcing the strength is a diagnostic: it tells apart "tracking is wrong"
+    -- from "this camera barely tracks".
+    trackingOverride = ui.slider('##trackOverride', trackingOverride, -1, 1,
+      trackingOverride < 0 and 'strength: from file' or 'strength forced to %.2f')
   end
 
 end

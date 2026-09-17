@@ -88,7 +88,12 @@ function fakes.install(opts)
 
     getCar = function(i)
       if i ~= 0 then return nil end
-      return { splinePosition = opts.splinePosition or 0.5, index = 0 }
+      return {
+        splinePosition = opts.splinePosition or 0.5,
+        index = 0,
+        -- AC world position, Y-up. Needed for the tracking path.
+        position = opts.carPosition or vec3fake(-170, 5, 450),
+      }
     end,
 
     setReplayPosition = function(frame, counter)
