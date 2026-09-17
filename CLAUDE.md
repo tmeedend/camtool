@@ -131,6 +131,8 @@ un test, pour qu'aucune correction n'arrive par accident.
 | 2 | `convert_fov_2_focal_length` renvoie la sentinelle `0.00001` **dans les deux sens** | `val == 0` | `encode` et `decode` ne sont pas inverses : `decode(encode(0))` = 99985 | `test_fov.lua` |
 | 3 | `1/(val+15)` non gardé | FOV exactement −15 | division par zéro. Python lève (comportement exact du gestionnaire appelant **non vérifié**) ; Lua renvoie `inf` qui se propage | `test_fov.lua` |
 | 4 | `SolveQuadratic(0, 0, c)` renvoie `c` | cubique dégénérée, tous coefficients nuls sauf `d` | la constante est servie comme paramètre de courbe `t`, sans borne [0,1] | `cubic_golden.lua` |
+| 5 | Mélange de position : les axes Y et Z utilisent `ctt.get_position(0)` — l'axe **X** (`InterpolateFrame.py` ~156 et ~177) | `transform_loc_strength < 1` | Y et Z sont mélangés avec la coordonnée X de la caméra. Copier-coller. **Dormant** : vaut 1.0 sur les 566 caméras de référence, jamais keyframé | — |
+| 6 | `locCameraData.transform_rot_strength = loc_transform_loc_strength` (~119) | `transform_loc_strength` keyframé | la force de **translation** est écrite dans le cache de la force de **rotation**. **Dormant** : jamais keyframé dans les fichiers de référence | — |
 
 Nature différente, donc traitement différent :
 
