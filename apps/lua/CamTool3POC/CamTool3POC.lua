@@ -178,6 +178,11 @@ local trackingOverride = -1   -- -1 means use the file's own strength
 local carHistory = tracking.new()
 local legacyZeroFill = false
 
+-- Forces tracking_offset to 0, so the camera aims straight at the car with no
+-- lead. An A/B switch: 76% of the reference cameras use exactly -0.1, and on the
+-- long lenses these files favour, that lead is a visible part of the frame.
+local ignoreLead = false
+
 -- CamTool 2 only offers the current track's files; do the same, with an escape
 -- hatch for loading another track's file while testing.
 local showAllTracks = false
@@ -458,6 +463,7 @@ function script.update(dt)
             -- much; the replay speed stretches it so a slowed replay keeps the
             -- same lead in wall-clock terms.
             local offset = pick(v.tracking_offset, camera.tracking_offset, 0)
+            if ignoreLead then offset = 0 end
             local targetX, targetY, targetZ =
               tracking.target(carHistory, offset, sim.replayPlaybackRate, 0)
 
@@ -748,6 +754,9 @@ local function drawPlayback()
       aimStrength > 0 and COLOR_OK or COLOR_IDLE)
     ui.text(string.format('tracking offset %.3f  (%s)', num(aimOffset),
       aimOffset < 0 and 'leads the car' or (aimOffset > 0 and 'trails it' or 'aims at it')))
+    if ui.checkbox('aim straight at the car (no lead)', ignoreLead) then
+      ignoreLead = not ignoreLead
+    end
     if ui.checkbox('legacy startup transient (#16)', legacyZeroFill) then
       legacyZeroFill = not legacyZeroFill
       carHistory = tracking.new(nil, legacyZeroFill)
