@@ -265,7 +265,20 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   tout le dénivelé dans `loc_z` (Spa 102 m, Red Bull Ring 63 m), et
   `CamToolTool.get_position` mappe l'axe CamTool 2 vers l'axe CSP 1.
 - **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
-- **#23 dernière caméra buguée**, **#25 shake non keyframable**, **#16 glissement à l'activation** : à reproduire en test.
+- **#16 glissement à l'activation — piste sérieuse trouvée.** `Camera.py`
+  initialise son historique de positions de voiture avec **50 vecteurs nuls**
+  (`__max_tracked_car_positions = 50`, remplis de `vec3()` = origine). Pendant
+  les 50 premières frames de tracking, la moyenne est donc tirée vers l'origine
+  du monde et la position extrapolée (`latest + (latest - avg)`) déborde dans
+  la direction opposée. Le portage Lua amorce l'historique avec le premier
+  échantillon réel ; le comportement legacy reste disponible derrière une case à
+  cocher du POC pour comparer en jeu. **À confirmer visuellement.**
+- **#25 shake non keyframable — élément concret.** `camera_shake_strength` est
+  bien interpolé (easing sinus), mais `camera_offset_shake_strength` a un
+  emplacement dans chaque keyframe et est pourtant lu **au niveau caméra**,
+  jamais interpolé. Idem pour `spline_affect_pitch`/`roll`/`heading`.
+- **#23 dernière caméra buguée** : à reproduire en test. Voir le wraparound de
+  `get_prev_camera` et le décalage `the_x -= 1` de `is_last_camera()`.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
 - Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
 - Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
