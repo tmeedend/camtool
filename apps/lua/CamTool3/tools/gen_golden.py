@@ -9,7 +9,7 @@ Output is a Lua file, not JSON: the test runner has no JSON parser and the
 whole toolchain is meant to stay at zero dependencies. Floats are written with
 %.17g, which round-trips a double exactly.
 
-Usage, from apps/lua/CamTool3POC:
+Usage, from apps/lua/CamTool3:
     python tools/gen_golden.py
 """
 import os

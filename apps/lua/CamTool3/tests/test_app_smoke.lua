@@ -20,7 +20,7 @@ local test, eq = runner.test, runner.eq
 ---Load the app fresh with the given fake options, returning the fake handle.
 local function loadApp(opts)
   local handle = fakes.install(opts)
-  local chunk, err = loadfile('CamTool3POC.lua')
+  local chunk, err = loadfile('CamTool3.lua')
   if chunk == nil then
     error('app did not compile: ' .. tostring(err), 2)
   end
@@ -173,7 +173,7 @@ test('an unkeyframed heading holds instead of snapping to zero', function()
   local lx, ly, lz = angles.lookVector(seedHeading, seedPitch)
   handle.camera.transformOriginal.look = { x = lx, y = ly, z = lz }
 
-  local chunk = assert(loadfile('CamTool3POC.lua'))
+  local chunk = assert(loadfile('CamTool3.lua'))
   chunk()
 
   -- A few frames: draw first so the clicks land, then run the frame.
@@ -210,7 +210,7 @@ test('a real spline camera set plays back without raising', function()
     },
   })
 
-  local chunk = assert(loadfile('CamTool3POC.lua'))
+  local chunk = assert(loadfile('CamTool3.lua'))
   chunk()
 
   for _ = 1, 40 do
@@ -253,7 +253,7 @@ test('the work happens once per frame even if both entry points fire', function(
     cameraFile = rawFile,
     clicks = { ['Drive replay'] = true },
   })
-  local chunk = assert(loadfile('CamTool3POC.lua'))
+  local chunk = assert(loadfile('CamTool3.lua'))
   chunk()
 
   handle.sim.frame = 1

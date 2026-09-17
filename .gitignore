@@ -4,7 +4,7 @@ apps/python/CamTool_2/data/
 !content/gui/icons/**
 apps/lua/*
 __pycache__/
-!apps/lua/CamTool3POC/
+!apps/lua/CamTool3/
 cfg/
 system/
 server/

@@ -1,13 +1,17 @@
 --[[
-  CamTool 3 POC -- CSP capability probe.
+  CamTool 3 -- cinematic replay camera for Assetto Corsa, on CSP Lua.
 
-  Goal: find out whether a Lua/CSP rewrite of CamTool can drop every remaining
-  call into CamTool_1-16.dll. Each probe below maps to one row of the DLL table
-  in CLAUDE.md, or to a known GitHub issue.
+  Reads the camera files CamTool 2 wrote, migrates them, and plays them back:
+  the camera the car's track position selects, every keyframed parameter through
+  the ported interpolators, tracking with lead, and recorded splines.
 
-  This app writes no file and never touches apps/python/CamTool_2. The only
-  global state it changes is the grabbed camera and, optionally, the main audio
-  volume -- both restored when the probe is stopped or the window is closed.
+  The numbered probes further down are diagnostics kept from the port. Each maps
+  to a row of the DLL table in CLAUDE.md or to a known issue, and they stay
+  because they are how a camera problem gets pinned down without guessing.
+
+  Still read only: this app writes no camera file and never touches
+  apps/python/CamTool_2. The only global state it changes is the grabbed camera
+  and, optionally, the main audio volume, both restored on unload.
 ]]
 
 local storage = require('adapters/storage')
@@ -34,7 +38,7 @@ local logLines = {}
 local function log(message)
   logLines[#logLines + 1] = message
   while #logLines > LOG_KEPT do table.remove(logLines, 1) end
-  ac.log('[CamTool3POC] ' .. message)
+  ac.log('[CamTool3] ' .. message)
 end
 
 ---Coerce a possibly-missing number for display. A nil reaching string.format
@@ -249,7 +253,7 @@ end
 
 local function grabCamera()
   if cameraActive() then return true end
-  local grabbed, err = ac.grabCamera('CamTool 3 POC')
+  local grabbed, err = ac.grabCamera('CamTool 3')
   if grabbed == nil then
     grabError = tostring(err or 'no reason given')
     log('GRAB FAILED: ' .. grabError)

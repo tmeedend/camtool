@@ -1,11 +1,11 @@
 --[[
-  Storage adapter -- the only place in the POC that touches the filesystem.
+  Storage adapter -- the only place that touches the filesystem.
 
   Everything under core/ takes parsed tables, which is what lets it be tested
   out of game. This module is the boundary: it lists and reads files, parses
   JSON, and hands core/data.lua a plain table.
 
-  Read only, by design. The POC never writes a camera file.
+  Read only, by design: nothing here writes a camera file.
 ]]
 
 local data = require('core/data')

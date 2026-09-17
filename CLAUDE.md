@@ -9,7 +9,7 @@ Périmètre autorisé, et rien d'autre :
 | Chemin | Accès |
 |---|---|
 | `apps/python/CamTool_2/` | lecture + écriture (CamTool 2) |
-| `apps/lua/CamTool3POC/` | lecture + écriture (POC Lua, branche `poc/lua`) |
+| `apps/lua/CamTool3/` | lecture + écriture (CamTool 3, branche `camtool-3`) |
 | `content/gui/icons/CamTool_2_*.png` | lecture seule |
 | `extension/internal/lua-sdk/` | lecture seule (définitions EmmyLua de l'API CSP) |
 
@@ -64,7 +64,7 @@ Appels encore utilisés dans `CamToolTool.py` :
 Les statuts ci-dessus restent « à investiguer » : ils concernent le remplacement
 **en Python**, dans `CamToolTool.py`, et personne n'a testé ces `ac.ext_*`.
 
-### Équivalents Lua/CSP — validés en jeu par Théo (POC `apps/lua/CamTool3POC/`)
+### Équivalents Lua/CSP — validés en jeu par Théo (POC `apps/lua/CamTool3/`)
 
 | Fonction DLL | Équivalent Lua | Validé en jeu |
 |---|---|---|
@@ -192,21 +192,21 @@ Claude ne peut pas lancer Assetto Corsa. La vérification repose sur trois nivea
 
 Commande de validation avant de proposer une modification : `pytest -q && vermin --no-tips -t=3.3- --violations classes files ui core adapters CamTool_2.py`.
 
-### 1 bis. Tests Lua hors jeu (branche `poc/lua`)
+### 1 bis. Tests Lua hors jeu (branche `camtool-3`)
 
 Même principe côté Lua, mêmes exigences. **Outillage : un seul binaire.**
 
 - Runtime : **LuaJIT 2.1** (`winget install DEVCOM.LuaJIT`), parce que CSP tourne
   sur LuaJIT. `_VERSION` = **Lua 5.1** : c'est le carcan de syntaxe du Lua, le
   pendant de Python 3.3 côté Python.
-- Runner : `apps/lua/CamTool3POC/tests/runner.lua`, ~70 lignes de Lua pur
+- Runner : `apps/lua/CamTool3/tests/runner.lua`, ~70 lignes de Lua pur
   versionnées. Pas de `busted`, pas de `luarocks` (chaîne de compilation C sous
   Windows), cohérent avec un projet qui tourne sur des interpréteurs embarqués
   où rien ne s'installe.
 - Les fichiers de test sont listés explicitement dans `tests/run.lua` : scanner
   un dossier demanderait `lfs`, donc une dépendance C.
 
-Commande de validation, depuis `apps/lua/CamTool3POC/` : `luajit tests/run.lua`
+Commande de validation, depuis `apps/lua/CamTool3/` : `luajit tests/run.lua`
 (code de sortie non nul si un test échoue).
 
 Piège de portage déjà identifié et couvert par un test : **Lua ne lève pas sur
@@ -295,7 +295,7 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
 
-Tranché par Théo après le POC (`apps/lua/CamTool3POC/`, branche `poc/lua`).
+Tranché par Théo après le POC (branche `poc/lua`, conservée comme repère). Le développement continue sur `camtool-3`, dans `apps/lua/CamTool3/`.
 **CamTool 2 reste en Python et continue d'être maintenu sur `main`** ; les
 sections Python de ce document restent valables pour les correctifs 2.x.
 
@@ -313,23 +313,26 @@ Ce que le POC a prouvé **en jeu**, et qui fonde la décision :
 Et hors jeu : une boucle de test réelle (LuaJIT + runner maison), avec les trois
 interpolateurs confrontés point par point au vrai code Python.
 
-Reste à faire, par ordre d'importance :
+### Déjà porté et validé en jeu
 
-1. **Fidélité du tracking** — le legacy moyenne plusieurs frames de position et
-   extrapole d'un pas pour anticiper ; le POC vise la position courante, d'où un
-   retard dans les virages rapides.
-2. **Splines enregistrées** (pas implémentées), shake, focus point DOF, smart
-   tracking.
-3. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
-4. L'écriture de fichiers (volontairement hors périmètre du POC).
+Migration des fichiers, sélection de la caméra par position piste, les trois
+interpolateurs, conventions d'angles, tracking avec anticipation (lead/lag),
+splines enregistrées, fonctionnement fenêtre fermée.
+
+### Reste à faire, par taille croissante
+
+1. **#23** (dernière caméra buguée) — pistes : le wraparound de
+   `get_prev_camera` et le décalage `the_x -= 1` de `is_last_camera()`.
+2. **Shake** (`camera_shake_strength`, `camera_offset_shake_strength`) et
+   **focus point DOF** (`camera_focus_point`).
+3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
+4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
+   migration à sens unique : on écrit toujours le format v1.
 
 ## Décisions ouvertes (ne pas trancher seul)
 
 - Déplacement éventuel du dépôt hors du dossier du jeu (jonction Windows vers `apps/python/CamTool_2`).
-- **Où poursuivre le développement** : `poc/lua` est une branche de POC. La
-  suite doit-elle repartir sur `camtool-3` (la branche prévue pour la refonte),
-  et que garde-t-on du POC — les sondes de capacités sont-elles encore utiles
-  une fois la décision prise ?
 - `interpolation_mode` est **par fichier** ; le passer par caméra permettrait de
   mélanger anciennes et nouvelles caméras dans un même set.
 - Le **bug `SolveCubic`** (registre des bizarreries) : corriger dans le mode

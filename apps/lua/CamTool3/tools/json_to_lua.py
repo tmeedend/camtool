@@ -3,7 +3,7 @@
 The Lua tests have no JSON parser -- parsing is CSP's job in game -- so real
 camera files are converted here to be used as fixtures.
 
-Usage, from apps/lua/CamTool3POC:
+Usage, from apps/lua/CamTool3:
     python tools/json_to_lua.py <input.json> <output.lua> [max_cameras]
 
 max_cameras trims each of the two camera lists, so a versioned fixture keeps
