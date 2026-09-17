@@ -13,6 +13,7 @@
 local storage = require('adapters/storage')
 local evaluate = require('core/evaluate')
 local angles = require('core/angles')
+local tracking = require('core/tracking')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -153,6 +154,7 @@ local haveLastAim = false
 -- Readouts, refreshed each frame so the panel can show what the aim resolved to.
 local appliedHeading, appliedPitch = 0, 0
 local aimedHeading, aimedPitch, aimStrength = 0, 0, 0
+local aimOffset = 0
 
 -- CamTool stores Z-up; AC is Y-up. Confirmed twice: the track splines put all
 -- the elevation in loc_z (Spa spans 102 m, which is Eau Rouge), and
@@ -172,13 +174,23 @@ local applyTracking = true
 local applyRoll = true
 local trackingOverride = -1   -- -1 means use the file's own strength
 
+-- Rolling history of the tracked car, for the lead/lag aim point.
+local carHistory = tracking.new()
+local legacyZeroFill = false
+
+-- CamTool 2 only offers the current track's files; do the same, with an escape
+-- hatch for loading another track's file while testing.
+local showAllTracks = false
+local filePrefix = ''
+
 -- Set by the playback branch each frame, cleared at the top of every update.
 local playbackFov = nil
 
 local function refreshFileList()
-  files = storage.listCameraFiles()
+  files, filePrefix = storage.listCameraFiles(showAllTracks)
   fileIndex = 0
-  log(string.format('found %d CamTool 2 camera files', #files))
+  if #files == 1 then fileIndex = 1 end
+  log(string.format('found %d camera files for %s', #files, filePrefix))
 end
 
 local function loadSelectedFile()
@@ -241,6 +253,7 @@ local function grabCamera()
   anchor = vec3(p.x, p.y, p.z)
   orbitTime = 0
   haveLastAim = false
+  carHistory = tracking.new(nil, legacyZeroFill)
   requestedPos = nil
   readbackError = 0
   readbackErrorMax = 0
@@ -438,8 +451,20 @@ function script.update(dt)
         if applyTracking then
           local carX, carY, carZ = focusedCarPosition()
           if carX ~= nil and v.loc_x ~= nil and v.loc_y ~= nil and v.loc_z ~= nil then
+            tracking.push(carHistory, carX, carY, carZ)
+
+            -- Aim at where the car is heading, or where it has been, rather
+            -- than at the car itself. tracking_offset picks which and by how
+            -- much; the replay speed stretches it so a slowed replay keeps the
+            -- same lead in wall-clock terms.
+            local offset = pick(v.tracking_offset, camera.tracking_offset, 0)
+            local targetX, targetY, targetZ =
+              tracking.target(carHistory, offset, sim.replayPlaybackRate, 0)
+
             local aimHeading, aimPitch =
-              angles.aimAt(v.loc_x, v.loc_y, v.loc_z, carX, carY, carZ)
+              angles.aimAt(v.loc_x, v.loc_y, v.loc_z, targetX, targetY, targetZ)
+
+            aimOffset = offset
 
             aimHeading = aimHeading
               + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
@@ -649,10 +674,18 @@ local function drawPlayback()
   ui.separator()
   ui.header('12. Play a real CamTool 2 camera')
 
+  if ui.checkbox('list every track', showAllTracks) then
+    showAllTracks = not showAllTracks
+    refreshFileList()
+  end
+
   if #files == 0 then
     if ui.button('Find CamTool 2 files') then refreshFileList() end
+    if filePrefix ~= '' then
+      ui.textColored('none matching ' .. filePrefix, COLOR_IDLE)
+    end
   else
-    ui.text(string.format('%d files', #files))
+    ui.text(string.format('%d files for %s', #files, filePrefix))
     ui.sameLine()
     if ui.button('Rescan') then refreshFileList() end
 
@@ -713,6 +746,13 @@ local function drawPlayback()
       num(aimedPitch)))
     ui.textColored(string.format('tracking strength in use: %.2f', num(aimStrength)),
       aimStrength > 0 and COLOR_OK or COLOR_IDLE)
+    ui.text(string.format('tracking offset %.3f  (%s)', num(aimOffset),
+      aimOffset < 0 and 'leads the car' or (aimOffset > 0 and 'trails it' or 'aims at it')))
+    if ui.checkbox('legacy startup transient (#16)', legacyZeroFill) then
+      legacyZeroFill = not legacyZeroFill
+      carHistory = tracking.new(nil, legacyZeroFill)
+      log('car history reset, legacy zero fill = ' .. tostring(legacyZeroFill))
+    end
 
     -- Forcing the strength is a diagnostic: it tells apart "tracking is wrong"
     -- from "this camera barely tracks".

@@ -96,9 +96,14 @@ test('the storage adapter filters settings.json out of the file list', function(
   local handle = fakes.install({ cameraFile = rawFile })
   local storage = require('adapters/storage')
 
-  local list = storage.listCameraFiles()
-  eq(#list, 1, 'settings.json is not a camera file')
-  eq(list[1], 'fake_track-cameras.json')
+  local list, prefix = storage.listCameraFiles()
+  eq(prefix, 'fake_track_-', 'track id, underscore, layout, dash')
+  eq(#list, 1, 'settings.json is not a camera file, and the other track is filtered out')
+  eq(list[1], 'fake_track_-cameras.json')
+
+  -- The escape hatch still shows everything except settings.json.
+  local all = storage.listCameraFiles(true)
+  eq(#all, 2)
 
   handle.restoreIo()
 end)
@@ -107,7 +112,7 @@ test('the storage adapter migrates what it reads', function()
   local handle = fakes.install({ cameraFile = rawFile })
   local storage = require('adapters/storage')
 
-  local doc, err = storage.loadCameraFile('fake_track-cameras.json')
+  local doc, err = storage.loadCameraFile('fake_track_-cameras.json')
   eq(err, nil)
   eq(doc.version, 1)
   eq(doc.interpolation_mode, 'legacy')
@@ -156,6 +161,7 @@ test('an unkeyframed heading holds instead of snapping to zero', function()
       ['Find CamTool 2 files'] = true,
       ['next >'] = true,
       ['Load this file'] = true,
+      ['next >'] = true,
       ['Grab camera'] = true,
       ['Play CamTool 2 file (12)'] = true,
     },

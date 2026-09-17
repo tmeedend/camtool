@@ -16,22 +16,37 @@ local storage = {}
 -- CamTool 2 keeps its camera files. Read only: these are users' own files.
 storage.CAMTOOL2_DATA_DIR = 'apps/python/CamTool_2/data'
 
----List the CamTool 2 camera files, newest name order.
----@return string[] @file names, without the directory
-function storage.listCameraFiles()
+---File name prefix for the track being driven, the same one CamTool 2 builds:
+---`<track folder>_<layout folder>-`. Tracks with no layout give a trailing
+---underscore, which is why real files look like `le_lancone_-lancia.json`.
+---@return string
+function storage.trackPrefix()
+  return ac.getTrackID() .. '_' .. ac.getTrackLayout() .. '-'
+end
+
+---List the CamTool 2 camera files, sorted by name.
+---@param allTracks boolean|nil @true lists every track's files, not just this one
+---@return string[] files, string prefix @file names without the directory
+function storage.listCameraFiles(allTracks)
   local found = io.scanDir(storage.CAMTOOL2_DATA_DIR, '*.json')
-  if type(found) ~= 'table' then return {} end
+  local prefix = storage.trackPrefix()
+  if type(found) ~= 'table' then return {}, prefix end
 
   local files = {}
   for i = 1, #found do
+    local name = found[i]
     -- CamTool 2 keeps its settings next to the camera files; it is not one.
-    if found[i] ~= 'settings.json' then
-      files[#files + 1] = found[i]
+    if name ~= 'settings.json' then
+      -- Match CamTool 2, which only offers the current track's files. With 32
+      -- files across a dozen tracks, listing them all is just scrolling.
+      if allTracks or name:sub(1, #prefix) == prefix then
+        files[#files + 1] = name
+      end
     end
   end
 
   table.sort(files)
-  return files
+  return files, prefix
 end
 
 ---Read and migrate one camera file.

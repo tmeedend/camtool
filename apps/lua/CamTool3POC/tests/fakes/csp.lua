@@ -103,6 +103,11 @@ function fakes.install(opts)
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
 
     isKeyDown = function() return false end,
+
+    -- Track identity, used to build the camera-file prefix.
+    getTrackID = function() return opts.trackID or 'fake_track' end,
+    getTrackLayout = function() return opts.trackLayout or '' end,
+    getTrackName = function() return 'Fake Track' end,
     AudioChannel = { Main = 'main' },
     KeyIndex = { Shift = 16, Control = 17, Menu = 18 },
   }
@@ -136,7 +141,9 @@ function fakes.install(opts)
     io.load = originalLoad
   end
 
-  io.scanDir = function() return { 'fake_track-cameras.json', 'settings.json' } end
+  io.scanDir = function()
+    return opts.files or { 'fake_track_-cameras.json', 'settings.json', 'other_track_-x.json' }
+  end
   io.load = function() return '{"fake":true}' end
   _G.JSON = { parse = function() return opts.cameraFile end, stringify = function() return '{}' end }
 
