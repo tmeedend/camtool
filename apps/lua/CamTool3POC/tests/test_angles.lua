@@ -108,3 +108,36 @@ test('fromLook inverts lookVector', function()
     end
   end
 end)
+
+test('combine falls back to the current angle for missing sources', function()
+  eq(angles.combine(1.25, nil, nil, 0, nil, 0), 1.25)
+  near(angles.combine(1.25, nil, nil, 1, nil, 1), 1.25, 1e-12,
+    'all strengths at 1 but nothing to aim with')
+end)
+
+test('combine at zero strengths is the keyframed angle', function()
+  near(angles.combine(0, 0.5, 2.0, 0, 3.0, 0), 0.5, 1e-12)
+end)
+
+test('tracking strength pulls toward the tracked car', function()
+  near(angles.combine(0, 0.0, 1.0, 1, nil, 0), 1.0, 1e-12, 'fully tracking')
+  near(angles.combine(0, 0.0, 1.0, 0.25, nil, 0), 0.25, 1e-12)
+end)
+
+test('the spline is mixed over the tracking result, not beside it', function()
+  -- transform 0, tracking 1 at half strength gives 0.5; the spline at 2.0 with
+  -- strength 0.5 must then pull that to 1.25, not treat all three equally.
+  near(angles.combine(0, 0.0, 1.0, 0.5, 2.0, 0.5), 1.25, 1e-12)
+  near(angles.combine(0, 0.0, 1.0, 0.5, 2.0, 1), 2.0, 1e-12,
+    'a spline strength of 1 overrides both')
+end)
+
+test('combine takes the short way round near the seam', function()
+  local TAU = math.pi * 2
+  -- Current just under pi, target just over -pi: one step apart, not a full turn.
+  local result = angles.combine(3.1, -3.1, nil, 0, nil, 0)
+  near(result, -3.1 + TAU, 1e-12)
+  if result < 3.0 then
+    error('combine unwound the long way, to ' .. result, 2)
+  end
+end)

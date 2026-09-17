@@ -191,3 +191,43 @@ test('an unkeyframed heading holds instead of snapping to zero', function()
 
   handle.restoreIo()
 end)
+
+test('a real spline camera set plays back without raising', function()
+  -- ks_silverstone_gp-seb: 14 cameras driven entirely by recorded paths, with
+  -- spline_affect_loc_xy at 1. Includes pos[1], whose recording ends on a stray
+  -- out-of-order sample, so this also covers the messy case.
+  local splineFile = require('tests/fixtures/camera_file_splines')
+
+  local handle = fakes.install({
+    cameraFile = splineFile,
+    splinePosition = 0.07,
+    clicks = {
+      ['Find CamTool 2 files'] = true,
+      ['next >'] = true,
+      ['Load this file'] = true,
+      ['Grab camera'] = true,
+      ['Play CamTool 2 file (12)'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3POC.lua'))
+  chunk()
+
+  for _ = 1, 40 do
+    _G.script.windowMain(0.016)
+    local ok, err = pcall(_G.script.update, 0.016)
+    if not ok then error('spline playback raised: ' .. tostring(err), 2) end
+  end
+
+  -- The camera must have been put somewhere real, not left at the origin.
+  local p = handle.transform.position
+  eq(type(p.x), 'number')
+  if p.x == 0 and p.y == 0 and p.z == 0 then
+    error('the camera never moved off the origin', 2)
+  end
+  if math.abs(p.x) > 10000 or math.abs(p.z) > 10000 then
+    error(string.format('camera placed off the map: %g %g %g', p.x, p.y, p.z), 2)
+  end
+
+  handle.restoreIo()
+end)

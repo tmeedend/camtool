@@ -14,6 +14,7 @@ local storage = require('adapters/storage')
 local evaluate = require('core/evaluate')
 local angles = require('core/angles')
 local tracking = require('core/tracking')
+local spline = require('core/spline')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -182,6 +183,8 @@ local legacyZeroFill = false
 -- lead. An A/B switch: 76% of the reference cameras use exactly -0.1, and on the
 -- long lenses these files favour, that lead is a visible part of the frame.
 local ignoreLead = false
+local applySpline = true
+local splineQuery = 0
 
 -- CamTool 2 only offers the current track's files; do the same, with an escape
 -- hatch for loading another track's file while testing.
@@ -335,6 +338,173 @@ end
 -- Per-frame update
 --------------------------------------------------------------------------------
 
+--- Playback lives in its own function for a mundane reason: Lua caps a
+--- function at 60 upvalues, and folding it into script.update went over.
+local function runPlayback(transform)
+  local pos = focusedTrackPosition()
+  if pos ~= nil then
+    trackPos = pos
+    local cameras = doc[listName]
+    activeCam = evaluate.activeCameraIndex(cameras, pos)
+
+    if activeCam ~= nil then
+      local camera = cameras[activeCam]
+      evaluated = evaluate.all(camera, pos)
+      local v = evaluated
+
+      -- Where the legacy reads the camera's live angles: the previous frame's
+      -- result, seeded from the real orientation the first time through.
+      if not haveLastAim then
+        local look = cam.transformOriginal.look
+        appliedHeading, appliedPitch = angles.fromLook(look.x, look.y, look.z)
+        haveLastAim = true
+      end
+      local currentHeading, currentPitch = appliedHeading, appliedPitch
+
+      ------------------------------------------------------------------
+      -- The recorded path, read at its own position
+      ------------------------------------------------------------------
+      local splinePoint = nil
+      local affectXY, affectZ, affectHeading, affectPitch = 0, 0, 0, 0
+
+      if applySpline and spline.exists(camera) then
+        local query = spline.queryPosition(pos, camera.spline.the_x,
+          pick(v.spline_speed, camera.spline_speed, 1),
+          pick(v.spline_offset_spline, camera.spline_offset_spline, 0),
+          listName)
+        splineQuery = query
+
+        splinePoint = spline.sample(camera, query,
+          pick(v.spline_offset_loc_x, camera.spline_offset_loc_x, 0),
+          pick(v.spline_offset_loc_z, camera.spline_offset_loc_z, 0))
+
+        if splinePoint ~= nil then
+          affectXY = pick(v.spline_affect_loc_xy, camera.spline_affect_loc_xy, 0)
+          affectZ = pick(v.spline_affect_loc_z, camera.spline_affect_loc_z, 0)
+          -- These two are camera level only: they have a slot in a keyframe
+          -- but the legacy never interpolates them.
+          affectHeading = camera.spline_affect_heading or 0
+          affectPitch = camera.spline_affect_pitch or 0
+
+          local headingOffset = pick(v.spline_offset_heading, camera.spline_offset_heading, 0)
+          if splinePoint.heading ~= nil then
+            splinePoint.heading = splinePoint.heading + headingOffset
+          end
+          if splinePoint.pitch ~= nil then
+            -- The legacy scales pitch by sin(offset + pi/2), so turning the
+            -- path away from its recorded heading flattens it.
+            splinePoint.pitch = splinePoint.pitch * math.sin(headingOffset + math.pi / 2)
+              + pick(v.spline_offset_pitch, camera.spline_offset_pitch, 0)
+          end
+        end
+      end
+
+      ------------------------------------------------------------------
+      -- Position: keyframes mixed with the path
+      ------------------------------------------------------------------
+      local px, py, pz = v.loc_x, v.loc_y, v.loc_z
+
+      if splinePoint ~= nil then
+        px = spline.mix(px, splinePoint.x, affectXY)
+        py = spline.mix(py, splinePoint.y, affectXY)
+        pz = spline.mix(pz, splinePoint.z, affectZ)
+      end
+
+      if px ~= nil and py ~= nil and pz ~= nil then
+        transform.position = toWorld(px, py, pz)
+      end
+
+      ------------------------------------------------------------------
+      -- Aim: keyframes, the tracked car, and the path
+      ------------------------------------------------------------------
+      -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
+      -- InterpolateFrame.py.
+      local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
+
+      local transformHeading, transformPitch = nil, nil
+      if v.rot_z ~= nil then
+        transformHeading = angles.blend(currentHeading, v.rot_z, rotStrength)
+      end
+      if v.rot_x ~= nil then
+        transformPitch = angles.blend(currentPitch, v.rot_x, rotStrength)
+      end
+
+      local aimHeading, aimPitch = nil, nil
+      local pitchStrength = 0
+      aimStrength = 0
+
+      if applyTracking and px ~= nil and py ~= nil and pz ~= nil then
+        local carX, carY, carZ = focusedCarPosition()
+        if carX ~= nil then
+          tracking.push(carHistory, carX, carY, carZ)
+
+          -- Aim where the car is heading, or where it has been, rather than
+          -- at the car itself. tracking_offset picks which and by how much;
+          -- the replay speed stretches it so a slowed replay keeps the same
+          -- lead in wall-clock terms.
+          local offset = pick(v.tracking_offset, camera.tracking_offset, 0)
+          if ignoreLead then offset = 0 end
+          aimOffset = offset
+
+          local targetX, targetY, targetZ =
+            tracking.target(carHistory, offset, sim.replayPlaybackRate, 0)
+
+          aimHeading, aimPitch = angles.aimAt(px, py, pz, targetX, targetY, targetZ)
+          aimHeading = aimHeading + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
+          aimPitch = aimPitch + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
+
+          aimStrength = pick(v.tracking_strength_heading, camera.tracking_strength_heading, 0)
+          pitchStrength = pick(v.tracking_strength_pitch, camera.tracking_strength_pitch, 0)
+          if trackingOverride >= 0 then
+            aimStrength, pitchStrength = trackingOverride, trackingOverride
+          end
+
+          aimedHeading, aimedPitch = aimHeading, aimPitch
+        end
+      end
+
+      local heading = angles.combine(currentHeading, transformHeading,
+        aimHeading, aimStrength,
+        splinePoint and splinePoint.heading or nil, affectHeading)
+
+      local pitch = angles.combine(currentPitch, transformPitch,
+        aimPitch, pitchStrength,
+        splinePoint and splinePoint.pitch or nil, affectPitch)
+
+      appliedHeading, appliedPitch = heading, pitch
+
+      local lx, ly, lz = angles.lookVector(heading, pitch)
+      local look = vec3(lx, ly, lz)
+      transform.look = look
+
+      if applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
+        -- Roll turns the up vector around the look axis. Built by hand rather
+        -- than with vector helpers so the convention stays visible.
+        -- side = cross(look, worldUp) with worldUp = (0, 1, 0).
+        local sx, sy, sz = -look.z, 0, look.x
+        local sl = math.sqrt(sx * sx + sy * sy + sz * sz)
+        if sl > 1e-6 then
+          sx, sy, sz = sx / sl, sy / sl, sz / sl
+          local ux = sy * look.z - sz * look.y
+          local uy = sz * look.x - sx * look.z
+          local uz = sx * look.y - sy * look.x
+          local c, s = math.cos(v.rot_y), math.sin(v.rot_y)
+          transform.up = vec3(ux * c + sx * s, uy * c + sy * s, uz * c + sz * s)
+        else
+          transform.up = vec3(0, 1, 0)
+        end
+      else
+        transform.up = vec3(0, 1, 0)
+      end
+
+      -- Post-migration this is plain degrees, so it goes straight in.
+      if v.camera_fov ~= nil and v.camera_fov > 0 and v.camera_fov < 180 then
+        playbackFov = v.camera_fov
+      end
+    end
+  end
+end
+
 function script.update(dt)
   -- Real-time dt. sim.dt is scaled by replay speed and would feed back into the
   -- replay driving below.
@@ -408,118 +578,7 @@ function script.update(dt)
     transform.look = vec3(sl.x, sl.y, sl.z)
     transform.up = vec3(su.x, su.y, su.z)
   elseif mode == MODE_PLAYBACK and doc ~= nil then
-    local pos = focusedTrackPosition()
-    if pos ~= nil then
-      trackPos = pos
-      local cameras = doc[listName]
-      activeCam = evaluate.activeCameraIndex(cameras, pos)
-
-      if activeCam ~= nil then
-        evaluated = evaluate.all(cameras[activeCam], pos)
-        local v = evaluated
-
-        if v.loc_x ~= nil and v.loc_y ~= nil and v.loc_z ~= nil then
-          transform.position = toWorld(v.loc_x, v.loc_y, v.loc_z)
-        end
-
-        -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
-        -- InterpolateFrame.py. The transform component is what the keyframes
-        -- hold; the aim most cameras actually use comes from tracking below.
-        local camera = cameras[activeCam]
-
-        -- Where the legacy uses the camera's live heading: the previous frame's
-        -- result, seeded from the real orientation the first time through.
-        if not haveLastAim then
-          local look = cam.transformOriginal.look
-          appliedHeading, appliedPitch = angles.fromLook(look.x, look.y, look.z)
-          haveLastAim = true
-        end
-        local currentHeading, currentPitch = appliedHeading, appliedPitch
-
-        -- Keyframed heading blends against the current one by
-        -- transform_rot_strength; with no keyframe at all, the camera simply
-        -- holds where it is pointing.
-        local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
-
-        local heading, pitch
-        if v.rot_z == nil then
-          heading = currentHeading
-        else
-          heading = angles.blend(currentHeading, v.rot_z, rotStrength)
-        end
-        if v.rot_x == nil then
-          pitch = currentPitch
-        else
-          pitch = angles.blend(currentPitch, v.rot_x, rotStrength)
-        end
-
-        if applyTracking then
-          local carX, carY, carZ = focusedCarPosition()
-          if carX ~= nil and v.loc_x ~= nil and v.loc_y ~= nil and v.loc_z ~= nil then
-            tracking.push(carHistory, carX, carY, carZ)
-
-            -- Aim at where the car is heading, or where it has been, rather
-            -- than at the car itself. tracking_offset picks which and by how
-            -- much; the replay speed stretches it so a slowed replay keeps the
-            -- same lead in wall-clock terms.
-            local offset = pick(v.tracking_offset, camera.tracking_offset, 0)
-            if ignoreLead then offset = 0 end
-            local targetX, targetY, targetZ =
-              tracking.target(carHistory, offset, sim.replayPlaybackRate, 0)
-
-            local aimHeading, aimPitch =
-              angles.aimAt(v.loc_x, v.loc_y, v.loc_z, targetX, targetY, targetZ)
-
-            aimOffset = offset
-
-            aimHeading = aimHeading
-              + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
-            aimPitch = aimPitch
-              + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
-
-            local sh = pick(v.tracking_strength_heading, camera.tracking_strength_heading, 0)
-            local sp = pick(v.tracking_strength_pitch, camera.tracking_strength_pitch, 0)
-            if trackingOverride >= 0 then sh, sp = trackingOverride, trackingOverride end
-
-            heading = angles.blend(heading, aimHeading, sh)
-            pitch = angles.blend(pitch, aimPitch, sp)
-
-            aimedHeading, aimedPitch, aimStrength = aimHeading, aimPitch, sh
-          end
-        end
-
-        appliedHeading, appliedPitch = heading, pitch
-
-        local lx, ly, lz = angles.lookVector(heading, pitch)
-        local look = vec3(lx, ly, lz)
-        transform.look = look
-
-        if applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
-          -- Roll turns the up vector around the look axis. Built by hand rather
-          -- than with vector helpers so the convention stays visible.
-          -- side = cross(look, worldUp) with worldUp = (0, 1, 0).
-          local sx, sy, sz = -look.z, 0, look.x
-          local sl = math.sqrt(sx * sx + sy * sy + sz * sz)
-          if sl > 1e-6 then
-            sx, sy, sz = sx / sl, sy / sl, sz / sl
-            local ux = sy * look.z - sz * look.y
-            local uy = sz * look.x - sx * look.z
-            local uz = sx * look.y - sy * look.x
-            local c, s = math.cos(v.rot_y), math.sin(v.rot_y)
-            transform.up = vec3(ux * c + sx * s, uy * c + sy * s, uz * c + sz * s)
-          else
-            transform.up = vec3(0, 1, 0)
-          end
-        else
-          transform.up = vec3(0, 1, 0)
-        end
-
-        -- Post-migration this is plain degrees, so it goes straight in.
-        if v.camera_fov ~= nil and v.camera_fov > 0 and v.camera_fov < 180 then
-          playbackFov = v.camera_fov
-        end
-      end
-    end
+    runPlayback(transform)
 
   elseif mode == MODE_MOUSELOOK and anchor ~= nil then
     lookActive = ac.isKeyDown(ac.KeyIndex.Shift)
@@ -754,6 +813,22 @@ local function drawPlayback()
       aimStrength > 0 and COLOR_OK or COLOR_IDLE)
     ui.text(string.format('tracking offset %.3f  (%s)', num(aimOffset),
       aimOffset < 0 and 'leads the car' or (aimOffset > 0 and 'trails it' or 'aims at it')))
+    if ui.checkbox('follow the recorded spline', applySpline) then
+      applySpline = not applySpline
+    end
+    if doc ~= nil and activeCam ~= nil and doc[listName] ~= nil then
+      local c = doc[listName][activeCam]
+      if c ~= nil and spline.exists(c) then
+        ui.textColored(string.format('spline: %d points, read at %.4f',
+          #c.spline.the_x, splineQuery), COLOR_OK)
+        ui.text(string.format('  affect xy %.2f  z %.2f  heading %.2f',
+          num(c.spline_affect_loc_xy), num(c.spline_affect_loc_z),
+          num(c.spline_affect_heading)))
+      else
+        ui.textColored('this camera has no recorded spline', COLOR_IDLE)
+      end
+    end
+
     if ui.checkbox('aim straight at the car (no lead)', ignoreLead) then
       ignoreLead = not ignoreLead
     end
