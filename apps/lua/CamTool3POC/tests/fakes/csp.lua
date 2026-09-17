@@ -110,11 +110,16 @@ function fakes.install(opts)
   -- ImGui: every call is a no-op that reports "not clicked". Widgets that hand
   -- a value back must return it unchanged, or the app would see its sliders
   -- reset to nil every frame.
+  -- opts.clicks maps a widget label to true, so a test can drive the app
+  -- through its own UI instead of reaching into its internals.
+  local clicks = opts.clicks or {}
+  local function clicked(label) return clicks[label] == true end
+
   _G.ui = setmetatable({
     slider = function(_, value) return value, false end,
-    checkbox = function() return false end,
-    radioButton = function() return false end,
-    button = function() return false end,
+    checkbox = function(label) return clicked(label) end,
+    radioButton = function(label) return clicked(label) end,
+    button = function(label) return clicked(label) end,
     hotkeyCtrl = function() return false end,
     hotkeyAlt = function() return false end,
     hotkeyShift = function() return false end,

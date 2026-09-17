@@ -35,6 +35,14 @@ function angles.lookVector(heading, pitch)
   return -math.cos(heading) * cp, math.sin(pitch), math.sin(heading) * cp
 end
 
+---Heading and pitch of an AC look vector (Y-up), in CamTool convention.
+---The inverse of lookVector, and the same formula as aimAt from the origin.
+---@return number heading, number pitch
+function angles.fromLook(x, y, z)
+  -- AC z is CamTool y, AC y is CamTool z.
+  return angles.aimAt(0, 0, 0, x, z, y)
+end
+
 ---Bring `value` to the revolution nearest `current`, so a blend between two
 ---angles takes the short way round instead of unwinding through a full turn.
 ---Ported from general.normalize_angle.

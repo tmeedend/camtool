@@ -94,3 +94,17 @@ test('blend endpoints are exact', function()
   near(angles.blend(1.0, 2.0, 0), 1.0, 1e-12)
   near(angles.blend(1.0, 2.0, 1), 2.0, 1e-12)
 end)
+
+test('fromLook inverts lookVector', function()
+  -- Needed to seed the "hold the current heading" fallback: when a camera does
+  -- not keyframe rot_z, the legacy keeps the camera's present heading rather
+  -- than snapping to zero.
+  for _, h in ipairs({ -3.0, -1.2, 0, 0.9, 2.5 }) do
+    for _, p in ipairs({ -1.2, -0.4, 0, 0.6, 1.2 }) do
+      local x, y, z = angles.lookVector(h, p)
+      local h2, p2 = angles.fromLook(x, y, z)
+      near(angles.normalize(h, h2), h, 1e-12, string.format('heading %g', h))
+      near(p2, p, 1e-12, string.format('pitch %g', p))
+    end
+  end
+end)

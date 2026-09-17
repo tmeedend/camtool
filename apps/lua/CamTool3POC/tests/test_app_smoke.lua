@@ -127,3 +127,61 @@ test('the storage adapter reports bad JSON instead of raising', function()
 
   handle.restoreIo()
 end)
+
+test('an unkeyframed heading holds instead of snapping to zero', function()
+  -- Regression guard. A camera that never keyframes rot_z must keep pointing
+  -- where it is, which is what the legacy does by falling back to the camera's
+  -- live heading. Getting this wrong aimed 18% of the reference cameras at a
+  -- fixed direction, and it took an in-game session to notice.
+  local doc = {
+    pos = {
+      {
+        camera_in = 0.0,
+        -- Position and roll only: no rot_z, no rot_x, no tracking.
+        tracking_strength_heading = 0,
+        tracking_strength_pitch = 0,
+        keyframes = {
+          { keyframe = 0.0, interpolation = { loc_x = 0, loc_y = 0, loc_z = 10 } },
+          { keyframe = 1.0, interpolation = { loc_x = 50, loc_y = 0, loc_z = 10 } },
+        },
+      },
+    },
+    time = {},
+  }
+
+  local handle = fakes.install({
+    cameraFile = doc,
+    splinePosition = 0.5,
+    clicks = {
+      ['Find CamTool 2 files'] = true,
+      ['next >'] = true,
+      ['Load this file'] = true,
+      ['Grab camera'] = true,
+      ['Play CamTool 2 file (12)'] = true,
+    },
+  })
+
+  -- Aim the camera somewhere distinctive before the app takes over.
+  local angles = require('core/angles')
+  local seedHeading, seedPitch = 1.1, -0.25
+  local lx, ly, lz = angles.lookVector(seedHeading, seedPitch)
+  handle.camera.transformOriginal.look = { x = lx, y = ly, z = lz }
+
+  local chunk = assert(loadfile('CamTool3POC.lua'))
+  chunk()
+
+  -- A few frames: draw first so the clicks land, then run the frame.
+  for _ = 1, 5 do
+    _G.script.windowMain(0.016)
+    _G.script.update(0.016)
+  end
+
+  local look = handle.transform.look
+  local h, p = angles.fromLook(look.x, look.y, look.z)
+
+  runner.near(angles.normalize(seedHeading, h), seedHeading, 1e-6,
+    'heading must be held, not reset to zero')
+  runner.near(p, seedPitch, 1e-6, 'pitch must be held too')
+
+  handle.restoreIo()
+end)

@@ -142,6 +142,14 @@ local trackPos = 0
 local activeCam = nil
 local evaluated = {}
 
+-- The legacy reads the camera's CURRENT heading every frame (ctt.get_heading())
+-- and falls back to it whenever the heading is not keyframed, so an unkeyframed
+-- camera holds its aim instead of snapping to a fixed direction. 18% of the
+-- reference cameras never keyframe rot_z, so this is not an edge case. A
+-- grabbed camera's transformOriginal freezes at ownShare = 1, so carry the
+-- previous frame's value instead; it is the same quantity.
+local haveLastAim = false
+
 -- Readouts, refreshed each frame so the panel can show what the aim resolved to.
 local appliedHeading, appliedPitch = 0, 0
 local aimedHeading, aimedPitch, aimStrength = 0, 0, 0
@@ -232,6 +240,7 @@ local function grabCamera()
   local p = grabbed.transformOriginal.position
   anchor = vec3(p.x, p.y, p.z)
   orbitTime = 0
+  haveLastAim = false
   requestedPos = nil
   readbackError = 0
   readbackErrorMax = 0
@@ -399,13 +408,32 @@ function script.update(dt)
         -- InterpolateFrame.py. The transform component is what the keyframes
         -- hold; the aim most cameras actually use comes from tracking below.
         local camera = cameras[activeCam]
-        local heading = v.rot_z or 0
-        local pitch = v.rot_x or 0
 
-        -- The legacy blends the keyframed heading against the camera's current
-        -- one by transform_rot_strength before anything else. Not reproduced
-        -- yet: it needs the previous frame's heading, so it is part of the same
-        -- work as proper tracking.
+        -- Where the legacy uses the camera's live heading: the previous frame's
+        -- result, seeded from the real orientation the first time through.
+        if not haveLastAim then
+          local look = cam.transformOriginal.look
+          appliedHeading, appliedPitch = angles.fromLook(look.x, look.y, look.z)
+          haveLastAim = true
+        end
+        local currentHeading, currentPitch = appliedHeading, appliedPitch
+
+        -- Keyframed heading blends against the current one by
+        -- transform_rot_strength; with no keyframe at all, the camera simply
+        -- holds where it is pointing.
+        local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
+
+        local heading, pitch
+        if v.rot_z == nil then
+          heading = currentHeading
+        else
+          heading = angles.blend(currentHeading, v.rot_z, rotStrength)
+        end
+        if v.rot_x == nil then
+          pitch = currentPitch
+        else
+          pitch = angles.blend(currentPitch, v.rot_x, rotStrength)
+        end
 
         if applyTracking then
           local carX, carY, carZ = focusedCarPosition()
@@ -675,10 +703,14 @@ local function drawPlayback()
     ui.sameLine()
     if ui.checkbox('apply roll', applyRoll) then applyRoll = not applyRoll end
 
-    ui.text(string.format('heading applied %.3f  (keyframed %.3f, aim %.3f)',
-      num(appliedHeading), num(v.rot_z), num(aimedHeading)))
-    ui.text(string.format('pitch   applied %.3f  (keyframed %.3f, aim %.3f)',
-      num(appliedPitch), num(v.rot_x), num(aimedPitch)))
+    ui.text(string.format('heading applied %.3f  (keyframed %s, aim %.3f)',
+      num(appliedHeading),
+      v.rot_z and string.format('%.3f', v.rot_z) or 'none -- holds',
+      num(aimedHeading)))
+    ui.text(string.format('pitch   applied %.3f  (keyframed %s, aim %.3f)',
+      num(appliedPitch),
+      v.rot_x and string.format('%.3f', v.rot_x) or 'none -- holds',
+      num(aimedPitch)))
     ui.textColored(string.format('tracking strength in use: %.2f', num(aimStrength)),
       aimStrength > 0 and COLOR_OK or COLOR_IDLE)
 
