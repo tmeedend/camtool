@@ -270,15 +270,44 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
 - Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
 - Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
 
+## ✅ Décision actée : CamTool 3 sera une app Lua CSP
+
+Tranché par Théo après le POC (`apps/lua/CamTool3POC/`, branche `poc/lua`).
+**CamTool 2 reste en Python et continue d'être maintenu sur `main`** ; les
+sections Python de ce document restent valables pour les correctifs 2.x.
+
+Ce que le POC a prouvé **en jeu**, et qui fonde la décision :
+
+- Les **6 appels DLL** ont un remplaçant Lua fonctionnel (voir le tableau plus
+  haut). L'objectif « zéro DLL » est atteint.
+- La brique centrale : placer la vue → capturer → rejouer la pose à l'identique.
+- Le **rejeu d'une vraie caméra utilisateur** de bout en bout : fichier lu,
+  migré, caméra sélectionnée par la position piste, paramètres interpolés,
+  caméra pilotée, voiture suivie.
+- Les **32 fichiers existants** se chargent : 566 caméras, 1768 valeurs de FOV,
+  aucune perte.
+
+Et hors jeu : une boucle de test réelle (LuaJIT + runner maison), avec les trois
+interpolateurs confrontés point par point au vrai code Python.
+
+Reste à faire, par ordre d'importance :
+
+1. **Fidélité du tracking** — le legacy moyenne plusieurs frames de position et
+   extrapole d'un pas pour anticiper ; le POC vise la position courante, d'où un
+   retard dans les virages rapides.
+2. **Splines enregistrées** (pas implémentées), shake, focus point DOF, smart
+   tracking.
+3. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+4. L'écriture de fichiers (volontairement hors périmètre du POC).
+
 ## Décisions ouvertes (ne pas trancher seul)
 
-- **Python (ac.ext_*) ou réécriture en app Lua CSP** (`ac.grabCamera()`, UI ImGui) pour CamTool 3.
-  - En cours d'instruction : POC de sondes de capacités sur la branche `poc/lua`
-    (`apps/lua/CamTool3POC/`). Il teste en jeu si le Lua peut remplacer les 6
-    appels DLL restants. **Rien n'est tranché tant que Théo n'a pas fait tourner
-    les sondes** — voir le tableau DLL ci-dessus, aucune ligne n'est validée.
-  - Point déjà acquis par lecture du SDK : `sim.replayPlaybackRate` est en
-    lecture seule, il n'existe pas d'équivalent direct à `SetReplaySpeed`. Le
-    contournement testé par le POC est de piloter `ac.setReplayPosition()` frame
-    par frame.
 - Déplacement éventuel du dépôt hors du dossier du jeu (jonction Windows vers `apps/python/CamTool_2`).
+- **Où poursuivre le développement** : `poc/lua` est une branche de POC. La
+  suite doit-elle repartir sur `camtool-3` (la branche prévue pour la refonte),
+  et que garde-t-on du POC — les sondes de capacités sont-elles encore utiles
+  une fois la décision prise ?
+- `interpolation_mode` est **par fichier** ; le passer par caméra permettrait de
+  mélanger anciennes et nouvelles caméras dans un même set.
+- Le **bug `SolveCubic`** (registre des bizarreries) : corriger dans le mode
+  `fixed`, ou le garder tel quel ?
