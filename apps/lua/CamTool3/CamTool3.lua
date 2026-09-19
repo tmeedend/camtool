@@ -5,6 +5,11 @@
   the camera the car's track position selects, every keyframed parameter through
   the ported interpolators, tracking with lead, and recorded splines.
 
+  The playback itself is in core/playback.lua, which knows nothing of CSP. What
+  is left here is the part that has to talk to the game: grabbing the camera,
+  reading the sim, drawing the panel. That line is what lets a whole lap be
+  replayed out of game -- see tests/lap.lua.
+
   The numbered probes further down are diagnostics kept from the port. Each maps
   to a row of the DLL table in CLAUDE.md or to a known issue, and they stay
   because they are how a camera problem gets pinned down without guessing.
@@ -15,12 +20,9 @@
 ]]
 
 local storage = require('adapters/storage')
-local evaluate = require('core/evaluate')
 local angles = require('core/angles')
-local tracking = require('core/tracking')
 local spline = require('core/spline')
-local shake = require('core/shake')
-local focus = require('core/focus')
+local playbackCore = require('core/playback')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -142,26 +144,11 @@ local doc = nil
 local docError = nil
 local docName = ''
 
--- 'pos' and 'time' are the two camera lists every file carries.
-local listName = 'pos'
-
--- Live readout, refreshed each frame while playing back.
-local trackPos = 0
-local activeCam = nil
-local evaluated = {}
-
--- The legacy reads the camera's CURRENT heading every frame (ctt.get_heading())
--- and falls back to it whenever the heading is not keyframed, so an unkeyframed
--- camera holds its aim instead of snapping to a fixed direction. 18% of the
--- reference cameras never keyframe rot_z, so this is not an edge case. A
--- grabbed camera's transformOriginal freezes at ownShare = 1, so carry the
--- previous frame's value instead; it is the same quantity.
-local haveLastAim = false
-
--- Readouts, refreshed each frame so the panel can show what the aim resolved to.
-local appliedHeading, appliedPitch = 0, 0
-local aimedHeading, aimedPitch, aimStrength = 0, 0, 0
-local aimOffset = 0
+-- The playback chain itself lives in core/playback: one state object, one input
+-- table refilled each frame, one output table the panel reads back.
+local pb = playbackCore.new()
+local pbIn = {}
+local pbOut = pb.out
 
 -- CamTool stores Z-up; AC is Y-up. Confirmed twice: the track splines put all
 -- the elevation in loc_z (Spa spans 102 m, which is Eau Rouge), and
@@ -171,41 +158,11 @@ local function toWorld(x, y, z)
 end
 
 -- Aim. The heading and pitch conventions are no longer guessed: they come from
--- Camera.calculate_cam_rot_to_tracking_car via core/angles.lua.
+-- Camera.calculate_cam_rot_to_tracking_car via core/angles.lua. The switches
+-- below all live in pb.options now; the panel flips them there.
 --
--- Tracking here is SIMPLIFIED and does not yet match CamTool 2. It aims at the
--- focused car's current position, where the legacy averages several frames of
--- history and extrapolates one step ahead to lead the car. Expect the aim to
--- lag in fast corners.
-local applyTracking = true
-local applyRoll = true
-local trackingOverride = -1   -- -1 means use the file's own strength
-
--- Rolling history of the tracked car, for the lead/lag aim point.
-local carHistory = tracking.new()
-local legacyZeroFill = false
-
--- Forces tracking_offset to 0, so the camera aims straight at the car with no
--- lead. An A/B switch: 76% of the reference cameras use exactly -0.1, and on the
--- long lenses these files favour, that lead is a visible part of the frame.
-local ignoreLead = false
-local applySpline = true
-local splineQuery = 0
-
--- The last camera spans the start line, so its keyframes are read a lap back.
--- Legacy does that whenever the camera is last, whether or not the keyframes
--- are stored wrapped, which freezes cameras like le_lancone's last one on their
--- first keyframe. That is issue #23; leave this on to reproduce it.
-local legacyLastCamera = true
-
--- Shake needs two things: how fast the camera is panning, and a clock. The clock
--- is the replay position in seconds, never wall time, so the same footage shakes
--- identically on every render.
-local headingHistory = {}
-local applyShake = true
-local applyFocus = true
-local shakeMomentum = 0
-local focusDistance = 0
+-- The shake clock is the replay position in seconds, never wall time, so the
+-- same footage shakes identically on every render.
 local shakeClockReadout = 0
 
 -- Set by playback each frame, cleared at the top of every update. Without this,
@@ -221,16 +178,6 @@ local function shakeClock()
   if type(ms) ~= 'number' or ms <= 0 then return 0 end
   return (sim.replayCurrentFrame or 0) * ms / 1000
 end
-
----Keep the last N headings, most recent first, for the pan-speed measure.
-local function pushHeading(value)
-  table.insert(headingHistory, 1, value)
-  while #headingHistory > shake.DEFAULT_MOMENTUM_WINDOW do
-    table.remove(headingHistory)
-  end
-end
-local keyframeQuery = 0
-local isLastCamera = false
 
 -- CamTool 2 only offers the current track's files; do the same, with an escape
 -- hatch for loading another track's file while testing.
@@ -326,8 +273,7 @@ local function grabCamera()
   local p = grabbed.transformOriginal.position
   anchor = vec3(p.x, p.y, p.z)
   orbitTime = 0
-  haveLastAim = false
-  carHistory = tracking.new(nil, legacyZeroFill)
+  playbackCore.resetHistory(pb)
   requestedPos = nil
   readbackError = 0
   readbackErrorMax = 0
@@ -412,231 +358,42 @@ end
 -- Per-frame update
 --------------------------------------------------------------------------------
 
---- Playback lives in its own function for a mundane reason: Lua caps a
---- function at 60 upvalues, and folding it into script.update went over.
+---Drive the grabbed camera from the camera file, for one frame.
+---
+---Everything below the surface is in core/playback: this reads the sim, hands
+---it over as plain numbers, and writes the answer back to the transform. That
+---split is what lets tests/lap.lua run a whole lap out of game.
 local function runPlayback(transform)
-  local pos = focusedTrackPosition()
-  if pos ~= nil then
-    trackPos = pos
-    local cameras = doc[listName]
-    activeCam = evaluate.activeCameraIndex(cameras, pos)
-
-    if activeCam ~= nil then
-      local camera = cameras[activeCam]
-
-      -- Keyframes are read at a position of their own for the camera that spans
-      -- the start line. See #23.
-      isLastCamera = evaluate.isLastCamera(cameras, activeCam)
-      keyframeQuery = evaluate.queryPosition(pos, camera, isLastCamera, #cameras, legacyLastCamera)
-
-      evaluated = evaluate.all(camera, keyframeQuery)
-      local v = evaluated
-
-      -- Where the legacy reads the camera's live angles: the previous frame's
-      -- result, seeded from the real orientation the first time through.
-      if not haveLastAim then
-        local look = cam.transformOriginal.look
-        appliedHeading, appliedPitch = angles.fromLook(look.x, look.y, look.z)
-        haveLastAim = true
-      end
-      local currentHeading, currentPitch = appliedHeading, appliedPitch
-
-      ------------------------------------------------------------------
-      -- The recorded path, read at its own position
-      ------------------------------------------------------------------
-      local splinePoint = nil
-      local affectXY, affectZ, affectHeading, affectPitch = 0, 0, 0, 0
-
-      if applySpline and spline.exists(camera) then
-        local query = spline.queryPosition(pos, camera.spline.the_x,
-          pick(v.spline_speed, camera.spline_speed, 1),
-          pick(v.spline_offset_spline, camera.spline_offset_spline, 0),
-          listName)
-        splineQuery = query
-
-        splinePoint = spline.sample(camera, query,
-          pick(v.spline_offset_loc_x, camera.spline_offset_loc_x, 0),
-          pick(v.spline_offset_loc_z, camera.spline_offset_loc_z, 0))
-
-        if splinePoint ~= nil then
-          affectXY = pick(v.spline_affect_loc_xy, camera.spline_affect_loc_xy, 0)
-          affectZ = pick(v.spline_affect_loc_z, camera.spline_affect_loc_z, 0)
-          -- These two are camera level only: they have a slot in a keyframe
-          -- but the legacy never interpolates them.
-          affectHeading = camera.spline_affect_heading or 0
-          affectPitch = camera.spline_affect_pitch or 0
-
-          local headingOffset = pick(v.spline_offset_heading, camera.spline_offset_heading, 0)
-          if splinePoint.heading ~= nil then
-            splinePoint.heading = splinePoint.heading + headingOffset
-          end
-          if splinePoint.pitch ~= nil then
-            -- The legacy scales pitch by sin(offset + pi/2), so turning the
-            -- path away from its recorded heading flattens it.
-            splinePoint.pitch = splinePoint.pitch * math.sin(headingOffset + math.pi / 2)
-              + pick(v.spline_offset_pitch, camera.spline_offset_pitch, 0)
-          end
-        end
-      end
-
-      ------------------------------------------------------------------
-      -- Position: keyframes mixed with the path
-      ------------------------------------------------------------------
-      local px, py, pz = v.loc_x, v.loc_y, v.loc_z
-
-      if splinePoint ~= nil then
-        px = spline.mix(px, splinePoint.x, affectXY)
-        py = spline.mix(py, splinePoint.y, affectXY)
-        pz = spline.mix(pz, splinePoint.z, affectZ)
-      end
-
-      if px ~= nil and py ~= nil and pz ~= nil then
-        transform.position = toWorld(px, py, pz)
-      end
-
-      ------------------------------------------------------------------
-      -- Aim: keyframes, the tracked car, and the path
-      ------------------------------------------------------------------
-      -- Fetched once: the tracking aim and the autofocus both need it.
-      local carPosX, carPosY, carPosZ = focusedCarPosition()
-
-      -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
-      -- InterpolateFrame.py.
-      local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
-
-      local transformHeading, transformPitch = nil, nil
-      if v.rot_z ~= nil then
-        transformHeading = angles.blend(currentHeading, v.rot_z, rotStrength)
-      end
-      if v.rot_x ~= nil then
-        transformPitch = angles.blend(currentPitch, v.rot_x, rotStrength)
-      end
-
-      local aimHeading, aimPitch = nil, nil
-      local pitchStrength = 0
-      aimStrength = 0
-
-      if applyTracking and px ~= nil and py ~= nil and pz ~= nil then
-        local carX, carY, carZ = carPosX, carPosY, carPosZ
-        if carX ~= nil then
-          tracking.push(carHistory, carX, carY, carZ)
-
-          -- Aim where the car is heading, or where it has been, rather than
-          -- at the car itself. tracking_offset picks which and by how much;
-          -- the replay speed stretches it so a slowed replay keeps the same
-          -- lead in wall-clock terms.
-          local offset = pick(v.tracking_offset, camera.tracking_offset, 0)
-          if ignoreLead then offset = 0 end
-          aimOffset = offset
-
-          -- The offset shake wobbles the aim point along the car's path rather
-          -- than rotating the camera. It is added to the lead/lag weight, which
-          -- is where the legacy puts it.
-          local offsetShake = 0
-          if applyShake then
-            offsetShake = shake.trackingOffset(
-              camera.camera_offset_shake_strength or 0, shakeClock(), shakeMomentum)
-          end
-
-          local targetX, targetY, targetZ =
-            tracking.target(carHistory, offset, sim.replayPlaybackRate, offsetShake)
-
-          aimHeading, aimPitch = angles.aimAt(px, py, pz, targetX, targetY, targetZ)
-          aimHeading = aimHeading + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
-          aimPitch = aimPitch + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
-
-          aimStrength = pick(v.tracking_strength_heading, camera.tracking_strength_heading, 0)
-          pitchStrength = pick(v.tracking_strength_pitch, camera.tracking_strength_pitch, 0)
-          if trackingOverride >= 0 then
-            aimStrength, pitchStrength = trackingOverride, trackingOverride
-          end
-
-          aimedHeading, aimedPitch = aimHeading, aimPitch
-        end
-      end
-
-      local heading = angles.combine(currentHeading, transformHeading,
-        aimHeading, aimStrength,
-        splinePoint and splinePoint.heading or nil, affectHeading)
-
-      local pitch = angles.combine(currentPitch, transformPitch,
-        aimPitch, pitchStrength,
-        splinePoint and splinePoint.pitch or nil, affectPitch)
-
-      -- Rotation shake rides on top of the combined aim. camera_shake_strength
-      -- IS keyframable, unlike the offset shake above -- that asymmetry is
-      -- issue #25.
-      if applyShake then
-        shakeMomentum = shake.momentum(headingHistory)
-        shakeClockReadout = shakeClock()
-        local shakePitch, shakeHeading = shake.rotation(
-          pick(v.camera_shake_strength, camera.camera_shake_strength, 0),
-          shakeClock(), shakeMomentum, sim.replayPlaybackRate)
-        heading = heading + shakeHeading
-        pitch = pitch + shakePitch
-      end
-
-      appliedHeading, appliedPitch = heading, pitch
-      pushHeading(heading)
-
-      local lx, ly, lz = angles.lookVector(heading, pitch)
-      local look = vec3(lx, ly, lz)
-      transform.look = look
-
-      if applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
-        -- Roll turns the up vector around the look axis. Built by hand rather
-        -- than with vector helpers so the convention stays visible.
-        -- side = cross(look, worldUp) with worldUp = (0, 1, 0).
-        local sx, sy, sz = -look.z, 0, look.x
-        local sl = math.sqrt(sx * sx + sy * sy + sz * sz)
-        if sl > 1e-6 then
-          sx, sy, sz = sx / sl, sy / sl, sz / sl
-          local ux = sy * look.z - sz * look.y
-          local uy = sz * look.x - sx * look.z
-          local uz = sx * look.y - sy * look.x
-          local c, s = math.cos(v.rot_y), math.sin(v.rot_y)
-          transform.up = vec3(ux * c + sx * s, uy * c + sy * s, uz * c + sz * s)
-        else
-          transform.up = vec3(0, 1, 0)
-        end
-      else
-        transform.up = vec3(0, 1, 0)
-      end
-
-      -- Post-migration this is plain degrees, so it goes straight in.
-      if v.camera_fov ~= nil and v.camera_fov > 0 and v.camera_fov < 180 then
-        playbackFov = v.camera_fov
-      end
-
-      ------------------------------------------------------------------
-      -- Depth of field
-      ------------------------------------------------------------------
-      if applyFocus and px ~= nil and py ~= nil and pz ~= nil then
-        local distance = nil
-
-        -- camera_use_tracking_point is the Autofocus toggle.
-        if camera.camera_use_tracking_point and carPosX ~= nil then
-          if aimHeading == nil or focus.shouldRefocus(heading, aimHeading) then
-            distance = focus.auto({ x = px, y = py, z = pz },
-              { x = carPosX, y = carPosY, z = carPosZ }, nil, 0)
-            focusDistance = distance
-          else
-            -- Aimed away from the car: hold the previous distance rather than
-            -- pumping the focus onto something off screen.
-            distance = focusDistance
-          end
-        elseif v.camera_focus_point ~= nil then
-          distance = v.camera_focus_point
-          focusDistance = distance
-        end
-
-        if distance ~= nil then
-          playbackDofDistance = distance
-          playbackDofFactor = focus.dofFactor(distance)
-        end
-      end
-    end
+  -- The legacy reads the camera's CURRENT heading every frame
+  -- (ctt.get_heading()) and falls back to it whenever the heading is not
+  -- keyframed, so an unkeyframed camera holds its aim instead of snapping to a
+  -- fixed direction. 18% of the reference cameras never keyframe rot_z, so this
+  -- is not an edge case. A grabbed camera's transformOriginal freezes at
+  -- ownShare = 1, so playback carries the previous frame's value instead and
+  -- only needs seeding once, on the first frame after a grab.
+  if not pb.haveAim then
+    local look = cam.transformOriginal.look
+    pbIn.seedHeading, pbIn.seedPitch = angles.fromLook(look.x, look.y, look.z)
   end
+
+  pbIn.trackPos = focusedTrackPosition()
+  pbIn.carX, pbIn.carY, pbIn.carZ = focusedCarPosition()
+  pbIn.replayRate = sim.replayPlaybackRate
+  pbIn.clock = shakeClock()
+  shakeClockReadout = pbIn.clock
+
+  local out = playbackCore.frame(pb, doc, pbIn)
+  if not out.active then return end
+
+  if out.x ~= nil then
+    transform.position = toWorld(out.x, out.y, out.z)
+  end
+  transform.look = vec3(out.lookX, out.lookY, out.lookZ)
+  transform.up = vec3(out.upX, out.upY, out.upZ)
+
+  playbackFov = out.fov
+  playbackDofDistance = out.dofDistance
+  playbackDofFactor = out.dofFactor
 end
 
 -- Both entry points below can fire in the same render frame depending on how
@@ -943,18 +700,23 @@ local function drawPlayback()
     ui.textColored(string.format('%s -- %d cameras, %s',
       docName, dataModule.cameraCount(doc), tostring(doc.interpolation_mode)), COLOR_OK)
 
-    if ui.radioButton('pos list', listName == 'pos') then listName = 'pos' end
+    if ui.radioButton('pos list', pb.options.listName == 'pos') then
+      pb.options.listName = 'pos'
+    end
     ui.sameLine()
-    if ui.radioButton('time list', listName == 'time') then listName = 'time' end
-    ui.text(string.format('%d cameras in this list', #(doc[listName] or {})))
+    if ui.radioButton('time list', pb.options.listName == 'time') then
+      pb.options.listName = 'time'
+    end
+    ui.text(string.format('%d cameras in this list',
+      #(doc[pb.options.listName] or {})))
 
     -- Percent as well as the raw value: every keyframe position gets talked
     -- about in percent, so making the reader convert in their head is a good
     -- way to have them look at the wrong part of the lap.
     ui.text(string.format('track pos %6.2f%%  (%.5f)   active camera %s',
-      trackPos * 100, trackPos, tostring(activeCam)))
+      num(pbOut.trackPos) * 100, num(pbOut.trackPos), tostring(pbOut.activeCam)))
 
-    local v = evaluated
+    local v = pbOut.evaluated or {}
     if v.loc_x ~= nil then
       ui.text(string.format('loc  %.2f %.2f %.2f', v.loc_x, v.loc_y or 0, v.loc_z or 0))
     end
@@ -966,35 +728,46 @@ local function drawPlayback()
 
     ui.separator()
     ui.text('Aim')
-    if ui.checkbox('track the car', applyTracking) then applyTracking = not applyTracking end
+    if ui.checkbox('track the car', pb.options.applyTracking) then
+      pb.options.applyTracking = not pb.options.applyTracking
+    end
     ui.sameLine()
-    if ui.checkbox('apply roll', applyRoll) then applyRoll = not applyRoll end
+    if ui.checkbox('apply roll', pb.options.applyRoll) then
+      pb.options.applyRoll = not pb.options.applyRoll
+    end
 
     ui.text(string.format('heading applied %.3f  (keyframed %s, aim %.3f)',
-      num(appliedHeading),
+      num(pbOut.heading),
       v.rot_z and string.format('%.3f', v.rot_z) or 'none -- holds',
-      num(aimedHeading)))
+      num(pbOut.aimedHeading)))
     ui.text(string.format('pitch   applied %.3f  (keyframed %s, aim %.3f)',
-      num(appliedPitch),
+      num(pbOut.pitch),
       v.rot_x and string.format('%.3f', v.rot_x) or 'none -- holds',
-      num(aimedPitch)))
-    ui.textColored(string.format('tracking strength in use: %.2f', num(aimStrength)),
-      aimStrength > 0 and COLOR_OK or COLOR_IDLE)
-    ui.text(string.format('tracking offset %.3f  (%s)', num(aimOffset),
-      aimOffset < 0 and 'leads the car' or (aimOffset > 0 and 'trails it' or 'aims at it')))
-    if ui.checkbox('follow the recorded spline', applySpline) then
-      applySpline = not applySpline
+      num(pbOut.aimedPitch)))
+    local strength = num(pbOut.aimStrength)
+    ui.textColored(string.format('tracking strength in use: %.2f', strength),
+      strength > 0 and COLOR_OK or COLOR_IDLE)
+    local offset = num(pbOut.aimOffset)
+    ui.text(string.format('tracking offset %.3f  (%s)', offset,
+      offset < 0 and 'leads the car' or (offset > 0 and 'trails it' or 'aims at it')))
+    if ui.checkbox('follow the recorded spline', pb.options.applySpline) then
+      pb.options.applySpline = not pb.options.applySpline
     end
-    if ui.checkbox('apply shake', applyShake) then applyShake = not applyShake end
+    if ui.checkbox('apply shake', pb.options.applyShake) then
+      pb.options.applyShake = not pb.options.applyShake
+    end
     ui.sameLine()
-    if ui.checkbox('apply depth of field', applyFocus) then applyFocus = not applyFocus end
+    if ui.checkbox('apply depth of field', pb.options.applyFocus) then
+      pb.options.applyFocus = not pb.options.applyFocus
+    end
     ui.text(string.format('shake: pan %.3f  clock %.2f s   focus %.1f m',
-      num(shakeMomentum), num(shakeClockReadout), num(focusDistance)))
-    if doc ~= nil and activeCam ~= nil and doc[listName] ~= nil then
-      local c = doc[listName][activeCam]
+      num(pbOut.shakeMomentum), num(shakeClockReadout), num(pbOut.focusDistance)))
+    local list = doc[pb.options.listName]
+    if pbOut.activeCam ~= nil and list ~= nil then
+      local c = list[pbOut.activeCam]
       if c ~= nil and spline.exists(c) then
         ui.textColored(string.format('spline: %d points, read at %.4f',
-          #c.spline.the_x, splineQuery), COLOR_OK)
+          #c.spline.the_x, num(pbOut.splineQuery)), COLOR_OK)
         ui.text(string.format('  affect xy %.2f  z %.2f  heading %.2f',
           num(c.spline_affect_loc_xy), num(c.spline_affect_loc_z),
           num(c.spline_affect_heading)))
@@ -1003,30 +776,33 @@ local function drawPlayback()
       end
     end
 
-    if ui.checkbox('aim straight at the car (no lead)', ignoreLead) then
-      ignoreLead = not ignoreLead
+    if ui.checkbox('aim straight at the car (no lead)', pb.options.ignoreLead) then
+      pb.options.ignoreLead = not pb.options.ignoreLead
     end
-    if isLastCamera then
+    if pbOut.isLastCamera then
       -- Shown in the lap's own terms: a wrapped query is negative, which reads
       -- as the tail of the previous lap.
       ui.textColored(string.format('last camera: keyframes read at %6.2f%%%s',
-        keyframeQuery * 100,
-        keyframeQuery ~= trackPos and ' -- wrapped a lap back' or ''),
+        num(pbOut.keyframeQuery) * 100,
+        pbOut.keyframeQuery ~= pbOut.trackPos and ' -- wrapped a lap back' or ''),
         COLOR_OK)
     end
-    if ui.checkbox('legacy last-camera wrap (#23)', legacyLastCamera) then
-      legacyLastCamera = not legacyLastCamera
+    if ui.checkbox('legacy last-camera wrap (#23)', pb.options.legacyLastCamera) then
+      pb.options.legacyLastCamera = not pb.options.legacyLastCamera
     end
-    if ui.checkbox('legacy startup transient (#16)', legacyZeroFill) then
-      legacyZeroFill = not legacyZeroFill
-      carHistory = tracking.new(nil, legacyZeroFill)
-      log('car history reset, legacy zero fill = ' .. tostring(legacyZeroFill))
+    if ui.checkbox('legacy startup transient (#16)', pb.options.legacyZeroFill) then
+      pb.options.legacyZeroFill = not pb.options.legacyZeroFill
+      playbackCore.resetHistory(pb)
+      log('car history reset, legacy zero fill = '
+        .. tostring(pb.options.legacyZeroFill))
     end
 
     -- Forcing the strength is a diagnostic: it tells apart "tracking is wrong"
     -- from "this camera barely tracks".
-    trackingOverride = ui.slider('##trackOverride', trackingOverride, -1, 1,
-      trackingOverride < 0 and 'strength: from file' or 'strength forced to %.2f')
+    pb.options.trackingOverride = ui.slider('##trackOverride',
+      pb.options.trackingOverride, -1, 1,
+      pb.options.trackingOverride < 0 and 'strength: from file'
+        or 'strength forced to %.2f')
   end
 
 end
