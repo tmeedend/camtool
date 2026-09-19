@@ -13,6 +13,21 @@
 
 local fakes = {}
 
+local function vec3fake(x, y, z)
+  return { x = x or 0, y = y or 0, z = z or 0 }
+end
+
+---The handful of globals CSP defines before any app code runs.
+---
+---A module is entitled to call rgbm at load time -- ui/theme.lua builds its
+---palette there -- so these cannot wait for fakes.install, which happens
+---inside a test after the requires at the top of the file have run.
+function fakes.installGlobals()
+  _G.vec3 = vec3fake
+  _G.vec2 = function(x, y) return { x = x or 0, y = y or 0 } end
+  _G.rgbm = function(r, g, b, m) return { r = r, g = g, b = b, mult = m } end
+end
+
 ---Install fake globals. Returns a handle whose fields record what the app did.
 ---@param opts table|nil @{ cameraFile = <parsed camera document>, replay = boolean }
 function fakes.install(opts)
@@ -31,13 +46,7 @@ function fakes.install(opts)
     },
   }
 
-  local function vec3fake(x, y, z)
-    return { x = x or 0, y = y or 0, z = z or 0 }
-  end
-
-  _G.vec3 = vec3fake
-  _G.vec2 = function(x, y) return { x = x or 0, y = y or 0 } end
-  _G.rgbm = function(r, g, b, m) return { r = r, g = g, b = b, mult = m } end
+  fakes.installGlobals()
 
   local sim = {
     isReplayActive = opts.replay ~= false,
@@ -128,6 +137,18 @@ function fakes.install(opts)
   local function clicked(label) return clicks[label] == true end
 
   _G.ui = setmetatable({
+    -- Enough of the layout and styling API for the ATR panel to be drawn.
+    -- These have to be real values rather than the catch-all below: the panel
+    -- does arithmetic on the width, and indexing a function would raise.
+    StyleColor = { Text = 0, Button = 21, ButtonHovered = 22, ButtonActive = 23 },
+    Alignment = { Start = -1, Center = 0, End = 1 },
+    availableSpaceX = function() return opts.panelWidth or 360 end,
+    windowWidth = function() return opts.panelWidth or 360 end,
+    getCursor = function() return { x = 0, y = 0 } end,
+    itemRectMin = function() return { x = 0, y = 0 } end,
+    itemRectMax = function() return { x = 10, y = 10 } end,
+    measureText = function(t) return { x = #tostring(t) * 7, y = 14 } end,
+
     slider = function(_, value) return value, false end,
     checkbox = function(label) return clicked(label) end,
     radioButton = function(label) return clicked(label) end,

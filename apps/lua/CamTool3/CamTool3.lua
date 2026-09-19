@@ -20,6 +20,7 @@
 ]]
 
 local storage = require('adapters/storage')
+local atrPanel = require('ui/atr')
 local angles = require('core/angles')
 local spline = require('core/spline')
 local playbackCore = require('core/playback')
@@ -855,6 +856,27 @@ local function drawLog()
   for i = 1, #logLines do
     ui.text(logLines[i])
   end
+end
+
+---The ATR panel. Read only for now: it shows the camera the car selected and
+---the values in force, and reports clicks that nothing acts on yet.
+function script.windowAtr(dt)
+  ensureFileList()
+
+  local cameras = doc ~= nil and doc[pb.options.listName] or nil
+
+  atrPanel.draw({
+    doc = doc,
+    camera = cameras ~= nil and pbOut.activeCam ~= nil
+      and cameras[pbOut.activeCam] or nil,
+    cameraIndex = pbOut.activeCam,
+    cameraCount = cameras ~= nil and #cameras or 0,
+    trackPos = pbOut.trackPos,
+    trackLength = sim.trackLengthM,
+    -- Not from the file: CamTool 2 never saved which car a camera framed.
+    trackedCarA = sim.focusedCar,
+    trackedCarB = nil,
+  })
 end
 
 function script.windowMain(dt)

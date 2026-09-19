@@ -121,6 +121,44 @@ function evaluate.seriesFor(camera, param)
   return positions, values
 end
 
+---How close a keyframe has to be to count as sitting at a position.
+---
+---A keyframe is stored as a normalised track position, and the playhead is the
+---car's, so the two never meet exactly. CamTool 2 shows a parameter in red
+---when a keyframe exists "here", and this is what "here" means: a hundredth of
+---a percent of a lap, which on a 5 km track is half a metre.
+evaluate.KEYFRAME_TOLERANCE = 1e-4
+
+---Does this camera keyframe this parameter at this position?
+---
+---The colour code of the panel rests on it: red means a keyframe sits here and
+---the value shown is the keyframe's, grey means the value is interpolated or
+---comes from the camera. Clicking the value toggles that keyframe, so the
+---answer also says which of the two the click will do.
+---@param camera table
+---@param param string
+---@param position number @normalised track position
+---@return number|nil @the index of the keyframe, or nil when there is none
+function evaluate.keyframeAt(camera, param, position)
+  local keyframes = camera and camera.keyframes
+  if type(keyframes) ~= 'table' or type(position) ~= 'number' then return nil end
+
+  local best, bestGap = nil, evaluate.KEYFRAME_TOLERANCE
+  for i = 1, #keyframes do
+    local kf = keyframes[i]
+    local at = type(kf) == 'table' and kf.keyframe or nil
+    local interp = type(kf) == 'table' and kf.interpolation or nil
+    if type(at) == 'number' and interp ~= nil and type(interp[param]) == 'number' then
+      local gap = math.abs(at - position)
+      if gap <= bestGap then
+        best, bestGap = i, gap
+      end
+    end
+  end
+
+  return best
+end
+
 ---Evaluate one parameter at a track position.
 ---Returns nil when the camera does not keyframe it at all, which is the signal
 ---to fall back to the camera-level value.

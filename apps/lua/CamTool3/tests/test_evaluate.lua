@@ -104,6 +104,45 @@ test('parameter routes through the interpolator the legacy uses', function()
       { fov.encode(10), fov.encode(20), fov.encode(30) })), 1e-12)
 end)
 
+test('keyframeAt finds the keyframe sitting at a position', function()
+  local camera = {
+    keyframes = {
+      { keyframe = 0.10, interpolation = { loc_x = 1, camera_fov = 20 } },
+      { keyframe = 0.20, interpolation = { camera_fov = 30 } },
+      { keyframe = 0.30, interpolation = { loc_x = 3 } },
+    },
+  }
+
+  eq(evaluate.keyframeAt(camera, 'loc_x', 0.10), 1)
+  eq(evaluate.keyframeAt(camera, 'loc_x', 0.30), 3)
+  eq(evaluate.keyframeAt(camera, 'loc_x', 0.20), nil,
+    'that keyframe exists but does not carry loc_x')
+  eq(evaluate.keyframeAt(camera, 'camera_fov', 0.20), 2)
+
+  -- The playhead is the car's position and never lands exactly on a keyframe,
+  -- so "here" has to be a window rather than an equality.
+  eq(evaluate.keyframeAt(camera, 'loc_x', 0.10005), 1, 'just inside')
+  eq(evaluate.keyframeAt(camera, 'loc_x', 0.1002), nil, 'just outside')
+
+  -- The nearest one wins when two are within the window.
+  local crowded = {
+    keyframes = {
+      { keyframe = 0.2000, interpolation = { loc_x = 1 } },
+      { keyframe = 0.2001, interpolation = { loc_x = 2 } },
+    },
+  }
+  eq(evaluate.keyframeAt(crowded, 'loc_x', 0.20009), 2)
+end)
+
+test('keyframeAt copes with a camera that has nothing', function()
+  eq(evaluate.keyframeAt(nil, 'loc_x', 0.5), nil)
+  eq(evaluate.keyframeAt({}, 'loc_x', 0.5), nil)
+  eq(evaluate.keyframeAt({ keyframes = {} }, 'loc_x', 0.5), nil)
+  eq(evaluate.keyframeAt({ keyframes = { { keyframe = 0.5 } } }, 'loc_x', 0.5), nil)
+  eq(evaluate.keyframeAt({ keyframes = { { keyframe = 0.5,
+    interpolation = { loc_x = 1 } } } }, 'loc_x', nil), nil)
+end)
+
 test('parameter is nil when unkeyframed or camera-level', function()
   local camera = { keyframes = { { keyframe = 0.5, interpolation = { loc_x = 1 } } } }
   eq(evaluate.parameter(camera, 'rot_z', 0.5), nil, 'not keyframed here')

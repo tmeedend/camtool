@@ -14,6 +14,10 @@ package.path = './?.lua;' .. package.path
 
 local runner = require('tests/runner')
 
+-- Before anything else: CSP defines rgbm, vec2 and vec3 ahead of any app
+-- code, and modules call them while loading.
+require('tests/fakes/csp').installGlobals()
+
 require('tests/test_fov')
 require('tests/test_angles')
 require('tests/test_cubic')
@@ -28,5 +32,6 @@ require('tests/test_app_smoke')
 require('tests/test_playback_golden')
 require('tests/test_lap_sweep')
 require('tests/test_trace_replay')
+require('tests/test_ui_atr')
 
 os.exit(runner.run() and 0 or 1)
