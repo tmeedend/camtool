@@ -21,6 +21,7 @@
 
 local storage = require('adapters/storage')
 local atrPanel = require('ui/atr')
+local edit = require('core/edit')
 local angles = require('core/angles')
 local spline = require('core/spline')
 local playbackCore = require('core/playback')
@@ -864,6 +865,32 @@ end
 local atrCamera = nil
 local atrKeyframe = 1
 
+-- Every edit, newest last. edit.apply hands back a record that can be put
+-- back, so undo is this stack and nothing more.
+local undoStack = {}
+local UNDO_KEPT = 200
+
+---What the camera is doing right now, for seeding a new keyframe. This is the
+---gesture the whole tool is built on: put the view where you want it, then
+---pin it.
+local function liveValue(key)
+  if key == 'loc_x' then return pbOut.x end
+  if key == 'loc_y' then return pbOut.y end
+  if key == 'loc_z' then return pbOut.z end
+  if key == 'rot_x' then return pbOut.pitch end
+  if key == 'rot_y' then return pbOut.roll end
+  if key == 'rot_z' then return pbOut.heading end
+  if key == 'camera_fov' then return pbOut.fov end
+  if key == 'camera_focus_point' then return pbOut.dofDistance end
+  return nil
+end
+
+local function remember(change)
+  if change == nil then return end
+  undoStack[#undoStack + 1] = change
+  while #undoStack > UNDO_KEPT do table.remove(undoStack, 1) end
+end
+
 ---The ATR panel. Read only for now: it shows a camera and its keyframes, and
 ---reports clicks that nothing acts on yet.
 function script.windowAtr(dt)
@@ -883,6 +910,7 @@ function script.windowAtr(dt)
   local actions = atrPanel.draw({
     doc = doc,
     fileName = fileIndex >= 1 and files[fileIndex] or nil,
+    undoDepth = #undoStack,
     loadedName = doc ~= nil and docName or nil,
     held = cameraActive(),
     camera = camera,
@@ -906,6 +934,47 @@ function script.windowAtr(dt)
   end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
+  end
+
+  ------------------------------------------------------------------
+  -- Edits
+  ------------------------------------------------------------------
+  -- Everything goes through core/edit, including the undo stack, so a gesture
+  -- added later lands in one place rather than twenty-one.
+  if camera ~= nil then
+    local ctrl = ac.isKeyDown(ac.KeyIndex.Control)
+    local shift = ac.isKeyDown(ac.KeyIndex.Shift)
+
+    for key, action in pairs(actions) do
+      if edit.RULES[key] ~= nil then
+        local op, direction
+        if action == 'keyframe' then
+          op = 'toggleKeyframe'
+        elseif action == 'decrement' then
+          op, direction = 'nudge', -1
+        elseif action == 'increment' then
+          op, direction = 'nudge', 1
+        end
+
+        if op ~= nil then
+          remember(edit.apply({
+            camera = camera,
+            keyframeIndex = keyframeCount > 0 and atrKeyframe or nil,
+            key = key,
+            op = op,
+            direction = direction,
+            ctrl = ctrl,
+            shift = shift,
+            live = liveValue(key),
+          }))
+        end
+      end
+    end
+  end
+
+  if actions.undo and #undoStack > 0 then
+    edit.revert(undoStack[#undoStack])
+    table.remove(undoStack)
   end
 
   -- The session controls, so that starting work no longer means opening the

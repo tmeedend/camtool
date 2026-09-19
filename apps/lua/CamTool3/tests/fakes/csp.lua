@@ -144,6 +144,7 @@ function fakes.install(opts)
     Alignment = { Start = -1, Center = 0, End = 1 },
     Direction = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3 },
     arrowButton = function(label) return clicked(label) end,
+    invisibleButton = function(label) return clicked(label) end,
     availableSpaceX = function() return opts.panelWidth or 360 end,
     windowWidth = function() return opts.panelWidth or 360 end,
     getCursor = function() return { x = 0, y = 0 } end,

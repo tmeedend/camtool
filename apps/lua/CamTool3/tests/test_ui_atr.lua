@@ -273,3 +273,50 @@ test('the session bar can load a file and take the camera', function()
 
   handle.restoreIo()
 end)
+
+test('the panel reports an arrow press as an action', function()
+  -- The link the test above cannot see directly: the panel turns a click on
+  -- an arrow into an action keyed by parameter, which is what the app feeds
+  -- to core/edit.
+  local handle = fakes.install({
+    clicks = { ['##trackingtracking_mixinc'] = true },
+  })
+  local doc = dataModule.load(rawFile)
+
+  local actions = atr.draw({
+    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = #(doc.pos[2].keyframes or {}),
+    trackPos = 0.02, trackLength = 5802,
+  })
+
+  eq(actions.tracking_mix, 'increment')
+
+  handle.restoreIo()
+end)
+
+test('the panel reports a diamond click, and the edit round trips', function()
+  local edit = require('core/edit')
+  local handle = fakes.install({
+    clicks = { ['##transformloc_xkf'] = true },
+  })
+  local doc = dataModule.load(rawFile)
+  local camera = doc.pos[2]
+
+  local actions = atr.draw({
+    camera = camera, cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = #(camera.keyframes or {}),
+    trackPos = 0.02, trackLength = 5802,
+  })
+  eq(actions.loc_x, 'keyframe')
+
+  local before = camera.keyframes[1].interpolation.loc_x
+  local change = edit.apply({
+    camera = camera, keyframeIndex = 1, key = 'loc_x',
+    op = 'toggleKeyframe', live = 12.5,
+  })
+  eq(change ~= nil, true)
+  edit.revert(change)
+  eq(camera.keyframes[1].interpolation.loc_x, before, 'undo put it back')
+
+  handle.restoreIo()
+end)

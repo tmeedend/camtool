@@ -229,6 +229,11 @@ function atr.draw(state)
       vec2(110, 18)) then
     if state.held then actions.release = true else actions.grab = true end
   end
+  ui.sameLine(0, 4)
+  local depth = state.undoDepth or 0
+  if ui.button(string.format('Undo (%d)##undo', depth), vec2(74, 18)) then
+    actions.undo = true
+  end
   ui.popStyleColor(3)
 
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
@@ -345,7 +350,8 @@ function atr.draw(state)
     .. 'screen.')
   ui.text('Elsewhere in CamTool 2, not here yet:')
   ui.text('  ' .. table.concat(atr.MISSING, ', '))
-  ui.text('Read only: the arrows and the values change nothing yet.')
+  ui.text('Arrows and diamonds edit this camera in memory; typing and '
+    .. 'dragging a value are still to come, and nothing is saved yet.')
   ui.popStyleColor()
 
   return actions
