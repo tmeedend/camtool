@@ -54,7 +54,12 @@ theme.absent = rgbm(0.45, 0.45, 0.45, 1)
 theme.text = rgbm(1, 1, 1, 1)
 theme.headerBar = rgbm(0.78, 0.09, 0.13, 1)
 theme.strip = rgbm(0.28, 0.28, 0.28, 1)
+---The keyframe row, a shade apart from the camera row above it so the two
+---strips do not read as one.
+theme.stripKeyframe = rgbm(0.21, 0.21, 0.21, 1)
 theme.stripActive = rgbm(0.85, 0.16, 0.20, 1)
+---The camera the car has made live, when it is not the one being edited.
+theme.stripLive = rgbm(0.45, 0.22, 0.24, 1)
 
 ---Measurements, in pixels at the panel's default scale.
 theme.rowHeight = 19

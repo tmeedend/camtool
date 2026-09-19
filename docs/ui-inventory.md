@@ -453,11 +453,24 @@ Presque tout paramètre est un widget `Option` :
                                      ^ optionnel
 ```
 
+### Le panneau édite le keyframe **sélectionné**, pas la position de lecture
+
+Point capital, et facile à manquer : `CamTool2.data()` renvoie
+`keyframes[self.__active_kf]`. Les paramètres qu'on voit et qu'on modifie sont
+donc ceux du **keyframe sélectionné dans la colonne de droite** (§3), pas ceux
+de l'endroit où la voiture se trouve. Les deux se ressemblent quand on vient
+de poser le keyframe, et divergent dès qu'on navigue.
+
+Le code distingue de même la caméra **éditée** et la caméra **vivante** :
+`data("camera", slot_camera=True)` lit `self.__active_cam`, la sélection ;
+`slot_camera=False` lit `data.active_cam`, celle que la position de la voiture
+a rendue active. On édite une caméra pendant qu'une autre est à l'écran.
+
 ### Le clic sur la valeur bascule le keyframe
 
-**Ce n'est pas un champ de saisie.** Cliquer sur la valeur centrale crée ou
-supprime le keyframe du paramètre (`set_data`, action `toogle` — la faute de
-frappe est dans le code) :
+**Ce n'est pas un champ de saisie.** Cliquer sur la valeur centrale ajoute ou
+retire ce paramètre **du keyframe sélectionné** (`set_data`, action `toogle` —
+la faute de frappe est dans le code) :
 
 | État | Effet du clic |
 |---|---|

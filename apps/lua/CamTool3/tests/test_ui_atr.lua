@@ -163,3 +163,71 @@ test('the ATR window draws before any file is loaded', function()
 
   handle.restoreIo()
 end)
+
+test('the panel shows the selected keyframe, not the playhead', function()
+  -- CamTool 2's panel reads keyframes[active_kf] and nothing else. Getting
+  -- this wrong would put every edit somewhere the user is not looking.
+  local handle = fakes.install({})
+
+  local camera = {
+    camera_in = 0.1,
+    tracking_mix = 0.25,
+    keyframes = {
+      { keyframe = 0.10, interpolation = { tracking_mix = 0.5 } },
+      { keyframe = 0.90, interpolation = {} },
+    },
+  }
+
+  -- Keyframe 1 carries tracking_mix, keyframe 2 does not, and the camera has
+  -- its own value. The panel has to show three different things.
+  local ok = pcall(atr.draw, {
+    camera = camera, cameraIndex = 1, cameraCount = 1,
+    keyframeIndex = 1, keyframeCount = 2, trackPos = 0.5, trackLength = 1000,
+  })
+  eq(ok, true)
+
+  ok = pcall(atr.draw, {
+    camera = camera, cameraIndex = 1, cameraCount = 1,
+    keyframeIndex = 2, keyframeCount = 2, trackPos = 0.5, trackLength = 1000,
+  })
+  eq(ok, true)
+
+  -- And with no keyframe selected at all, which is a camera that animates
+  -- nothing rather than an error.
+  ok = pcall(atr.draw, {
+    camera = camera, cameraIndex = 1, cameraCount = 1,
+    keyframeCount = 0, trackPos = 0.5, trackLength = 1000,
+  })
+  eq(ok, true)
+
+  handle.restoreIo()
+end)
+
+test('picking a camera in the panel does not move the live one', function()
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    splinePosition = 0.02,
+    clicks = {
+      ['Find CamTool 2 files'] = true, ['Load this file'] = true,
+      ['Grab camera'] = true, ['Play CamTool 2 file (12)'] = true,
+      -- The fourth camera in the strip.
+      ['4##cam4'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 5 do
+    _G.script.windowMain(0.016)
+    _G.script.update(0.016)
+    local ok, err = pcall(_G.script.windowAtr, 0.016)
+    if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
+  end
+
+  -- The car still drives which camera is live; the panel selection is only
+  -- about what is being looked at.
+  eq(handle.grabbed, true)
+
+  handle.restoreIo()
+end)

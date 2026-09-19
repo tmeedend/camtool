@@ -106,30 +106,78 @@ atr.COLUMNS = {
 ---conversation about where each one goes happens over something visible.
 atr.MISSING = {
   'Pit only', 'Specific cam', 'mode position / temps',
-  'onglet Spline', 'onglet Settings',
-  'ajouter / supprimer une camera', 'Activate Free Camera',
+  'onglet Spline', 'onglet Settings', 'Activate Free Camera',
 }
 
 --------------------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------------------
 
----The value in force, and whether a keyframe sits at the playhead.
+---The value the panel shows for one parameter, and whether it is keyframed.
 ---
----Same order of preference as playback: the keyframed value first, then the
----one on the camera. Kept here rather than shared with core/playback because
----this one is about what to show, not about where to put the camera -- and
----the day they disagree, the panel must follow the camera, not the other way
----round.
----@return number|nil value, boolean keyframedHere
-local function valueOf(camera, key, trackPos)
+---Not the value at the playhead: the value on the SELECTED KEYFRAME. That is
+---what CamTool 2 edits -- its panel reads keyframes[active_kf] and nothing
+---else -- and getting it wrong would have made every edit land somewhere the
+---user was not looking. Red means this keyframe carries the parameter; grey
+---means it does not and the camera's own value applies across its whole span.
+---
+---With no keyframe selected there is only the camera-level value, which is
+---the honest picture of a camera that animates nothing.
+---@return number|nil value, boolean keyframed
+local function valueOf(camera, key, keyframeIndex)
   if camera == nil then return nil, false end
 
-  local here = evaluate.keyframeAt(camera, key, trackPos) ~= nil
-  local keyframed = evaluate.parameter(camera, key, trackPos)
-  if keyframed ~= nil then return keyframed, here end
+  local keyframes = camera.keyframes
+  if type(keyframes) == 'table' and keyframeIndex ~= nil then
+    local kf = keyframes[keyframeIndex]
+    local interp = type(kf) == 'table' and kf.interpolation or nil
+    if interp ~= nil and type(interp[key]) == 'number' then
+      return interp[key], true
+    end
+  end
 
-  return camera[key], here
+  return camera[key], false
+end
+
+---Draw a row of numbered buttons with an add and a remove at the end.
+---
+---The left side of CamTool 2 is two such columns, cameras and keyframes. ATR's
+---mockup turns the camera one on its side and drops the other; both are here,
+---because losing the keyframe list would leave no way to make a camera move.
+---@return number|nil picked, boolean added, boolean removed
+local function strip(id, count, active, width, colour, live)
+  local picked, added, removed = nil, false, false
+  local perRow = 20
+  local cell = math.floor((width - (perRow - 1)) / perRow)
+
+  for i = 1, count do
+    -- Two different things, and CamTool 2 keeps them apart too: the camera
+    -- being edited (__active_cam) and the one the car's position has made
+    -- live (data.active_cam). Red is the one you are editing; the paler tint
+    -- is the one on screen.
+    local fill = colour
+    if i == live then fill = theme.stripLive end
+    if i == active then fill = theme.stripActive end
+    ui.pushStyleColor(ui.StyleColor.Button, fill)
+    ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
+    ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
+    if ui.button(tostring(i) .. '##' .. id .. i, vec2(cell, 16)) then
+      picked = i
+    end
+    ui.popStyleColor(3)
+    if i % perRow ~= 0 then ui.sameLine(0, 1) end
+  end
+
+  ui.pushStyleColor(ui.StyleColor.Button, colour)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
+  if ui.button('+##' .. id .. 'add', vec2(cell, 16)) then added = true end
+  ui.sameLine(0, 1)
+  if ui.button('-##' .. id .. 'del', vec2(cell, 16)) then removed = true end
+  ui.popStyleColor(3)
+  ui.newLine(2)
+
+  return picked, added, removed
 end
 
 local function columnWidth(total)
@@ -166,24 +214,16 @@ function atr.draw(state)
   -- previous and next, and ATR's mockup replaces that with the whole set at
   -- a glance -- on a 48-camera file that is the difference between a click
   -- and forty.
-  local count = state.cameraCount or 0
-  if count > 0 then
-    local perRow = 20
-    local cellWidth = math.floor((width - (perRow - 1)) / perRow)
-    for i = 1, count do
-      local active = i == state.cameraIndex
-      ui.pushStyleColor(ui.StyleColor.Button,
-        active and theme.stripActive or theme.strip)
-      ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
-      ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-      if ui.button(tostring(i) .. '##cam' .. i, vec2(cellWidth, 16)) then
-        actions.selectCamera = i
-      end
-      ui.popStyleColor(3)
-      if i % perRow ~= 0 and i < count then ui.sameLine(0, 1) end
-    end
-    ui.newLine(2)
-  end
+  actions.selectCamera, actions.addCamera, actions.removeCamera =
+    strip('cam', state.cameraCount or 0, state.cameraIndex, width, theme.strip,
+      state.liveCameraIndex)
+
+  -- And the keyframes of that camera. This is the second column of CamTool 2's
+  -- left side, which the mockup has no place for -- without it a camera can
+  -- hold a pose but never move.
+  actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe =
+    strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
+      theme.stripKeyframe)
 
   ------------------------------------------------------------------
   -- The three columns
@@ -203,7 +243,7 @@ function atr.draw(state)
       if spec.runtime then
         value, here = state[spec.key], false
       else
-        value, here = valueOf(state.camera, spec.key, state.trackPos)
+        value, here = valueOf(state.camera, spec.key, state.keyframeIndex)
       end
 
       -- camera_in is a track position: stored as a fraction of a lap, shown

@@ -858,25 +858,52 @@ local function drawLog()
   end
 end
 
----The ATR panel. Read only for now: it shows the camera the car selected and
----the values in force, and reports clicks that nothing acts on yet.
+-- What the ATR panel is pointed at. Separate from the camera the car has made
+-- live, exactly as CamTool 2 keeps __active_cam apart from data.active_cam:
+-- you edit one camera while another is on screen.
+local atrCamera = nil
+local atrKeyframe = 1
+
+---The ATR panel. Read only for now: it shows a camera and its keyframes, and
+---reports clicks that nothing acts on yet.
 function script.windowAtr(dt)
   ensureFileList()
 
   local cameras = doc ~= nil and doc[pb.options.listName] or nil
+  local count = cameras ~= nil and #cameras or 0
 
-  atrPanel.draw({
+  -- Follow the car until the user picks a camera to work on.
+  if atrCamera == nil or atrCamera > count then atrCamera = pbOut.activeCam end
+  local camera = cameras ~= nil and atrCamera ~= nil and cameras[atrCamera] or nil
+  local keyframes = camera ~= nil and camera.keyframes or nil
+  local keyframeCount = type(keyframes) == 'table' and #keyframes or 0
+  if atrKeyframe > keyframeCount then atrKeyframe = keyframeCount end
+  if atrKeyframe < 1 and keyframeCount > 0 then atrKeyframe = 1 end
+
+  local actions = atrPanel.draw({
     doc = doc,
-    camera = cameras ~= nil and pbOut.activeCam ~= nil
-      and cameras[pbOut.activeCam] or nil,
-    cameraIndex = pbOut.activeCam,
-    cameraCount = cameras ~= nil and #cameras or 0,
+    camera = camera,
+    cameraIndex = atrCamera,
+    cameraCount = count,
+    liveCameraIndex = pbOut.activeCam,
+    keyframeIndex = keyframeCount > 0 and atrKeyframe or nil,
+    keyframeCount = keyframeCount,
     trackPos = pbOut.trackPos,
     trackLength = sim.trackLengthM,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     trackedCarA = sim.focusedCar,
     trackedCarB = nil,
   })
+
+  -- Only the selections are wired: they change nothing about the camera, they
+  -- change what the panel is looking at.
+  if actions.selectCamera ~= nil then
+    atrCamera = actions.selectCamera
+    atrKeyframe = 1
+  end
+  if actions.selectKeyframe ~= nil then
+    atrKeyframe = actions.selectKeyframe
+  end
 end
 
 function script.windowMain(dt)
