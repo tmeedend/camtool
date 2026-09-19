@@ -73,12 +73,16 @@ local RECORDINGS = {
       -- apart between them over the whole recording.
       fov = 2.3,
 
-      -- DEFECT, not a tolerance. camera_use_tracking_point is 0 or 1 in the
-      -- file, and 0 is truthy in Lua, so the port autofocuses on every camera
-      -- while CamTool 2 autofocuses on the ones that asked. Same family as
-      -- the division by zero in CLAUDE.md: Python semantics that do not
-      -- survive the crossing.
-      focus = 500,
+      -- DEFECT, not a tolerance, and a smaller one than it was: reading the
+      -- autofocus flag correctly took this from 500 m to 277. What is left is
+      -- the gate that decides when to refocus. CamTool 2 holds the focus when
+      -- the camera is aimed more than a right angle away from the car, and it
+      -- measures that against the heading of the PREVIOUS frame, because ctt
+      -- caches the heading and set_rotation does not clear it. The port
+      -- measures it against the heading it has just worked out, so the two
+      -- stop refocusing at different moments and one of them holds a stale
+      -- distance. Every camera that is refocusing agrees exactly.
+      focus = 277,
     },
   },
 }

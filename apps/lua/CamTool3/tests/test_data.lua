@@ -128,3 +128,18 @@ test('a non-table input is refused', function()
   eq(pcall(data.load, 'not a document'), false)
   eq(pcall(data.load, nil), false)
 end)
+
+test('a flag stored as a number is read the way Python read it', function()
+  -- CamTool 2 writes camera_use_tracking_point as 0 or 1, not as a boolean,
+  -- and Lua calls 0 true where Python calls it false. Reading it with a plain
+  -- `if` turned autofocus on for all 589 reference cameras instead of the 565
+  -- that asked for it. Same family as the division by zero in CLAUDE.md.
+  eq(data.isOn(0), false, 'the whole point')
+  eq(data.isOn(1), true)
+  eq(data.isOn(nil), false)
+  eq(data.isOn(false), false)
+  eq(data.isOn(true), true)
+  eq(data.isOn(0.0), false, 'a float zero is still off')
+  eq(data.isOn(-1), true, 'camera_use_specific_cam uses -1 for "no", so only '
+    .. 'ask this about flags that mean 0 or 1')
+end)

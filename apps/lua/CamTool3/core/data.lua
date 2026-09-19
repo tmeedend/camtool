@@ -130,6 +130,24 @@ function data.load(raw)
     tostring(version), data.CURRENT_VERSION), 2)
 end
 
+---Is a flag from a camera file on?
+---
+---Needed because CamTool 2 writes some of its flags as numbers rather than
+---booleans -- camera_use_tracking_point is 0 or 1 across all 589 reference
+---cameras, 24 of them 0 -- and Lua calls 0 true where Python calls it false.
+---Reading such a flag with a plain `if` turns every camera's autofocus on.
+---Same family as the division by zero CLAUDE.md warns about: Python semantics
+---that do not survive the crossing.
+---
+---camera_pit is a real boolean in every reference file and works either way.
+---@param value any
+---@return boolean
+function data.isOn(value)
+  if value == nil or value == false then return false end
+  if value == 0 then return false end
+  return true
+end
+
 ---Count the cameras in a document, across both modes.
 ---@param doc table
 ---@return number

@@ -17,6 +17,7 @@
   playback.new returns, not in upvalues. One state object drives one camera.
 ]]
 
+local dataModule = require('core/data')
 local evaluate = require('core/evaluate')
 local angles = require('core/angles')
 local tracking = require('core/tracking')
@@ -326,8 +327,10 @@ function playback.frame(state, doc, input)
   if options.applyFocus and px ~= nil and py ~= nil and pz ~= nil then
     local distance = nil
 
-    -- camera_use_tracking_point is the Autofocus toggle.
-    if camera.camera_use_tracking_point and carPosX ~= nil then
+    -- camera_use_tracking_point is the Autofocus toggle, and it is stored as
+    -- 0 or 1 rather than as a boolean -- hence data.isOn, since a plain `if`
+    -- would read 0 as on.
+    if dataModule.isOn(camera.camera_use_tracking_point) and carPosX ~= nil then
       if aimHeading == nil or focus.shouldRefocus(heading, aimHeading) then
         distance = focus.auto({ x = px, y = py, z = pz },
           { x = carPosX, y = carPosY, z = carPosZ }, nil, 0)
