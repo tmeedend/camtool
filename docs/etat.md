@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (215 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (233 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -193,7 +193,15 @@ pense-bête en bas qui liste ce qui manque encore.
 
 **Compatibilité de sauvegarde — tranché par Théo** : une sauvegarde CamTool 3
 n'a **pas** à être relisible par CamTool 2. On écrit le format v1 sans se
-soucier du retour en arrière.
+soucier du retour en arrière. ✅ **Fait** (`core/serialise.lua`,
+`storage.saveCameraFile`).
+
+⚠️ **La sauvegarde écrase des fichiers irrécupérables** (`data/` est
+gitignoré). Trois garde-fous : le texte est construit et vérifié avant
+d'ouvrir quoi que ce soit (un `inf` ou un `nan` **annule** la sauvegarde),
+`io.save` écrit dans un temporaire puis déplace, et le premier écrasement
+d'un fichier en garde une copie `.camtool3-backup`. `tools/check_serialise.py`
+rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
 
 **Ordre convenu pour la suite** (proposé par le designer UX, validé) :
 
@@ -213,7 +221,9 @@ soucier du retour en arrière.
    le placer ensuite avec la barre rouge — d'où le rôle de cette barre, qui
    n'est pas de la navigation mais **le seul moyen de placer un keyframe**
    (`CamTool_2.py:1738`). Le fichier produit est le même, l'étape en moins.
-3. L'annuler / refaire, presque gratuit si 1 est fait.
+3. L'annuler / refaire : **l'annuler est fait** (bouton avec la profondeur de
+   pile, couvre aussi les ajouts/suppressions de caméras et de keyframes).
+   Reste le refaire et le raccourci Ctrl+Z.
 4. La **bande de piste** (un ruban 0 → longueur du circuit, chaque caméra sur
    son segment, keyframes en losanges, tête de lecture), qui remplacerait à
    elle seule la grille, `Starting point` et la barre de keyframe — et passe
