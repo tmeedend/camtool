@@ -35,6 +35,11 @@ function fakes.install(opts)
 
   local handle = {
     logs = {},
+    -- Every drawing call the panel made, in order. Enough for a test to ask
+    -- what reached the screen: that no coordinate is inf or nan, that nothing
+    -- was drawn outside its box, that the track was stroked once per run of
+    -- colour. Not enough to say it looks right -- nothing here can.
+    drawn = {},
     grabbed = false,
     disposed = false,
     replayPositions = {},
@@ -209,10 +214,48 @@ function fakes.install(opts)
     end,
     availableSpaceX = function() return opts.panelWidth or 360 end,
     windowWidth = function() return opts.panelWidth or 360 end,
-    getCursor = function() return { x = 0, y = 0 } end,
+    -- Deliberately not the origin. A widget that draws at its own
+    -- coordinates and forgets to add the cursor would land in exactly the
+    -- right place if this were { 0, 0 }, and the test that checks it stays
+    -- inside its box would never notice.
+    getCursor = function() return { x = opts.cursorX or 17, y = opts.cursorY or 23 } end,
     itemRectMin = function() return { x = 0, y = 0 } end,
     itemRectMax = function() return { x = 10, y = 10 } end,
     measureText = function(t) return { x = #tostring(t) * 7, y = 14 } end,
+
+    -- Drawing. Recorded rather than ignored, so the map can be tested.
+    pathLineTo = function(point)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'pathLineTo', x = point.x, y = point.y }
+    end,
+    pathStroke = function(colour, closed, thickness)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'pathStroke', colour = colour, closed = closed,
+          thickness = thickness }
+    end,
+    drawLine = function(p1, p2, colour, thickness)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'drawLine', x = p1.x, y = p1.y, x2 = p2.x, y2 = p2.y,
+          colour = colour, thickness = thickness }
+    end,
+    drawCircle = function(point, radius, colour)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'drawCircle', x = point.x, y = point.y, radius = radius,
+          colour = colour }
+    end,
+    drawCircleFilled = function(point, radius, colour)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'drawCircleFilled', x = point.x, y = point.y, radius = radius,
+          colour = colour }
+    end,
+    drawRectFilled = function(p1, p2, colour)
+      handle.drawn[#handle.drawn + 1] =
+        { op = 'drawRectFilled', x = p1.x, y = p1.y, x2 = p2.x, y2 = p2.y,
+          colour = colour }
+    end,
+    textAligned = function(text)
+      handle.drawn[#handle.drawn + 1] = { op = 'text', text = tostring(text) }
+    end,
 
     slider = function(_, value) return value, false end,
     checkbox = function(label) return clicked(label) end,

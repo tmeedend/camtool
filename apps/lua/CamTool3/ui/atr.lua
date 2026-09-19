@@ -21,6 +21,7 @@
 
 local theme = require('ui/theme')
 local parameter = require('ui/parameter')
+local trackMap = require('ui/map')
 local evaluate = require('core/evaluate')
 
 local atr = {}
@@ -469,6 +470,19 @@ function atr.draw(state)
   end
 
   ui.popStyleColor(3)
+  ui.newLine(2)
+
+  ------------------------------------------------------------------
+  -- The map
+  ------------------------------------------------------------------
+  -- The set seen from above: which camera covers which stretch of the lap.
+  -- The strip above says the same thing in list order; this says it in the
+  -- order you actually drive, which is the one the shot is cut in.
+  --
+  -- Placement is provisional. It costs 150 px of a 460 px panel, which is
+  -- real estate the parameters would also like, and only ATR can say whether
+  -- that trade is worth it in front of a replay.
+  trackMap.draw(state, width, theme.mapHeight)
   ui.newLine(2)
 
   -- Where the selected keyframe sits on the track.

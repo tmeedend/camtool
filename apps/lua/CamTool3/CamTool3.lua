@@ -20,6 +20,7 @@
 ]]
 
 local storage = require('adapters/storage')
+local trackAdapter = require('adapters/track')
 local atrPanel = require('ui/atr')
 local cameramode = require('core/cameramode')
 local edit = require('core/edit')
@@ -1007,6 +1008,10 @@ function script.windowAtr(dt)
       and keyframes[atrKeyframe].keyframe or nil,
     trackPos = pbOut.trackPos,
     trackLength = sim.trackLengthM,
+    -- Sampled once per track and cached by the adapter, so asking for it on
+    -- every draw costs one table comparison.
+    outline = trackAdapter.currentOutline(),
+    cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     trackedCarA = sim.focusedCar,
     trackedCarB = nil,

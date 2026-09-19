@@ -16,6 +16,8 @@
 
 local runner = require('tests/runner')
 local fakes = require('tests/fakes/csp')
+local trackAdapter = require('adapters/track')
+local trackMap = require('ui/map')
 local atr = require('ui/atr')
 local parameter = require('ui/parameter')
 local evaluate = require('core/evaluate')
@@ -763,4 +765,43 @@ test('the panel draws at the narrowest size the manifest allows', function()
     eq(ok, true, ok and '' or (panelWidth .. ' wide: ' .. tostring(err)))
     handle.restoreIo()
   end
+end)
+
+test('the panel draws the map of the track, wired all the way to the game', function()
+  -- The whole chain in one go: the adapter samples the fake track, the panel
+  -- passes the outline down, the widget strokes it. Each piece has its own
+  -- tests; this is the one that fails if they stop being connected.
+  local handle = fakes.install({ cameraFile = rawFile })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  local ok, err = pcall(_G.script.windowAtr, 0.016)
+  eq(ok, true, ok and '' or ('windowAtr raised: ' .. tostring(err)))
+
+  local strokes = 0
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'pathStroke' then strokes = strokes + 1 end
+  end
+  eq(strokes > 0, true, 'the track reached the panel')
+
+  handle.restoreIo()
+end)
+
+test('a track with no AI spline does not stop the panel drawing', function()
+  -- A drift or gymkhana layout. The map says so and the rest of the panel
+  -- carries on, because the cameras are still there to be edited.
+  local handle = fakes.install({ cameraFile = rawFile, noTrackSpline = true })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  local ok, err = pcall(_G.script.windowAtr, 0.016)
+  eq(ok, true, ok and '' or ('windowAtr raised without a track spline: ' .. tostring(err)))
+
+  handle.restoreIo()
 end)

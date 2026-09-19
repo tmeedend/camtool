@@ -71,6 +71,29 @@ theme.stripActive = rgbm(0.85, 0.16, 0.20, 1)
 ---The camera the car has made live, when it is not the one being edited.
 theme.stripLive = rgbm(0.45, 0.22, 0.24, 1)
 
+---The map of the track.
+---
+---The two greys alternate from one camera to the next so that neighbours can
+---be told apart without reading a number. The camera being edited and the one
+---the car has made live keep the strip's colours, because they mean the same
+---thing in both places and learning them twice would be silly.
+theme.mapBackground = rgbm(0.14, 0.14, 0.14, 1)
+theme.mapTrack = rgbm(0.46, 0.46, 0.46, 1)
+theme.mapTrackAlt = rgbm(0.34, 0.34, 0.34, 1)
+---The car, on top of everything else.
+theme.mapPlayhead = rgbm(1, 1, 1, 1)
+---Where the lap starts and ends.
+theme.mapStartLine = rgbm(0.70, 0.70, 0.70, 1)
+
+---How tall the map sits in the panel, and how thick the track is drawn.
+---
+---The thickness is a constant in pixels and not the track's real width: a
+---4 km circuit in a 300 px panel puts a metre at a fifteenth of a pixel, so a
+---12 m track would be under a pixel wide however carefully it were measured.
+theme.mapHeight = 150
+theme.mapPadding = 8
+theme.mapThickness = 3
+
 ---Measurements, in pixels at the panel's default scale.
 -- Tall enough that a line of text sits comfortably in the middle of it.
 -- At 19 and 15 the glyphs rode high in their boxes, which reads as sloppy
