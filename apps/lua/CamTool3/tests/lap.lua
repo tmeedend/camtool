@@ -193,7 +193,7 @@ lap.CORE_FIELDS = {
   'lookX', 'lookY', 'lookZ',
   'upX', 'upY', 'upZ',
   'fov', 'dofDistance', 'dofFactor',
-  'heading', 'pitch',
+  'heading', 'pitch', 'roll',
 }
 
 ---Run a lap through core/playback with no app and no fake CSP around it.
@@ -250,6 +250,10 @@ function lap.runCore(opts)
       isLastCamera = out.isLastCamera,
       keyframeQuery = out.keyframeQuery,
       aimStrength = out.aimStrength,
+      -- The car goes in the row too: a trace carries its inputs, so a lap
+      -- turned into one has to carry them as well.
+      carX = input.carX, carY = input.carY, carZ = input.carZ,
+      clock = input.clock,
     }
     for _, field in ipairs(lap.CORE_FIELDS) do row[field] = out[field] end
     rows[i] = row

@@ -290,7 +290,12 @@ function playback.frame(state, doc, input)
   local lx, ly, lz = angles.lookVector(heading, pitch)
   out.lookX, out.lookY, out.lookZ = lx, ly, lz
 
+  -- The roll actually applied, for anything comparing against CamTool 2,
+  -- which sets a roll angle where this builds an up vector from it.
+  out.roll = 0
+
   if options.applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
+    out.roll = v.rot_y
     -- Roll turns the up vector around the look axis. Built by hand rather
     -- than with vector helpers so the convention stays visible.
     -- side = cross(look, worldUp) with worldUp = (0, 1, 0).
