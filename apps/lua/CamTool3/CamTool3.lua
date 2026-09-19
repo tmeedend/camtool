@@ -855,8 +855,11 @@ local function drawPlayback()
     if ui.radioButton('time list', listName == 'time') then listName = 'time' end
     ui.text(string.format('%d cameras in this list', #(doc[listName] or {})))
 
-    ui.text(string.format('track pos %.5f   active camera %s',
-      trackPos, tostring(activeCam)))
+    -- Percent as well as the raw value: every keyframe position gets talked
+    -- about in percent, so making the reader convert in their head is a good
+    -- way to have them look at the wrong part of the lap.
+    ui.text(string.format('track pos %6.2f%%  (%.5f)   active camera %s',
+      trackPos * 100, trackPos, tostring(activeCam)))
 
     local v = evaluated
     if v.loc_x ~= nil then
@@ -906,8 +909,11 @@ local function drawPlayback()
       ignoreLead = not ignoreLead
     end
     if isLastCamera then
-      ui.textColored(string.format('last camera: keyframes read at %.4f%s',
-        keyframeQuery, keyframeQuery ~= trackPos and ' (wrapped a lap back)' or ''),
+      -- Shown in the lap's own terms: a wrapped query is negative, which reads
+      -- as the tail of the previous lap.
+      ui.textColored(string.format('last camera: keyframes read at %6.2f%%%s',
+        keyframeQuery * 100,
+        keyframeQuery ~= trackPos and ' -- wrapped a lap back' or ''),
         COLOR_OK)
     end
     if ui.checkbox('legacy last-camera wrap (#23)', legacyLastCamera) then

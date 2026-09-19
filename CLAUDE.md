@@ -345,9 +345,14 @@ splines enregistrées, fonctionnement fenêtre fermée.
    `get_prev_camera` et le décalage `the_x -= 1` de `is_last_camera()`.
 2. **Shake** (`camera_shake_strength`, `camera_offset_shake_strength`) et
    **focus point DOF** (`camera_focus_point`).
-3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
-4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
-5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
+3. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
+   sait pas encore les *sélectionner* quand la voiture est aux stands (le legacy
+   le fait via `car_is_in_pitline`, avec une seconde passe de sélection).
+   `evaluate.activeCameraIndex` accepte déjà un argument `wantPit`, rien ne
+   l'appelle avec.
+4. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
+5. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+6. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique : on écrit toujours le format v1.
 
 ## Décisions ouvertes (ne pas trancher seul)
