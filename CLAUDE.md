@@ -133,11 +133,37 @@ Ce que la suite couvre, au-delà des tests unitaires :
   `tools/trace_to_lua.py`) dans `core/playback` et mesure l'écart. C'est le
   seul oracle : les autres couches comparent le portage à lui-même.
 
-Piège de portage déjà identifié et couvert par un test : **Lua ne lève pas sur
-une division par zéro**, il renvoie `inf`. Là où Python lève une exception
-avalée par `debug(e)` (l'appelant garde sa valeur précédente), le Lua propage un
-`inf` jusqu'à la caméra. Tout ce qui lit une saisie utilisateur ou un fichier
-doit rejeter ces cas en amont.
+Pièges déjà identifiés et couverts par un test :
+
+- **Lua ne lève pas sur une division par zéro**, il renvoie `inf`. Là où Python
+  lève une exception avalée par `debug(e)` (l'appelant garde sa valeur
+  précédente), le Lua propage un `inf` jusqu'à la caméra. Tout ce qui lit une
+  saisie utilisateur ou un fichier doit rejeter ces cas en amont.
+
+- **Un libellé de widget qui change doit utiliser `###`, jamais `##`.** ImGui
+  hache **tout le libellé** pour l'identité d'un widget ; seul `###` fait de ce
+  qui le suit l'identité à lui seul. Un bouton dont la partie visible change —
+  et la partie visible d'un champ de valeur *est* la valeur — devient un autre
+  widget à l'instant où elle change : ImGui lâche l'élément actif, et un
+  glissé s'arrête après un seul pas. Coûte un lancement de jeu à diagnostiquer,
+  une seconde à éviter. Un test balaie tout le panneau : dessiné deux fois avec
+  tout identique sauf les mots, chaque widget doit garder son identité.
+
+- **Ne pas mélanger `ui.mousePos()` et `ui.getCursor()`.** Le premier est en
+  coordonnées écran (soumises à l'échelle de l'UI), le second en coordonnées
+  fenêtre. Un test de collision doit être mesuré contre **la même origine que
+  le dessin** qu'il vise — et, quand c'est possible, être **rendu visible**
+  (voir l'anneau de survol de la carte) : un calcul qu'on ne voit pas est un
+  calcul qu'on ne peut pas déboguer en jeu.
+
+- **`type(v) == 'function'` ne teste pas si `v` est appelable.** CSP lie une
+  partie de l'espace `ac` par le FFI de LuaJIT, et un pointeur de fonction C
+  est un `cdata` : appelable, mais `type` dit autre chose. Tester la présence,
+  et laisser `pcall` trancher.
+
+- **Les faux ne font pas avancer le temps tout seuls.** L'app garde son travail
+  à une exécution par frame de rendu (`sim.frame`). Une boucle de trente appels
+  à `script.update` n'exécute **qu'une** frame. Passer par `handle.tick`.
 
 ### 2. Sondes de comparaison (en jeu, pour la DLL)
 Petit module de debug activable qui logge côte à côte, pendant quelques secondes, la valeur DLL et la valeur CSP candidate (heading, roll, position…) pour déduire mapping d'axes, signe et décalage de frame.

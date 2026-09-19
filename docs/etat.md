@@ -79,17 +79,37 @@ interpolateurs, conventions d'angles, tracking avec anticipation (lead/lag),
 splines enregistrées, shake (rotation et offset), profondeur de champ avec
 autofocus, fonctionnement fenêtre fermée.
 
+**La carte du circuit et les gestes du panneau** (validés par Théo sur Spa) :
+le tracé teinté caméra par caméra, la rotation qui remplit la bande, la
+hauteur bornée par la fenêtre, l'anneau de survol, le clic qui sélectionne la
+caméra, le bouton `map`, et le glissé de valeur avec sa zone morte, son
+curseur ↔ et son Échap.
+
+**Deux bugs que seul le jeu pouvait montrer**, tous deux maintenant épinglés
+par un test qui retombe si on les réintroduit :
+
+- **Le clic sur la carte tombait à côté.** Il était mesuré avec `ui.mousePos()`
+  (coordonnées écran, soumises à l'échelle de l'UI) alors que le tracé est
+  dessiné depuis `ui.getCursor()`. Deux règles différentes. Corrigé en mesurant
+  contre l'origine du dessin — et rendu **visible** : l'anneau de survol est le
+  même calcul que le clic, donc un désaccord se voit avant de cliquer.
+- **Le glissé n'avançait que d'un pas.** Piège ImGui, désormais règle dure dans
+  `CLAUDE.md` : `##` hache tout le libellé, seul `###` isole l'identité. La
+  partie visible du bouton de valeur *étant* la valeur, elle changeait
+  l'identité au premier pas et ImGui lâchait l'élément actif.
+
 **Issues traitées** : **#16** (glissement à l'activation) et **#23** (dernière
 caméra figée) ont leur cause identifiée, confirmée en jeu, et un correctif
 disponible derrière une case à cocher. **#20** (stuttering) ne se reproduit pas
 en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 **#38** n'a pas pu être reproduit.
 
-## 🎮 Jamais vu en jeu — à tester
+## 🎮 Pas encore confirmé en jeu — à tester
 
-Tout ce qui suit est écrit, testé hors jeu et commité, mais **personne ne l'a
-vu tourner**. À reprendre dans l'ordre ; ce qui casse en premier casse
-probablement le reste.
+Le panneau tourne et Théo y travaille : ce qui suit n'est plus « jamais vu »,
+c'est **jamais vérifié**. Écrit, testé hors jeu, commité, mais personne n'a
+regardé si le résultat est le bon. À reprendre dans l'ordre ; ce qui casse en
+premier casse probablement le reste.
 
 **Avant tout : copier `apps/python/CamTool_2/data/` ailleurs.** Les garde-fous
 sont testés, mais c'est la première fois que ce code écrit, et ça ne coûte
@@ -100,8 +120,8 @@ rien.
 | 1 | Shake et profondeur de champ | Rejouer deux fois le même passage : le tremblement doit être **identique**. DOF : une caméra en `Autofocus`, la distance suit la voiture. Réserve : le DOF exige **YEBIS** actif dans CSP. |
 | 2 | Courbes de FOV | Un zoom doit maintenant suivre la même courbe que CamTool 2 — c'est le correctif de l'espace d'interpolation. Comparer à l'œil sur le même passage. |
 | 3 | Autofocus respecté | Une caméra avec `AF` éteint ne doit plus faire le point sur la voiture (24 caméras sur 589 sont dans ce cas). |
-| 4 | Panneau ATR, lecture | Bande des caméras, bande des keyframes, losanges à trois états, unités, colonnes alignées. |
-| 5 | Panneau ATR, édition | Flèches, glisser (8 px par pas), double-clic pour taper. **Le plus important : taper `35` dans `FOV` doit donner `35.00 deg`**, et pareil sur `PITCH` (degrés → radians) et `STR PITCH` (pourcent → 0..1). |
+| 4 | Panneau ATR, lecture | Losanges à trois états, unités, colonnes alignées. Les deux bandes sont vues et fonctionnent. |
+| 5 | Panneau ATR, unités | Le glissé et les flèches sont confirmés ; les unités ne le sont pas. **Taper `35` dans `FOV` doit donner `35.00 deg`**, et pareil sur `PITCH` (degrés → radians) et `STR PITCH` (pourcent → 0..1). |
 | 6 | Ctrl / Shift | Quatre fois plus fin, quatre fois plus gros. Sauf sur `FOV` et `Focus point`, où c'est normal qu'ils ne fassent rien. |
 | 7 | Annuler / refaire | Boutons et Ctrl+Z / Ctrl+Y, y compris sur les ajouts de caméras et de keyframes. |
 | 8 | `+` / `−` | Un keyframe naît **à la tête de lecture** et se sélectionne seul. `−` refuse le dernier keyframe d'une caméra et la dernière caméra d'un fichier. |
@@ -110,17 +130,7 @@ rien.
 | 11 | **Sauvegarde** | Écrit dans `apps/lua/CamTool3/data/`, **jamais** dans celui de CamTool 2. Vérifier que le fichier d'origine n'a pas changé de date. Recharger doit retrouver les modifications. |
 | 12 | **Caméras AC** | Sur `le_lancone`, la caméra 5 demande la vue **volant**. CamTool 3 doit passer la main : la vue devient celle d'AC, et revient quand la caméra suivante reprend. Onze caméras de référence sont dans ce cas. |
 | 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
-| 14 | **Carte du circuit** | Le tracé doit apparaître **dans son cadre**, pas décalé : le widget dessine depuis `ui.getCursor()`, et c'est la seule hypothèse du portage que les faux ne peuvent pas vérifier. Silverstone doit ressembler à Silverstone. |
-| 15 | Carte, couleurs | La caméra en cours d'édition est en rouge sur la carte **et** dans la bande, la caméra live dans le ton pâle, et les deux changent ensemble quand on clique dans la bande. Le point blanc suit la voiture. |
-| 16 | Carte, cas limite | Sur un circuit sans `fast_lane.ai` (drift, gymkhana), la carte dit **laquelle des quatre raisons** s'applique, et le reste du panneau continue de marcher. |
-| 17 | Carte, rotation | Un circuit en portrait (Spa) doit apparaître **couché**, remplissant la bande. Un circuit déjà large doit rester dans son orientation habituelle : on ne tourne que si ça fait gagner 15 %. |
-| 18 | Carte, hauteur | Fenêtre par défaut : la carte ne prend pas plus d'un tiers du panneau. Fenêtre étirée : elle grandit jusqu'à 300 px et pas au-delà. Pas de bande vide sous un circuit large. |
-| 19 | **Clic sur la carte** | Survoler le tracé dessine un **anneau blanc** qui suit le pointeur : c'est la cible du clic, rendue visible. S'il suit le tracé, les repères concordent ; s'il est décalé, il dit de combien. Puis cliquer sélectionne la caméra, et cliquer le vide au milieu ne change **rien**. |
-| 20 | Bouton `map` | Range et ressort la carte. La bande disparaît entièrement, les paramètres remontent. |
-| 21 | **Glisser une valeur** | Sélectionner une caméra d'abord (sinon tout est à `--` et il n'y a rien à bouger). Le curseur doit devenir ↔ au survol. Un clic qui ripe de 2 px ne change **rien**. Un glissé vertical non plus. |
-| 22 | Glisser, annuler | **Échap pendant le glissé** remet la valeur de départ. Et `Undo` doit compter **+1 pour tout le glissé**, pas un par frame — c'est le point que les faux ne peuvent pas vérifier (leur `itemActive` répond vrai pour tous les champs à la fois, alors qu'ImGui n'en a qu'un d'actif). |
-| 23 | Pas de molette | La molette sur un champ ne doit **rien** changer : elle reste au défilement du panneau. |
-| 24 | **`steering wheel` vs `cockpit`** | Les deux doivent donner deux vues différentes. Si elles se ressemblent, chercher `settled on` dans le log : l'app demande la caméra et **relit** ce qu'AC a retenu. Voir la réserve ci-dessous. |
+| 14 | **`steering wheel` vs `cockpit`** | Les deux doivent donner deux vues différentes. Si elles se ressemblent, chercher `settled on` dans le log : l'app demande la caméra et **relit** ce qu'AC a retenu. Voir la réserve plus bas. |
 
 ## ⏳ En attente de Théo
 
@@ -212,6 +222,26 @@ pense-bête en bas qui liste ce qui manque encore.
   rouge de CamTool 2.
 - **La valeur se glisse** pour scrubber et **se tape** au clavier.
 - Couleur saturée en accent d'en-tête seulement ; pastilles en teinte légère.
+- **Glisser, jamais la molette** — tranché après un aller-retour avec le
+  designer d'ATR. La molette avait été ajoutée puis retirée le lendemain. La
+  raison qui l'emporte n'est pas la convention (Blender, Unity, Unreal, After
+  Effects, Photoshop, Resolve et `DragFloat` d'ImGui la laissent tous au
+  fenêtrage) mais le risque : c'est **le même geste** qu'on veuille défiler ou
+  changer une valeur, seule la position du curseur les distingue, et si le
+  panneau défile en même temps **les champs passent sous le pointeur** — un
+  seul coup de molette touche plusieurs paramètres sans rien signaler. Sur un
+  travail dont les erreurs ne se voient qu'au montage, c'est le pire cas.
+
+  Ce qui rend le glissé sûr, et qui est en place : **horizontal uniquement**
+  (le vertical rejouerait l'ambiguïté du défilement), **zone morte de 4 px**
+  (un clic qui ripe ne change rien), **curseur ↔ au survol** (le seul indice
+  que le panneau donne), **Échap** qui remet la valeur de départ, et **un
+  glissé = une seule entrée d'annulation** (`edit.continues`, le geste
+  identifié par un compteur et non par le nom de la ligne, pour que deux
+  glissés du même champ restent deux entrées).
+- **La carte se range** (bouton `map`). Elle coûte de la place aux paramètres,
+  donc elle doit pouvoir disparaître. Non persistée : CamTool 3 n'a pas encore
+  de fichier de réglages.
 
 **Compatibilité de sauvegarde — tranché par Théo** : une sauvegarde CamTool 3
 n'a **pas** à être relisible par CamTool 2. On écrit le format v1 sans se
@@ -251,7 +281,7 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    (`CamTool_2.py:1738`). Le fichier produit est le même, l'étape en moins.
 3. ✅ **Annuler / refaire faits**, boutons et Ctrl+Z / Ctrl+Y, y compris sur
    les ajouts et suppressions de caméras et de keyframes.
-4. La **mini-carte — premier jet fait, jamais vue en jeu.** Le tracé du
+4. ✅ **La mini-carte — faite et validée en jeu sur Spa.** Le tracé du
    circuit dans le panneau ATR, teinté caméra par caméra : `core/trackmap.lua`
    (pur), `adapters/track.lua` (échantillonnage), `ui/map.lua` (dessin).
    Le clic sélectionne la caméra qui couvre le bout de tracé visé ; éditer
@@ -279,10 +309,14 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    `car.splinePosition`, donc un circuit sans spline est un circuit où l'app
    ne fait rien de toute façon.
 
-   Reste la **bande de piste** (un ruban 0 → longueur du circuit, keyframes en
-   losanges, tête de lecture), qui remplacerait la grille, `Starting point` et
-   la barre de keyframe — et passe à l'échelle de l'issue **#6** (plus de 99
-   caméras). Les segments et la projection sont déjà dans `core/trackmap`.
+5. La **bande de piste** reste à faire : un ruban 0 → longueur du circuit,
+   keyframes en losanges, tête de lecture, qui remplacerait la grille,
+   `Starting point` et la barre de keyframe — et passe à l'échelle de l'issue
+   **#6** (plus de 99 caméras). Les segments et la projection sont déjà dans
+   `core/trackmap` : c'est la même chose projetée sur une ligne.
+6. **Éditer depuis la carte** : glisser un `camera_in` sur le tracé. Le
+   test de collision et le point d'entrée d'édition existent tous les deux,
+   c'est du câblage.
 
 Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
 que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
@@ -361,12 +395,17 @@ diagnostic.
    synchronisation manuelle que l'utilisateur devait faire avant. Elle
    disparaît.
 
+   ⚠️ **Réserve ouverte sur la sixième caméra de la famille F1** : voir plus
+   bas, `steering wheel` est peut-être hors bornes.
+
    Passer la main = demander la caméra **et** cesser d'écrire le transform :
    `ownShare` à 0 laisse passer la vue d'AC à travers le grab qu'on garde,
    donc reprendre la main est juste le remettre. Le changement se fait au
    changement, pas à chaque frame, pour ne pas se battre avec quelqu'un qui
    appuie sur F1.
 5. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+   La carte est faite ; restent la bande de piste et l'édition depuis la carte
+   (voir la liste ordonnée de la section UI).
 6. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 

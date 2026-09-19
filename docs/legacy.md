@@ -96,6 +96,32 @@ Nature différente, donc traitement différent :
   version : l'ancien code ne produisait aucune valeur exploitable (exception
   d'un côté, `inf` de l'autre), donc aucune vidéo ne peut en dépendre.
 
+### Les caméras d'Assetto Corsa : un cycle de six, pas de cinq
+
+`CamMode.changeCamModeZero` (`classes/CamMode.py`) calcule
+`numberOfF1 = 6 - last_cam_offset + offset` puis retranche 6 s'il dépasse :
+**le cycle de la famille F1 a six positions** dans le modèle de CamTool 2, de
+0 à 5.
+
+| offset | nom CamTool 2 | `ac.DrivableCamera` de CSP |
+|---|---|---|
+| 0 | chase | `Chase` = 0 |
+| 1 | chase far | `Chase2` = 1 |
+| 2 | hood | `Bonnet` = 2 |
+| 3 | subjective | `Bumper` = 3 |
+| 4 | cockpit | `Dash` = 4 |
+| 5 | **steering wheel** | **rien — l'énumération s'arrête à 4** |
+
+Les cinq premières correspondent une à une. La sixième n'a pas de nom côté
+CSP. Soit elle existe sans être documentée, soit la demander retombe sur la
+cinquième — ce qui rendrait `steering wheel` et `cockpit` identiques à
+l'écran, et c'est exactement ce que Théo a signalé.
+
+Lire le SDK ne tranche pas. `CamTool3.lua` demande donc la caméra puis
+**relit `sim.driveableCameraMode`** à la frame suivante, et logge
+`WARNING ... settled on N` quand le jeu a retenu autre chose. La réponse
+viendra du log, pas d'une lecture.
+
 ### Migration à sens unique — acté par Théo
 
 **CamTool 3 lit les fichiers CamTool 2 et écrit toujours le nouveau format.**
