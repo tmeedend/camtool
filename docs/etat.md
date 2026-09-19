@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (250 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (317 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -110,6 +110,9 @@ rien.
 | 11 | **Sauvegarde** | Écrit dans `apps/lua/CamTool3/data/`, **jamais** dans celui de CamTool 2. Vérifier que le fichier d'origine n'a pas changé de date. Recharger doit retrouver les modifications. |
 | 12 | **Caméras AC** | Sur `le_lancone`, la caméra 5 demande la vue **volant**. CamTool 3 doit passer la main : la vue devient celle d'AC, et revient quand la caméra suivante reprend. Onze caméras de référence sont dans ce cas. |
 | 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
+| 14 | **Carte du circuit** | Le tracé doit apparaître **dans son cadre**, pas décalé : le widget dessine depuis `ui.getCursor()`, et c'est la seule hypothèse du portage que les faux ne peuvent pas vérifier. Silverstone doit ressembler à Silverstone. |
+| 15 | Carte, couleurs | La caméra en cours d'édition est en rouge sur la carte **et** dans la bande, la caméra live dans le ton pâle, et les deux changent ensemble quand on clique dans la bande. Le point blanc suit la voiture. |
+| 16 | Carte, cas limite | Sur un circuit sans `fast_lane.ai` (drift, gymkhana), la carte affiche « no track outline » et le reste du panneau continue de marcher. |
 
 ## ⏳ En attente de Théo
 
@@ -240,11 +243,31 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    (`CamTool_2.py:1738`). Le fichier produit est le même, l'étape en moins.
 3. ✅ **Annuler / refaire faits**, boutons et Ctrl+Z / Ctrl+Y, y compris sur
    les ajouts et suppressions de caméras et de keyframes.
-4. La **bande de piste** (un ruban 0 → longueur du circuit, chaque caméra sur
-   son segment, keyframes en losanges, tête de lecture), qui remplacerait à
-   elle seule la grille, `Starting point` et la barre de keyframe — et passe
-   à l'échelle de l'issue **#6** (plus de 99 caméras). Puis la **mini-carte**
-   tracée depuis `track_spline`, déjà dans les fichiers.
+4. La **mini-carte — premier jet fait, jamais vue en jeu.** Le tracé du
+   circuit dans le panneau ATR, teinté caméra par caméra : `core/trackmap.lua`
+   (pur), `adapters/track.lua` (échantillonnage), `ui/map.lua` (dessin).
+   Lecture seule ; cliquer une caméra reste à faire.
+
+   **Le tracé vient de la spline IA, pas de `map.png`** — tranché avec Théo,
+   qui avait proposé d'ouvrir `content/tracks/` et n'en a pas eu besoin.
+   `ac.trackProgressToWorldCoordinate` rend le monde depuis une progression
+   0..1, donc **chaque point du tracé est une valeur de `camera_in`** : placer
+   une caméra est une lecture d'index, pas une inversion de projection, et il
+   n'y a ni `map.ini` à décoder ni fichier manquant à gérer. `map.png` reste
+   possible plus tard comme fond.
+
+   Ce que ça ne couvre pas : la **voie des stands** (la `fast_lane` s'arrête à
+   la piste, donc les caméras `camera_pit` n'ont pas de support — à relier au
+   chantier « caméras de stand »), et les circuits **sans `fast_lane.ai`**
+   (drift, gymkhana, certains layouts secondaires), où la carte le dit et
+   s'abstient. À relativiser : la sélection de caméra lit déjà
+   `car.splinePosition`, donc un circuit sans spline est un circuit où l'app
+   ne fait rien de toute façon.
+
+   Reste la **bande de piste** (un ruban 0 → longueur du circuit, keyframes en
+   losanges, tête de lecture), qui remplacerait la grille, `Starting point` et
+   la barre de keyframe — et passe à l'échelle de l'issue **#6** (plus de 99
+   caméras). Les segments et la projection sont déjà dans `core/trackmap`.
 
 Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
 que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
