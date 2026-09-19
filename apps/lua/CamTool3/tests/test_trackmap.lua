@@ -539,3 +539,70 @@ test('nearest survives an empty outline and a click that is not a number', funct
   eq(trackmap.nearest(nil, 1, 1), nil)
   eq(trackmap.nearest({ { x = 0, y = 0 } }, 0 / 0, 0), nil)
 end)
+
+--------------------------------------------------------------------------
+-- The same thing on one line: the track band
+--------------------------------------------------------------------------
+
+test('every camera gets a span of the lap', function()
+  local spans = trackmap.bandSpans(trackmap.segments(cameraSet({ 0, 0.4, 0.8 })))
+  eq(#spans, 3)
+  near(spans[1].from, 0)
+  near(spans[1].to, 0.4)
+  near(spans[3].from, 0.8)
+  near(spans[3].to, 1, 1e-12, 'cut at the end of the lap, not past it')
+end)
+
+test('the camera holding the start line is drawn at both ends', function()
+  -- On the map this is invisible: the outline closes on itself. On a ribbon
+  -- it would run off the end, so the tail is drawn where it happens -- at the
+  -- beginning.
+  local spans = trackmap.bandSpans(trackmap.segments(cameraSet({ 0.1, 0.5 })))
+
+  eq(#spans, 3)
+  eq(spans[1].index, 2, 'the last camera, at the start of the ribbon')
+  near(spans[1].from, 0)
+  near(spans[1].to, 0.1)
+  eq(spans[1].wrapped, true)
+
+  eq(spans[2].index, 1)
+  eq(spans[3].index, 2)
+  near(spans[3].to, 1)
+end)
+
+test('nothing in a band span ever falls outside the lap', function()
+  local sets = {
+    { 0 }, { 0.999 }, { 0, 0.5 }, { 0.001, 0.999 },
+    { 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9 },
+  }
+  for _, starts in ipairs(sets) do
+    local spans = trackmap.bandSpans(trackmap.segments(cameraSet(starts)))
+    eq(#spans > 0, true)
+    for i = 1, #spans do
+      eq(spans[i].from >= 0 and spans[i].from <= 1, true, 'from of span ' .. i)
+      eq(spans[i].to >= 0 and spans[i].to <= 1, true, 'to of span ' .. i)
+      eq(spans[i].to > spans[i].from, true, 'span ' .. i .. ' has width')
+    end
+  end
+end)
+
+test('the spans cover the whole lap, with no gap and no overlap', function()
+  local spans = trackmap.bandSpans(trackmap.segments(cameraSet({ 0.15, 0.6, 0.62 })))
+  near(spans[1].from, 0, 1e-12, 'starts at the line')
+  for i = 2, #spans do
+    near(spans[i].from, spans[i - 1].to, 1e-12, 'span ' .. i .. ' joins the last')
+  end
+  near(spans[#spans].to, 1, 1e-12, 'and ends at the line')
+end)
+
+test('a single camera owns the whole ribbon in one piece', function()
+  local spans = trackmap.bandSpans(trackmap.segments(cameraSet({ 0 })))
+  eq(#spans, 1)
+  near(spans[1].from, 0)
+  near(spans[1].to, 1)
+end)
+
+test('no cameras, no spans', function()
+  eq(#trackmap.bandSpans({}), 0)
+  eq(#trackmap.bandSpans(nil), 0)
+end)

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (380 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (405 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -358,11 +358,22 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    `car.splinePosition`, donc un circuit sans spline est un circuit où l'app
    ne fait rien de toute façon.
 
-5. La **bande de piste** reste à faire : un ruban 0 → longueur du circuit,
-   keyframes en losanges, tête de lecture, qui remplacerait la grille,
-   `Starting point` et la barre de keyframe — et passe à l'échelle de l'issue
-   **#6** (plus de 99 caméras). Les segments et la projection sont déjà dans
-   `core/trackmap` : c'est la même chose projetée sur une ligne.
+5. ✅ **La bande de piste — faite, jamais vue en jeu.** Un ruban 0 → ligne
+   d'arrivée (`ui/band.lua`), teinté par caméra, les keyframes de la caméra
+   éditée en losanges, la voiture en trait vertical. Cliquer une portion
+   sélectionne sa caméra, cliquer un losange sélectionne le keyframe.
+
+   Même propriété que la carte, projetée sur une ligne — d'où
+   `trackmap.bandSpans`, qui ne diffère que sur le bouclage : la caméra qui
+   tient la ligne d'arrivée est **dessinée aux deux bouts**, puisqu'un ruban
+   droit ne peut pas boucler comme un tracé.
+
+   Passe à l'échelle de l'issue **#6** : un ruban se moque du nombre de
+   caméras là où la grille donne une cellule à chacune, vingt par ligne.
+
+   ⚠️ **Elle ne remplace encore rien.** Les deux bandes numérotées,
+   `Starting point` et la barre de keyframe sont toujours là. Ce qu'elle
+   remplace se décide devant un replay, pas en supprimant d'abord.
 6. **Éditer depuis la carte** : glisser un `camera_in` sur le tracé. Le
    test de collision et le point d'entrée d'édition existent tous les deux,
    c'est du câblage.

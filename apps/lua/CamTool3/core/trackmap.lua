@@ -392,4 +392,41 @@ function trackmap.nearest(projectedPoints, x, y, maxDistance)
   return best
 end
 
+---The same segments laid out on a single line, 0 to 1, nothing past the end.
+---
+---A ribbon of the lap rather than a picture of the circuit. Same ownership,
+---same colours, different projection -- and the one place they differ is the
+---wrap: the last camera holds the view across the start line, so its segment
+---runs past 1. On a map that is invisible, because the outline closes on
+---itself. On a straight ribbon it would run off the end, so it is cut in two
+---and the tail is drawn at the beginning, which is where it actually happens.
+---@param segments table[] @from trackmap.segments
+---@return table[] @{ { index = , from = , to = }, ... }, all within 0..1
+function trackmap.bandSpans(segments)
+  local out = {}
+  if type(segments) ~= 'table' or #segments == 0 then return out end
+
+  for i = 1, #segments do
+    local segment = segments[i]
+    local from = math.max(0, math.min(1, segment.from))
+    local to = math.min(1, segment.to)
+    if to > from then
+      out[#out + 1] = { index = segment.index, from = from, to = to }
+    end
+  end
+
+  -- The piece before the first camera starts belongs to the last one.
+  local first = segments[1]
+  if first.from > 0 then
+    table.insert(out, 1, {
+      index = segments[#segments].index,
+      from = 0,
+      to = first.from,
+      wrapped = true,
+    })
+  end
+
+  return out
+end
+
 return trackmap

@@ -36,6 +36,7 @@ require('tests/test_lap_sweep')
 require('tests/test_trace_replay')
 require('tests/test_ui_atr')
 require('tests/test_map_ui')
+require('tests/test_band')
 require('tests/test_edit')
 require('tests/test_serialise')
 

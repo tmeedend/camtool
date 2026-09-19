@@ -148,6 +148,18 @@ theme.tooltipDelay = 0.4
 ---without knowing there is anything to hover.
 theme.statusLine = rgbm(0.70, 0.70, 0.70, 1)
 
+---The track band: one lap as a ribbon.
+---
+---Short on purpose. It is a reading, not a picture, and every pixel it takes
+---is one the parameters do not get. The ribbon sits at the bottom of it and
+---the keyframes above, so the two never overlap.
+theme.bandHeight = 26
+theme.bandRibbon = 10
+theme.bandKeyframeY = 7
+theme.bandDiamond = 4
+---A diamond is four pixels across and nobody hits four pixels.
+theme.bandClickRadius = 7
+
 ---Rounding used on every pill, so one change moves them all.
 theme.rounding = 2
 

@@ -22,6 +22,7 @@
 local theme = require('ui/theme')
 local parameter = require('ui/parameter')
 local trackMap = require('ui/map')
+local trackBand = require('ui/band')
 local evaluate = require('core/evaluate')
 
 local atr = {}
@@ -594,6 +595,23 @@ function atr.draw(state)
   if clicked.maths then actions.mode = legacy and 'fixed' or 'legacy' end
 
   ui.popStyleColor(3)
+  ui.newLine(2)
+
+  ------------------------------------------------------------------
+  -- The track band
+  ------------------------------------------------------------------
+  -- The lap as a ribbon: the same ownership the map draws, projected onto a
+  -- line. It answers a different question -- how long each shot lasts, and
+  -- where the relays fall in the lap -- and it scales where the numbered
+  -- strip does not, which is issue #6.
+  --
+  -- The strips above are still there. What this replaces, and whether it
+  -- replaces them at all, is ATR's call in front of a replay, not something
+  -- to decide by deleting them first.
+  ui.newLine(2)
+  local bandCamera, bandKeyframe = trackBand.draw(state, width)
+  if bandCamera ~= nil then actions.selectCamera = bandCamera end
+  if bandKeyframe ~= nil then actions.selectKeyframe = bandKeyframe end
   ui.newLine(2)
 
   ------------------------------------------------------------------

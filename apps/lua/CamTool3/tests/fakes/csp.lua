@@ -272,6 +272,12 @@ function fakes.install(opts)
         { op = 'drawLine', x = p1.x, y = p1.y, x2 = p2.x, y2 = p2.y,
           colour = colour, thickness = thickness }
     end,
+    drawQuadFilled = function(a, b, c, d, colour)
+      -- Recorded by its centre, which is what a test wants to know: the four
+      -- corners of a diamond are the same point plus a radius.
+      handle.drawn[#handle.drawn + 1] = { op = 'drawQuadFilled',
+        x = (a.x + c.x) / 2, y = (a.y + c.y) / 2, colour = colour }
+    end,
     drawCircle = function(point, radius, colour)
       handle.drawn[#handle.drawn + 1] =
         { op = 'drawCircle', x = point.x, y = point.y, radius = radius,
