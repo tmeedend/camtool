@@ -33,5 +33,6 @@ require('tests/test_playback_golden')
 require('tests/test_lap_sweep')
 require('tests/test_trace_replay')
 require('tests/test_ui_atr')
+require('tests/test_edit')
 
 os.exit(runner.run() and 0 or 1)
