@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (233 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (239 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -211,19 +211,24 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    rend un enregistrement réversible — l'annuler/refaire est déjà une pile,
    avec un bouton. Les unités savent aller dans les deux sens : taper 45 dans
    un champ en degrés arrive bien en radians.
-2. **L'ISO — en grande partie fait.** Ajout et suppression de caméras et de
-   keyframes, position du keyframe sélectionné, `Pit only`, `Specific cam`,
-   bascule position/temps. **Il reste trois éléments** : l'onglet Spline,
-   l'onglet Settings, et `Activate Free Camera`.
+2. **L'ISO — fait, sauf trois choses qui ne sont pas de l'UI.** Ajout et
+   suppression de caméras et de keyframes, position du keyframe, `Pit only`,
+   `Specific cam`, bascule position/temps, les 11 paramètres de l'onglet
+   Spline, `Save`, `Load`, `Reset` (avec confirmation).
+
+   « Onglet Settings » cachait trois natures de travail différentes. Ce qui
+   reste vraiment : **enregistrer une spline** (fonctionnalité par frame, pas
+   un panneau — c'est le portage de `record_spline`), **`load on startup` et
+   les raccourcis** (demandent un fichier de réglages que CamTool 3 n'a pas),
+   et **`Activate Free Camera`**.
 
    ⚠️ **Écart assumé avec CamTool 2** : `+` crée un keyframe **à la tête de
    lecture**. Le legacy le crée sans position (`keyframe = None`) et oblige à
    le placer ensuite avec la barre rouge — d'où le rôle de cette barre, qui
    n'est pas de la navigation mais **le seul moyen de placer un keyframe**
    (`CamTool_2.py:1738`). Le fichier produit est le même, l'étape en moins.
-3. L'annuler / refaire : **l'annuler est fait** (bouton avec la profondeur de
-   pile, couvre aussi les ajouts/suppressions de caméras et de keyframes).
-   Reste le refaire et le raccourci Ctrl+Z.
+3. ✅ **Annuler / refaire faits**, boutons et Ctrl+Z / Ctrl+Y, y compris sur
+   les ajouts et suppressions de caméras et de keyframes.
 4. La **bande de piste** (un ruban 0 → longueur du circuit, chaque caméra sur
    son segment, keyframes en losanges, tête de lecture), qui remplacerait à
    elle seule la grille, `Starting point` et la barre de keyframe — et passe
