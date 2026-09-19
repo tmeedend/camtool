@@ -9,13 +9,13 @@
   This module reads a camera document and draws it. It does not change one --
   the arrows and the values report what was clicked and the caller decides,
   and for now the caller does nothing with it. What is on screen is real
-  though: the camera the car's position selected, the values in force at the
-  playhead, and which of them are keyframed here.
+  though: the camera you selected, the values on the keyframe you selected,
+  and a diamond per parameter saying whether that keyframe carries it.
 
   ISO FONCTIONNEL. docs/ui-inventory.md is the list of everything CamTool 2
   can do, and nothing on it may quietly vanish in the move to one screen. The
   mockup does leave things out, so they are gathered at the bottom under
-  "ailleurs dans CamTool 2" rather than forgotten: that section is a debt
+  "elsewhere in CamTool 2" rather than forgotten: that section is a debt
   list, and it shrinks as each one finds its place.
 ]]
 
@@ -105,9 +105,9 @@ atr.COLUMNS = {
 ---Drawn, so that it is impossible to ship without noticing, and so the
 ---conversation about where each one goes happens over something visible.
 atr.MISSING = {
-  'Pit only', 'Specific cam', 'mode position / temps',
-  'barre de keyframe (<< < 1023 m > >>)',
-  'onglet Spline', 'onglet Settings', 'Activate Free Camera',
+  'Pit only', 'Specific cam', 'position / time mode',
+  'keyframe bar (<< < 1023 m > >>)',
+  'Spline tab', 'Settings tab', 'Activate Free Camera',
 }
 
 --------------------------------------------------------------------------------
@@ -216,7 +216,7 @@ function atr.draw(state)
     actions.prevFile = true
   end
   ui.sameLine(0, 2)
-  if ui.button((state.fileName or 'aucun fichier') .. '##fileName',
+  if ui.button((state.fileName or 'no file') .. '##fileName',
       vec2(width - 160, 18)) then
     actions.loadFile = true
   end
@@ -225,7 +225,7 @@ function atr.draw(state)
     actions.nextFile = true
   end
   ui.sameLine(0, 6)
-  if ui.button((state.held and 'Relacher' or 'Prendre la camera') .. '##hold',
+  if ui.button((state.held and 'Release camera' or 'Take camera') .. '##hold',
       vec2(110, 18)) then
     if state.held then actions.release = true else actions.grab = true end
   end
@@ -233,18 +233,18 @@ function atr.draw(state)
 
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
   ui.text(state.loadedName ~= nil
-    and ('charge : ' .. state.loadedName)
-    or 'aucun fichier charge -- cliquer le nom ci-dessus pour le charger')
+    and ('loaded: ' .. state.loadedName)
+    or 'no file loaded -- click the name above to load it')
   ui.popStyleColor()
 
   ------------------------------------------------------------------
   -- Header
   ------------------------------------------------------------------
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
-  ui.textAligned('CAMTOOL 3', ui.Alignment.Start, vec2(width * 0.5, 20))
+  ui.textAligned('CAMTOOL 3', vec2(0, 0.5), vec2(width * 0.5, 20))
   ui.sameLine(0, 0)
   local metres = (state.trackPos or 0) * (state.trackLength or 0)
-  ui.textAligned(string.format('%.0f m', metres), ui.Alignment.End,
+  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5),
     vec2(width * 0.5, 20))
   ui.popStyleColor()
 
@@ -283,8 +283,8 @@ function atr.draw(state)
 
   for index, column in ipairs(atr.COLUMNS) do
     ui.pushStyleColor(ui.StyleColor.Text, theme.columns[column.colour].accent)
-    ui.textAligned(theme.columns[column.colour].title, ui.Alignment.Start,
-      vec2(colWidth, 18))
+    ui.textAligned(theme.columns[column.colour].title, vec2(0, 0.5),
+      vec2(colWidth, 20))
     ui.popStyleColor()
     if index < #atr.COLUMNS then ui.nextColumn() end
   end
@@ -339,13 +339,13 @@ function atr.draw(state)
   -- What has not found a place yet
   ------------------------------------------------------------------
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
-  ui.text('Losange : plein = keyframe ici, creux = anime ailleurs dans cette '
-    .. 'camera, vide = jamais anime.')
-  ui.text('Bande du haut : rouge = camera editee, teinte pale = camera '
-    .. 'actuellement a l ecran.')
-  ui.text('Ailleurs dans CamTool 2, pas encore ici :')
+  ui.text('Diamond: filled = keyframed here, hollow = keyframed elsewhere '
+    .. 'in this camera, empty = never keyframed.')
+  ui.text('Top strip: red = the camera being edited, pale = the camera on '
+    .. 'screen.')
+  ui.text('Elsewhere in CamTool 2, not here yet:')
   ui.text('  ' .. table.concat(atr.MISSING, ', '))
-  ui.text('Lecture seule : les fleches et les valeurs ne modifient rien.')
+  ui.text('Read only: the arrows and the values change nothing yet.')
   ui.popStyleColor()
 
   return actions

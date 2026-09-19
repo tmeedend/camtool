@@ -106,7 +106,9 @@ function parameter.draw(id, spec)
 
   ui.pushStyleColor(ui.StyleColor.Text,
     spec.present == false and theme.absent or theme.label)
-  ui.textAligned(spec.label, ui.Alignment.Start,
+  -- vec2(0, 0.5): hard left, and centred on the line. The scalar form only
+  -- says where to put it horizontally and leaves the text at the top.
+  ui.textAligned(spec.label, vec2(0, 0.5),
     vec2(math.max(labelWidth, 10), theme.labelHeight))
   ui.popStyleColor()
 

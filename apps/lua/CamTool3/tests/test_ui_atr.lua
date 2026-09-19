@@ -252,9 +252,9 @@ test('the session bar can load a file and take the camera', function()
     cameraFile = rawFile,
     splinePosition = 0.02,
     clicks = {
-      ['aucun fichier##fileName'] = true,
+      ['no file##fileName'] = true,
       ['fake_track_-cameras.json##fileName'] = true,
-      ['Prendre la camera##hold'] = true,
+      ['Take camera##hold'] = true,
     },
   })
 

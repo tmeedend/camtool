@@ -72,8 +72,11 @@ theme.stripActive = rgbm(0.85, 0.16, 0.20, 1)
 theme.stripLive = rgbm(0.45, 0.22, 0.24, 1)
 
 ---Measurements, in pixels at the panel's default scale.
-theme.rowHeight = 19
-theme.labelHeight = 15
+-- Tall enough that a line of text sits comfortably in the middle of it.
+-- At 19 and 15 the glyphs rode high in their boxes, which reads as sloppy
+-- long before anyone can say why.
+theme.rowHeight = 22
+theme.labelHeight = 17
 theme.arrowWidth = 16
 theme.gap = 4
 theme.padding = 6
