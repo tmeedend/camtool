@@ -882,6 +882,9 @@ function script.windowAtr(dt)
 
   local actions = atrPanel.draw({
     doc = doc,
+    fileName = fileIndex >= 1 and files[fileIndex] or nil,
+    loadedName = doc ~= nil and docName or nil,
+    held = cameraActive(),
     camera = camera,
     cameraIndex = atrCamera,
     cameraCount = count,
@@ -904,6 +907,14 @@ function script.windowAtr(dt)
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
   end
+
+  -- The session controls, so that starting work no longer means opening the
+  -- probe panel.
+  if actions.prevFile and fileIndex > 1 then fileIndex = fileIndex - 1 end
+  if actions.nextFile and fileIndex < #files then fileIndex = fileIndex + 1 end
+  if actions.loadFile then loadSelectedFile() end
+  if actions.grab then grabCamera() end
+  if actions.release then releaseCamera() end
 end
 
 function script.windowMain(dt)

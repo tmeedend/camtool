@@ -231,3 +231,45 @@ test('picking a camera in the panel does not move the live one', function()
 
   handle.restoreIo()
 end)
+
+test('the diamond tells the three keyframe states apart', function()
+  -- Empty, hollow, filled. Getting these confused is what made CamTool 2's
+  -- red ambiguous: it could not say "animated, but not here".
+  local handle = fakes.install({})
+
+  for _, state in ipairs({ 'none', 'elsewhere', 'here' }) do
+    eq(parameter.draw('d' .. state, {
+      label = 'FOV', text = '8.70 deg', width = 140, keyframe = state,
+    }), nil)
+  end
+
+  handle.restoreIo()
+end)
+
+test('the session bar can load a file and take the camera', function()
+  -- Theo's ask: starting work must not require opening the probe panel.
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    splinePosition = 0.02,
+    clicks = {
+      ['aucun fichier##fileName'] = true,
+      ['fake_track_-cameras.json##fileName'] = true,
+      ['Prendre la camera##hold'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Only the ATR window is ever drawn here: no probe panel, no diagnostic
+  -- buttons. It has to be enough on its own.
+  for _ = 1, 6 do
+    local ok, err = pcall(_G.script.windowAtr, 0.016)
+    if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
+    _G.script.update(0.016)
+  end
+
+  eq(handle.grabbed, true, 'the camera was never taken from the ATR panel')
+
+  handle.restoreIo()
+end)

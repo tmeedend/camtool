@@ -170,6 +170,45 @@ part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe 
   peut pas l'être, le lire en jeu remplirait un cache que le jeu remplit plus
   tard.
 
+## 🎨 La refonte UI, en cours
+
+`ATR UI` est une **deuxième fenêtre** (`windowAtr`), à côté du panneau de
+diagnostic qu'elle ne remplace pas : les sondes servent encore. Elle suffit
+désormais à travailler seule — choix du fichier, chargement, prise de la
+caméra.
+
+Ce qui est en place : les trois colonnes alignées en `ui.columns`, la bande
+des caméras et celle des keyframes (avec `+` / `−` inertes), le losange de
+keyframe à trois états, les unités, les champs inactifs grisés, et un
+pense-bête en bas qui liste ce qui manque encore.
+
+**Décisions actées avec Théo** (ne pas re-trancher seul) :
+
+- **Une seule UI**, ATR. L'ancienne à onglets n'est pas reproduite.
+- **Le losange porte le keyframe** (vide / creux / plein), ce qui libère la
+  valeur. Convention des logiciels d'animation, et ça lève l'ambiguïté du
+  rouge de CamTool 2.
+- **La valeur se glisse** pour scrubber et **se tape** au clavier.
+- Couleur saturée en accent d'en-tête seulement ; pastilles en teinte légère.
+
+**Ordre convenu pour la suite** (proposé par le designer UX, validé) :
+
+1. Le composant paramètre — fait — et **le point d'entrée unique de
+   modification**, à écrire *avant* de câbler quoi que ce soit. CamTool 2 a
+   150 gestionnaires de clic faute de l'avoir fait.
+2. L'ISO : ce qui manque encore, les keyframes, la sauvegarde et le
+   chargement.
+3. L'annuler / refaire, presque gratuit si 1 est fait.
+4. La **bande de piste** (un ruban 0 → longueur du circuit, chaque caméra sur
+   son segment, keyframes en losanges, tête de lecture), qui remplacerait à
+   elle seule la grille, `Starting point` et la barre de keyframe — et passe
+   à l'échelle de l'issue **#6** (plus de 99 caméras). Puis la **mini-carte**
+   tracée depuis `track_spline`, déjà dans les fichiers.
+
+Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
+que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
+compatibilité.
+
 ## Chantiers restants, par taille croissante
 
 1. ~~**Compléter `docs/ui-inventory.md`**~~ — **fait.** Il ne reste qu'un point,

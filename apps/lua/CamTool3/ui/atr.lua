@@ -106,6 +106,7 @@ atr.COLUMNS = {
 ---conversation about where each one goes happens over something visible.
 atr.MISSING = {
   'Pit only', 'Specific cam', 'mode position / temps',
+  'barre de keyframe (<< < 1023 m > >>)',
   'onglet Spline', 'onglet Settings', 'Activate Free Camera',
 }
 
@@ -113,30 +114,36 @@ atr.MISSING = {
 -- Drawing
 --------------------------------------------------------------------------------
 
----The value the panel shows for one parameter, and whether it is keyframed.
+---The value the panel shows for one parameter, and the state of its diamond.
 ---
 ---Not the value at the playhead: the value on the SELECTED KEYFRAME. That is
 ---what CamTool 2 edits -- its panel reads keyframes[active_kf] and nothing
 ---else -- and getting it wrong would have made every edit land somewhere the
----user was not looking. Red means this keyframe carries the parameter; grey
----means it does not and the camera's own value applies across its whole span.
+---user was not looking.
 ---
----With no keyframe selected there is only the camera-level value, which is
----the honest picture of a camera that animates nothing.
----@return number|nil value, boolean keyframed
+---The diamond then says which of three situations you are in: the keyframe
+---you selected carries this parameter, another keyframe of this camera does,
+---or the camera never animates it at all and its own value holds across the
+---whole span.
+---@return number|nil value, KeyframeState
 local function valueOf(camera, key, keyframeIndex)
-  if camera == nil then return nil, false end
+  if camera == nil then return nil, 'none' end
 
   local keyframes = camera.keyframes
-  if type(keyframes) == 'table' and keyframeIndex ~= nil then
-    local kf = keyframes[keyframeIndex]
-    local interp = type(kf) == 'table' and kf.interpolation or nil
-    if interp ~= nil and type(interp[key]) == 'number' then
-      return interp[key], true
+  local anywhere = false
+
+  if type(keyframes) == 'table' then
+    for i = 1, #keyframes do
+      local kf = keyframes[i]
+      local interp = type(kf) == 'table' and kf.interpolation or nil
+      if interp ~= nil and type(interp[key]) == 'number' then
+        if i == keyframeIndex then return interp[key], 'here' end
+        anywhere = true
+      end
     end
   end
 
-  return camera[key], false
+  return camera[key], anywhere and 'elsewhere' or 'none'
 end
 
 ---Draw a row of numbered buttons with an add and a remove at the end.
@@ -197,6 +204,40 @@ function atr.draw(state)
   local width = ui.availableSpaceX()
 
   ------------------------------------------------------------------
+  -- Session: pick a file, take the camera
+  ------------------------------------------------------------------
+  -- Here rather than in the diagnostic window, because needing the probe
+  -- panel to start work made the probes part of the tool. They are not.
+  ui.pushStyleColor(ui.StyleColor.Button, theme.strip)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
+
+  if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(18, 18)) then
+    actions.prevFile = true
+  end
+  ui.sameLine(0, 2)
+  if ui.button((state.fileName or 'aucun fichier') .. '##fileName',
+      vec2(width - 160, 18)) then
+    actions.loadFile = true
+  end
+  ui.sameLine(0, 2)
+  if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(18, 18)) then
+    actions.nextFile = true
+  end
+  ui.sameLine(0, 6)
+  if ui.button((state.held and 'Relacher' or 'Prendre la camera') .. '##hold',
+      vec2(110, 18)) then
+    if state.held then actions.release = true else actions.grab = true end
+  end
+  ui.popStyleColor(3)
+
+  ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
+  ui.text(state.loadedName ~= nil
+    and ('charge : ' .. state.loadedName)
+    or 'aucun fichier charge -- cliquer le nom ci-dessus pour le charger')
+  ui.popStyleColor()
+
+  ------------------------------------------------------------------
   -- Header
   ------------------------------------------------------------------
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
@@ -228,48 +269,69 @@ function atr.draw(state)
   ------------------------------------------------------------------
   -- The three columns
   ------------------------------------------------------------------
+  -- Drawn row by row through ui.columns rather than as three stacks, so the
+  -- rows line up across the columns. The Camera column is the short one, and
+  -- the space it leaves at the bottom is where Pit only and Specific cam are
+  -- going to live.
   local colWidth = columnWidth(width)
+  local longest = 0
+  for _, column in ipairs(atr.COLUMNS) do
+    longest = math.max(longest, #column.rows)
+  end
+
+  ui.columns(#atr.COLUMNS, false, 'atrColumns')
 
   for index, column in ipairs(atr.COLUMNS) do
-    local colour = theme.columns[column.colour]
-
-    ui.beginGroup(colWidth)
-    ui.pushStyleColor(ui.StyleColor.Text, theme.text)
-    ui.textAligned(colour.title, ui.Alignment.Center, vec2(colWidth, 18))
+    ui.pushStyleColor(ui.StyleColor.Text, theme.columns[column.colour].accent)
+    ui.textAligned(theme.columns[column.colour].title, ui.Alignment.Start,
+      vec2(colWidth, 18))
     ui.popStyleColor()
-
-    for _, spec in ipairs(column.rows) do
-      local value, here
-      if spec.runtime then
-        value, here = state[spec.key], false
-      else
-        value, here = valueOf(state.camera, spec.key, state.keyframeIndex)
-      end
-
-      -- camera_in is a track position: stored as a fraction of a lap, shown
-      -- in metres, exactly as CamTool 2 shows it.
-      local shown = value
-      if spec.key == 'camera_in' and shown ~= nil then
-        shown = shown * (state.trackLength or 0)
-      end
-
-      local action = parameter.draw(column.colour .. spec.key, {
-        label = spec.label,
-        text = type(shown) == 'number' and spec.format(shown) or nil,
-        column = colour,
-        keyframed = here,
-        present = value ~= nil,
-        width = colWidth,
-        badge = spec.badge,
-        badgeOn = spec.badge ~= nil and state.camera ~= nil
-          and state.camera.camera_use_tracking_point == 1,
-      })
-      if action ~= nil then actions[spec.key] = action end
-    end
-
-    ui.endGroup()
-    if index < #atr.COLUMNS then ui.sameLine(0, theme.columnGap) end
+    if index < #atr.COLUMNS then ui.nextColumn() end
   end
+  ui.nextColumn()
+
+  for r = 1, longest do
+    for index, column in ipairs(atr.COLUMNS) do
+      local spec = column.rows[r]
+      local colour = theme.columns[column.colour]
+
+      if spec == nil then
+        parameter.blank(colWidth)
+      else
+        local value, keyframe
+        if spec.runtime then
+          value, keyframe = state[spec.key], 'none'
+        else
+          value, keyframe = valueOf(state.camera, spec.key, state.keyframeIndex)
+        end
+
+        -- camera_in is a track position: stored as a fraction of a lap, shown
+        -- in metres, exactly as CamTool 2 shows it.
+        local shown = value
+        if spec.key == 'camera_in' and shown ~= nil then
+          shown = shown * (state.trackLength or 0)
+        end
+
+        local action = parameter.draw(column.colour .. spec.key, {
+          label = spec.label,
+          text = type(shown) == 'number' and spec.format(shown) or nil,
+          column = colour,
+          keyframe = keyframe,
+          present = value ~= nil,
+          width = colWidth,
+          badge = spec.badge,
+          badgeOn = spec.badge ~= nil and state.camera ~= nil
+            and state.camera.camera_use_tracking_point == 1,
+        })
+        if action ~= nil then actions[spec.key] = action end
+      end
+
+      if index < #atr.COLUMNS then ui.nextColumn() end
+    end
+    ui.nextColumn()
+  end
+
+  ui.columns(1)
 
   ui.newLine(4)
 
@@ -277,6 +339,10 @@ function atr.draw(state)
   -- What has not found a place yet
   ------------------------------------------------------------------
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
+  ui.text('Losange : plein = keyframe ici, creux = anime ailleurs dans cette '
+    .. 'camera, vide = jamais anime.')
+  ui.text('Bande du haut : rouge = camera editee, teinte pale = camera '
+    .. 'actuellement a l ecran.')
   ui.text('Ailleurs dans CamTool 2, pas encore ici :')
   ui.text('  ' .. table.concat(atr.MISSING, ', '))
   ui.text('Lecture seule : les fleches et les valeurs ne modifient rien.')

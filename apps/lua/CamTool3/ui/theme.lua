@@ -17,32 +17,42 @@ local theme = {}
 ---Panel background, behind everything.
 theme.background = rgbm(0.20, 0.20, 0.20, 1)
 
----The three columns, and the shade their value pills use.
+---The three columns.
+---
+---Saturated only in the header: over a game image, twenty-one vivid blocks
+---tire the eye fast, and the colour only has to say which column you are in.
+---The pills keep a light cast of the same hue, enough to group them.
 theme.columns = {
   camera = {
     title = 'CAMERA',
-    fill = rgbm(0.36, 0.20, 0.47, 1),
-    pill = rgbm(0.45, 0.28, 0.56, 1),
-    pillHover = rgbm(0.54, 0.35, 0.66, 1),
+    accent = rgbm(0.55, 0.32, 0.72, 1),
+    pill = rgbm(0.28, 0.24, 0.32, 1),
+    pillHover = rgbm(0.36, 0.30, 0.42, 1),
   },
   transform = {
     title = 'TRANSFORM',
-    fill = rgbm(0.22, 0.45, 0.24, 1),
-    pill = rgbm(0.30, 0.55, 0.32, 1),
-    pillHover = rgbm(0.38, 0.65, 0.40, 1),
+    accent = rgbm(0.32, 0.66, 0.36, 1),
+    pill = rgbm(0.23, 0.29, 0.24, 1),
+    pillHover = rgbm(0.30, 0.38, 0.31, 1),
   },
   tracking = {
     title = 'TRACKING',
-    fill = rgbm(0.55, 0.39, 0.15, 1),
-    pill = rgbm(0.64, 0.47, 0.20, 1),
-    pillHover = rgbm(0.74, 0.56, 0.26, 1),
+    accent = rgbm(0.80, 0.58, 0.25, 1),
+    pill = rgbm(0.32, 0.28, 0.22, 1),
+    pillHover = rgbm(0.42, 0.36, 0.28, 1),
   },
 }
 
----Keyframed at the playhead. The same red CamTool 2 uses, and the same
----meaning, so the habit carries over.
-theme.keyframed = rgbm(0.85, 0.16, 0.20, 1)
-theme.keyframedHover = rgbm(0.95, 0.26, 0.30, 1)
+---The keyframe marker, in its three states.
+---
+---Empty: this camera never animates the parameter. Hollow: it does, but not
+---on the keyframe you have selected. Filled: it does, here. That is the
+---convention of every animation tool, and it says out loud what CamTool 2
+---only hinted at by turning a value red -- which left nobody sure whether
+---red meant "keyframed" or "in use".
+theme.diamondEmpty = rgbm(0.38, 0.38, 0.38, 1)
+theme.diamondHollow = rgbm(0.85, 0.55, 0.30, 1)
+theme.diamondFilled = rgbm(0.85, 0.16, 0.20, 1)
 
 ---Labels above each value.
 theme.label = rgbm(0.86, 0.86, 0.86, 1)
