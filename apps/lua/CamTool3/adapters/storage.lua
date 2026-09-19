@@ -5,10 +5,13 @@
   out of game. This module is the boundary: it lists and reads files, parses
   JSON, and hands core/data.lua a plain table.
 
-  Read only, by design: nothing here writes a camera file.
+  It writes, too, and that is the part to be careful about: data/ is not in
+  git and some of those camera sets are years old. See saveCameraFile for
+  what stands between a bug here and a lost afternoon.
 ]]
 
 local data = require('core/data')
+local serialise = require('core/serialise')
 
 local storage = {}
 
@@ -78,6 +81,59 @@ function storage.loadCameraFile(fileName)
   end
 
   return result, nil
+end
+
+---Suffix for the copy kept of a file the first time it is overwritten.
+---Not .json, so it never shows up in the file list.
+storage.BACKUP_SUFFIX = '.camtool3-backup'
+
+---Write a camera document back out.
+---
+---Three things guard it, because these files cannot be got back:
+---
+---The text is built and checked before anything is opened. serialise.toJson
+---refuses an infinity or a NaN -- which Lua produces from a division by zero
+---where Python would have raised -- so a bad number stops the save instead
+---of writing a file no parser will read.
+---
+---io.save with ensure writes to a temporary file and moves it into place, so
+---a crash halfway cannot leave a half-written camera set behind.
+---
+---And the first time a file is overwritten, the original is copied aside.
+---Once only: the point is to keep what was there before CamTool 3 touched
+---it, not the state before the last save.
+---@param fileName string @as listCameraFiles gives it
+---@param document table
+---@return boolean ok, string|nil error
+function storage.saveCameraFile(fileName, document)
+  if type(fileName) ~= 'string' or fileName == '' then
+    return false, 'no file name'
+  end
+  if type(document) ~= 'table' then
+    return false, 'nothing to save'
+  end
+
+  local path = storage.CAMTOOL2_DATA_DIR .. '/' .. fileName
+
+  local ok, text = pcall(serialise.toJson, document)
+  if not ok then
+    return false, 'refusing to save: ' .. tostring(text)
+  end
+
+  if io.exists(path) then
+    local backup = path .. storage.BACKUP_SUFFIX
+    if not io.exists(backup) then
+      -- Best effort: a failed backup is worth a warning, not a refusal to
+      -- save work the user has just done.
+      io.copyFile(path, backup, false)
+    end
+  end
+
+  if not io.save(path, text, true) then
+    return false, 'could not write ' .. path
+  end
+
+  return true, nil
 end
 
 return storage

@@ -280,6 +280,11 @@ function atr.draw(state)
   if ui.button(string.format('Undo (%d)##undo', depth), vec2(74, 18)) then
     actions.undo = true
   end
+  ui.sameLine(0, 4)
+  -- The star is the only thing saying there is work not on disk yet.
+  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save', vec2(60, 18)) then
+    actions.save = true
+  end
   ui.popStyleColor(3)
 
   -- Position or time. CamTool 2 puts this in the header as two icons; the
@@ -301,9 +306,10 @@ function atr.draw(state)
   ui.sameLine(0, 8)
 
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
-  ui.text(state.loadedName ~= nil
-    and ('loaded: ' .. state.loadedName)
-    or 'no file loaded -- click the name above to load it')
+  ui.text(state.status
+    or (state.loadedName ~= nil
+      and ('loaded: ' .. state.loadedName)
+      or 'no file loaded -- click the name above to load it'))
   ui.popStyleColor()
 
   ------------------------------------------------------------------
@@ -463,7 +469,8 @@ function atr.draw(state)
   ui.text('  ' .. table.concat(atr.MISSING, ', '))
   ui.text('Diamond toggles the keyframe; arrows step; drag a value to scrub; '
     .. 'double click it to type. Ctrl quarters the step, Shift quadruples it.')
-  ui.text('Edits are in memory only -- nothing is saved to disk yet.')
+  ui.text('Save writes over the file it came from, keeping one copy of what '
+    .. 'was there before CamTool 3 first touched it.')
   ui.popStyleColor()
 
   return actions

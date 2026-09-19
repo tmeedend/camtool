@@ -181,11 +181,37 @@ function fakes.install(opts)
 
   -- Filesystem: one file, whose contents JSON.parse hands back as the document
   -- the caller supplied.
+  -- Every one of these is captured BEFORE restoreIo closes over it. Declared
+  -- after, they would resolve to globals and restoring would set io.save to
+  -- nil instead of putting it back.
   local originalScanDir = io.scanDir
   local originalLoad = io.load
+  local originalSave = io.save
+  local originalExists = io.exists
+  local originalCopy = io.copyFile
+
   handle.restoreIo = function()
     io.scanDir = originalScanDir
     io.load = originalLoad
+    io.save = originalSave
+    io.exists = originalExists
+    io.copyFile = originalCopy
+  end
+
+  handle.written = {}
+  handle.copied = {}
+
+  io.save = function(name, text)
+    handle.written[name] = text
+    return opts.saveFails ~= true
+  end
+  io.exists = function(name)
+    if opts.existing == nil then return false end
+    return opts.existing[name] == true
+  end
+  io.copyFile = function(from, to)
+    handle.copied[#handle.copied + 1] = { from, to }
+    return true
   end
 
   io.scanDir = function()

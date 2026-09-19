@@ -871,6 +871,9 @@ local atrKeyframe = 1
 local undoStack = {}
 local UNDO_KEPT = 200
 
+-- What the session line says instead of the loaded file name, after a save.
+local atrStatus = nil
+
 -- How far one press moves a keyframe along the track. CamTool 2 offers 1, 10
 -- and 100 m on separate buttons; one row plus the modifiers covers the same
 -- ground -- 2.5 m with Ctrl, 10 plain, 40 with Shift.
@@ -917,6 +920,7 @@ function script.windowAtr(dt)
     doc = doc,
     fileName = fileIndex >= 1 and files[fileIndex] or nil,
     undoDepth = #undoStack,
+    status = atrStatus,
     listName = pb.options.listName,
     loadedName = doc ~= nil and docName or nil,
     held = cameraActive(),
@@ -1080,7 +1084,29 @@ function script.windowAtr(dt)
   end
   if actions.prevFile and fileIndex > 1 then fileIndex = fileIndex - 1 end
   if actions.nextFile and fileIndex < #files then fileIndex = fileIndex + 1 end
-  if actions.loadFile then loadSelectedFile() end
+  if actions.loadFile then
+    loadSelectedFile()
+    atrStatus = nil
+    undoStack = {}
+  end
+
+  if actions.save then
+    if doc == nil or docName == '' then
+      atrStatus = 'nothing loaded to save'
+    else
+      local saved, err = storage.saveCameraFile(docName, doc)
+      if saved then
+        atrStatus = 'saved ' .. docName
+        -- The stack is what says there is work not on disk; once it is on
+        -- disk, there is not.
+        undoStack = {}
+        log('saved ' .. docName)
+      else
+        atrStatus = 'SAVE FAILED: ' .. tostring(err)
+        log(atrStatus)
+      end
+    end
+  end
   if actions.grab then grabCamera() end
   if actions.release then releaseCamera() end
 end

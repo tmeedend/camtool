@@ -463,3 +463,44 @@ test('the keyframe position row only appears with a keyframe selected', function
 
   handle.restoreIo()
 end)
+
+test('the panel can save the file it loaded, and says so', function()
+  local storage = require('adapters/storage')
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    splinePosition = 0.02,
+    clicks = {
+      ['no file##fileName'] = true,
+      ['fake_track_-cameras.json##fileName'] = true,
+      ['Save##save'] = true,
+      ['Save *##save'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 4 do
+    local ok, err = pcall(_G.script.windowAtr, 0.016)
+    if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
+  end
+
+  local path = storage.CAMTOOL2_DATA_DIR .. '/fake_track_-cameras.json'
+  eq(type(handle.written[path]), 'string', 'the panel never wrote the file')
+  eq(handle.written[path]:find('"version": 1', 1, true) ~= nil, true)
+
+  handle.restoreIo()
+end)
+
+test('saving with nothing loaded is refused, not crashed', function()
+  local handle = fakes.install({ clicks = { ['Save##save'] = true } })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  local ok, err = pcall(_G.script.windowAtr, 0.016)
+  eq(ok, true, ok and '' or tostring(err))
+  eq(next(handle.written), nil, 'nothing should have been written')
+
+  handle.restoreIo()
+end)
