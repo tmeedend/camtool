@@ -137,6 +137,17 @@ theme.gap = 4
 theme.padding = 6
 theme.columnGap = 5
 
+---The help layer.
+---
+---A delay before a tooltip shows, in seconds. With twenty-one fields packed
+---together, no delay means bubbles flickering the whole time the mouse
+---crosses the panel. ImGui's own DelayNormal is 0.4 s; CSP does not expose
+---the flag, so the clock is ours.
+theme.tooltipDelay = 0.4
+---The status line at the bottom: always there, so the panel can be learned
+---without knowing there is anything to hover.
+theme.statusLine = rgbm(0.70, 0.70, 0.70, 1)
+
 ---Rounding used on every pill, so one change moves them all.
 theme.rounding = 2
 

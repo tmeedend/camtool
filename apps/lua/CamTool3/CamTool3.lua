@@ -953,6 +953,8 @@ local atrStatus = nil
 ---Whether the panel is showing the map. Not saved anywhere yet: CamTool 3
 ---has no settings file, so this lasts as long as the session.
 local atrShowMap = true
+---Whether the ? legend is open instead of the status line. Session state too.
+local atrShowHelp = false
 ---The last reason the map had nothing to draw, so a change is said once
 ---rather than every frame.
 local atrOutlineReason = nil
@@ -1093,6 +1095,8 @@ function script.windowAtr(dt)
     outline = outline,
     outlineReason = outlineReason,
     showMap = atrShowMap,
+    showHelp = atrShowHelp,
+    dt = dt,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     trackedCarA = sim.focusedCar,
@@ -1111,6 +1115,7 @@ function script.windowAtr(dt)
   if atrParameter.draggingGesture() == nil then openDrag = nil end
 
   if actions.toggleMap then atrShowMap = not atrShowMap end
+  if actions.toggleHelp then atrShowHelp = not atrShowHelp end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
     atrParameter.cancelEditing()

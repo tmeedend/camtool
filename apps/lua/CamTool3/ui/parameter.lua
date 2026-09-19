@@ -44,6 +44,18 @@ local parameter = {}
 
 local DIAMOND_SIZE = 9
 
+---The second half of every tooltip. The first half says what the parameter
+---does; this says what you can do to it, and it is the same on every row --
+---which is the point of having one component.
+local GESTURES =
+  'Diamond: keyframe here. Arrows: one step. Drag: scrub. ' ..
+  'Double click: type. Escape: cancel. Ctrl: finer. Shift: coarser.'
+local GESTURES_READONLY = 'Read only.'
+---Between what a parameter does and what you can do to it.
+local BLANK_LINE = string.char(10) .. string.char(10)
+local GESTURES_NO_KEYFRAME = 'Arrows: one step. Drag: scrub. ' ..
+  'Double click: type. Escape: cancel. Not keyframable.'
+
 ---How far the mouse travels for one step of the parameter. Eight pixels is
 ---about a comfortable nudge per centimetre of movement, and Ctrl and Shift
 ---still divide and multiply it because the drag goes through the same entry
@@ -69,12 +81,67 @@ local dragId = nil
 local dragState = 'idle'
 local dragToken = 0
 
+-- What the mouse is over, and for how long.
+--
+-- The delay is ours to keep because CSP does not expose ImGui's
+-- ImGuiHoveredFlags_DelayNormal. Without one, crossing the panel sets off a
+-- trail of bubbles; with one, a tooltip is something you ask for by resting
+-- on a field.
+--
+-- hoverLabel is also what the status line reads, and that one has NO delay:
+-- it is always on screen, so it can afford to answer immediately.
+local hoverId = nil
+local hoverHeld = 0
+local hoverLabel = nil
+local hoverHelp = nil
+
 -- Which row is being typed into, and what is in the field. One at a time,
 -- so this is a plain pair rather than a table: opening a second field closes
 -- the first, which is what anyone would expect.
 local editing = nil
 local buffer = ''
 local editingWasActive = false
+
+---Start a frame of the panel.
+---
+---Called once before any row is drawn: the rows themselves cannot tell that
+---the mouse has left the panel entirely, only that it is not on them.
+---@param dt number|nil @seconds since the last frame, for the tooltip delay
+function parameter.beginFrame(dt)
+  parameter.frameDt = type(dt) == 'number' and dt or 0
+  parameter.frameHovered = false
+end
+
+---Finish a frame: forget the hover if nothing claimed it.
+function parameter.endFrame()
+  if not parameter.frameHovered then
+    hoverId, hoverHeld, hoverLabel, hoverHelp = nil, 0, nil, nil
+  end
+end
+
+---What the mouse is over, for the status line.
+---@return string|nil label, string|nil help
+function parameter.hovered()
+  return hoverLabel, hoverHelp
+end
+
+---Note that this row is under the mouse, and show its tooltip once the mouse
+---has stayed long enough.
+local function noteHover(id, spec)
+  parameter.frameHovered = true
+
+  if hoverId ~= id then
+    hoverId, hoverHeld = id, 0
+  else
+    hoverHeld = hoverHeld + (parameter.frameDt or 0)
+  end
+
+  hoverLabel, hoverHelp = spec.label, spec.help
+
+  if spec.help ~= nil and hoverHeld >= theme.tooltipDelay then
+    ui.setTooltip(spec.help .. BLANK_LINE .. (spec.gestures or ''))
+  end
+end
 
 ---Draw the keyframe diamond and report whether it was clicked.
 ---@param state KeyframeState
@@ -122,6 +189,17 @@ end
 ---@return ParameterAction|nil
 function parameter.draw(id, spec)
   local width = spec.width or 100
+  -- Worked out here rather than written into every row: what a row allows is
+  -- already described by the flags it carries.
+  if spec.gestures == nil then
+    if spec.runtime then
+      spec.gestures = GESTURES_READONLY
+    elseif spec.noDiamond then
+      spec.gestures = spec.noTyping and GESTURES_READONLY or GESTURES_NO_KEYFRAME
+    else
+      spec.gestures = GESTURES
+    end
+  end
   local column = spec.column or theme.columns.camera
   local action = nil
 
@@ -236,8 +314,9 @@ function parameter.draw(id, spec)
 
     -- The cursor is what makes the gesture discoverable, and it does it
     -- better than any line of help text under the panel.
-    if live and ui.itemHovered() then
-      ui.setMouseCursor(ui.MouseCursor.ResizeEW)
+    if ui.itemHovered() then
+      noteHover(id, spec)
+      if live then ui.setMouseCursor(ui.MouseCursor.ResizeEW) end
     end
 
     -- Horizontal only. A vertical drag would mean the same thing as scrolling

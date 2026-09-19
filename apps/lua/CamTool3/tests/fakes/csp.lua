@@ -44,6 +44,7 @@ function fakes.install(opts)
     -- Style colours pushed, in order, so a test can ask what colour a widget
     -- was actually drawn in rather than what the theme merely offers.
     styles = {},
+    tooltips = {},
     grabbed = false,
     disposed = false,
     replayPositions = {},
@@ -288,6 +289,12 @@ function fakes.install(opts)
     end,
     textAligned = function(text)
       handle.drawn[#handle.drawn + 1] = { op = 'text', text = tostring(text) }
+    end,
+    text = function(text)
+      handle.drawn[#handle.drawn + 1] = { op = 'text', text = tostring(text) }
+    end,
+    setTooltip = function(text)
+      handle.tooltips[#handle.tooltips + 1] = tostring(text)
     end,
 
     slider = function(_, value) return value, false end,

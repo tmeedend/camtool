@@ -78,11 +78,31 @@ test('the panel labels are unique and the columns are the three tabs', function(
   eq(colours[3], 'tracking')
 end)
 
-test('the debt list is not empty until everything has a place', function()
-  -- The mockup leaves parts of CamTool 2 out. While that is still true the
-  -- panel says so on screen, and this is the reminder that the list is meant
-  -- to shrink to nothing rather than be deleted.
-  eq(#atr.MISSING > 0, true)
+test('the panel never writes a note about its own construction', function()
+  -- It used to list what CamTool 2 has and this does not, right there in the
+  -- window. docs/ui-interactions.md forbids it: that list belongs in the
+  -- repo, and a user reading "not implemented yet" learns nothing about the
+  -- shot they are cutting. The list now lives in docs/etat.md.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  atr.draw({
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false,
+  })
+
+  local banned = { 'not here yet', 'not implemented', 'coming soon', 'TODO' }
+  for i = 1, #handle.drawn do
+    local call = handle.drawn[i]
+    if call.op == 'text' then
+      for _, phrase in ipairs(banned) do
+        eq(tostring(call.text):lower():find(phrase:lower(), 1, true), nil,
+          'the panel said: ' .. tostring(call.text))
+      end
+    end
+  end
+
+  handle.restoreIo()
 end)
 
 test('a parameter row draws and reports which part was clicked', function()
@@ -1277,4 +1297,158 @@ test('an animated parameter is tinted, so a column can be swept', function()
     'keyframed on the selected keyframe')
   eq(rawequal(fieldColour('elsewhere'), theme.columns.camera.pillAnimated), true,
     'keyframed somewhere else in the camera -- still animated')
+end)
+
+--------------------------------------------------------------------------
+-- The help layer
+--------------------------------------------------------------------------
+
+---Draw one row with the mouse on it, `frames` times, and return the fake.
+local function hoverRow(frames, dt, spec)
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  for _ = 1, frames do
+    parameter.beginFrame(dt)
+    parameter.draw('hovered', spec)
+    parameter.endFrame()
+  end
+  return handle
+end
+
+test('a tooltip waits for the mouse to settle', function()
+  -- Twenty-one fields packed together: with no delay, crossing the panel sets
+  -- off a trail of bubbles. CSP has no DelayNormal flag, so the clock is ours
+  -- and therefore has to be tested.
+  local spec = { label = 'STR PITCH', text = '50%', width = 140,
+    help = 'How much the tracking drives the tilt.' }
+
+  local brief = hoverRow(1, 0.016, spec)
+  eq(#brief.tooltips, 0, 'passing over shows nothing')
+  brief.restoreIo()
+
+  local settled = hoverRow(40, 0.016, spec)
+  eq(#settled.tooltips > 0, true, 'resting on it does')
+  settled.restoreIo()
+end)
+
+test('a tooltip says what the parameter does before how to change it', function()
+  local settled = hoverRow(40, 0.016, { label = 'MIX', text = '0%', width = 140,
+    help = 'Blends the aim between the active car and the extra one.' })
+
+  local tip = settled.tooltips[1]
+  eq(tip:find('Blends the aim', 1, true), 1, 'what it does comes first')
+  eq(tip:find('Drag', 1, true) ~= nil, true, 'and the gestures follow')
+  settled.restoreIo()
+end)
+
+test('a read-only row does not promise gestures it has not got', function()
+  local settled = hoverRow(40, 0.016, {
+    label = 'ACTIVE CAR', text = 'car 0', width = 140, runtime = true,
+    noDiamond = true, noTyping = true,
+    help = 'The car being followed.',
+  })
+  eq(settled.tooltips[1]:find('Read only', 1, true) ~= nil, true)
+  eq(settled.tooltips[1]:find('Drag', 1, true), nil)
+  settled.restoreIo()
+end)
+
+test('moving to another field restarts the wait', function()
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  local a = { label = 'FOV', text = '40', width = 140, help = 'Field of view.' }
+  local b = { label = 'PITCH', text = '0', width = 140, help = 'Tilt.' }
+
+  for _ = 1, 40 do
+    parameter.beginFrame(0.016)
+    parameter.draw('rowA', a)
+    parameter.endFrame()
+  end
+  local afterA = #handle.tooltips
+  eq(afterA > 0, true)
+
+  parameter.beginFrame(0.016)
+  parameter.draw('rowB', b)
+  parameter.endFrame()
+  eq(#handle.tooltips, afterA, 'the new field starts its own wait')
+
+  handle.restoreIo()
+end)
+
+test('the status line answers at once, with no delay at all', function()
+  -- It is always on screen, so it can afford to. That is what makes the panel
+  -- learnable without knowing there is anything to hover.
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  parameter.beginFrame(0.016)
+  parameter.draw('status', { label = 'OFF TRACKING', text = '0.00', width = 140,
+    help = 'Aims ahead of the car or behind it.' })
+  parameter.endFrame()
+
+  local label, help = parameter.hovered()
+  eq(label, 'OFF TRACKING')
+  eq(help, 'Aims ahead of the car or behind it.')
+
+  handle.restoreIo()
+end)
+
+test('the status line forgets once the mouse leaves the panel', function()
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  parameter.beginFrame(0.016)
+  parameter.draw('gone', { label = 'FOV', text = '40', width = 140, help = 'x' })
+  parameter.endFrame()
+  eq(parameter.hovered(), 'FOV')
+  handle.restoreIo()
+
+  -- A frame where no row claims the mouse: only beginFrame/endFrame can know.
+  handle = fakes.install({ itemHovered = false })
+  parameter.beginFrame(0.016)
+  parameter.draw('gone', { label = 'FOV', text = '40', width = 140, help = 'x' })
+  parameter.endFrame()
+  eq(parameter.hovered(), nil)
+  handle.restoreIo()
+end)
+
+test('the ? button shows the legend instead of the status line', function()
+  local function textsWith(showHelp)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    atr.draw({
+      cameraCount = 0, keyframeCount = 0, listName = 'pos',
+      trackPos = 0, trackLength = 1000, showMap = false, showHelp = showHelp,
+    })
+    local joined = {}
+    for i = 1, #handle.drawn do
+      if handle.drawn[i].op == 'text' then joined[#joined + 1] = handle.drawn[i].text end
+    end
+    handle.restoreIo()
+    return table.concat(joined, '\n')
+  end
+
+  local closed = textsWith(false)
+  eq(closed:find('Hover a value', 1, true) ~= nil, true, 'the status line')
+  eq(closed:find('never edits', 1, true), nil, 'and not the legend')
+
+  local open = textsWith(true)
+  eq(open:find('never edits', 1, true) ~= nil, true, 'the legend, in full')
+  eq(open:find('Hover a value', 1, true), nil)
+end)
+
+test('every parameter of the panel carries a sentence', function()
+  -- The contract asks for one per element, with priority on the cryptic
+  -- names. A row added later without one fails here.
+  local function check(spec)
+    eq(type(spec.help), 'string', spec.label .. ' has no help')
+    eq(#spec.help > 10, true, spec.label .. ' says too little')
+    eq(spec.help:sub(-1), '.', spec.label .. ' is not a sentence')
+  end
+
+  for _, column in ipairs(atr.COLUMNS) do
+    for _, spec in ipairs(column.rows) do check(spec) end
+  end
+  for _, spec in ipairs(atr.SPLINE) do check(spec) end
 end)

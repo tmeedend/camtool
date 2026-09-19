@@ -80,8 +80,11 @@ atr.UNITS = UNITS
 ---@param key string @the field in a keyframe or on the camera
 ---@param label string @as the mockup writes it
 ---@param unit table @one of UNITS
-local function row(key, label, unit, badge)
-  return { key = key, label = label, unit = unit, badge = badge }
+---@param help string @one sentence on what the parameter DOES, per
+---  docs/ui-interactions.md. DRAFT: written from the code that implements
+---  each one, awaiting ATR's corrections -- he is the one who uses them.
+local function row(key, label, unit, help, badge)
+  return { key = key, label = label, unit = unit, help = help, badge = badge }
 end
 
 ---A row whose value is not in the camera file at all.
@@ -91,24 +94,24 @@ end
 ---writes them anywhere. They are session state, reset to car 0 every time
 ---Assetto Corsa starts, and no camera remembers which car it was framing.
 ---Making them part of a camera would be a new feature, not a port.
-local function runtimeRow(key, label, unit)
-  return { key = key, label = label, unit = unit, runtime = true }
+local function runtimeRow(key, label, unit, help)
+  return { key = key, label = label, unit = unit, help = help, runtime = true }
 end
 
 ---A row for something that lives on the camera and cannot be keyframed, so
 ---it has no diamond and nothing to type into: Pit only and Specific cam.
 ---Both are in docs/ui-inventory.md and neither is in ATR's mockup, which is
 ---what the debt list at the bottom of the panel was for.
-local function plainRow(key, label, unit)
-  return { key = key, label = label, unit = unit, plain = true }
+local function plainRow(key, label, unit, help)
+  return { key = key, label = label, unit = unit, help = help, plain = true }
 end
 
 ---A number that lives on the camera and is never interpolated, however much
 ---it looks like the ones beside it. core/evaluate calls these CAMERA_LEVEL:
 ---they have a slot in every keyframe and the legacy reads straight past it.
 ---No diamond, then -- but the arrows and the keyboard work as usual.
-local function levelRow(key, label, unit)
-  return { key = key, label = label, unit = unit, cameraLevel = true }
+local function levelRow(key, label, unit, help)
+  return { key = key, label = label, unit = unit, help = help, cameraLevel = true }
 end
 
 atr.COLUMNS = {
@@ -117,39 +120,73 @@ atr.COLUMNS = {
     rows = {
       -- camera_in is not a keyframed parameter: it is where the camera takes
       -- over, and it lives on the camera itself.
-      row('camera_in', 'STARTING POINT', UNITS.metres),
-      row('camera_focus_point', 'FOCUS POINT', UNITS.metres, 'AF'),
-      row('camera_fov', 'FOV', UNITS.plainDegrees),
-      row('camera_shake_strength', 'SHAKE CAMERA', UNITS.percent),
-      row('camera_offset_shake_strength', 'SHAKE TRACKING', UNITS.percent),
-      plainRow('camera_pit', 'PIT ONLY', UNITS.flag),
-      plainRow('camera_use_specific_cam', 'AC CAMERA', UNITS.specificCam),
+      row('camera_in', 'STARTING POINT', UNITS.metres,
+        'Where this camera takes over, in metres from the start line. '
+        .. "It holds the shot until the next camera's own starting point."),
+      row('camera_focus_point', 'FOCUS POINT', UNITS.metres,
+        'Focus distance for depth of field, in metres. Ignored while AF is '
+        .. 'lit, which recomputes it from the tracked car every frame.', 'AF'),
+      row('camera_fov', 'FOV', UNITS.plainDegrees,
+        'Field of view, in degrees. Smaller is more zoomed in.'),
+      row('camera_shake_strength', 'SHAKE CAMERA', UNITS.percent,
+        'Shakes where the camera points. It grows with how fast the camera '
+        .. 'is panning, so a still camera barely trembles.'),
+      row('camera_offset_shake_strength', 'SHAKE TRACKING', UNITS.percent,
+        "Wobbles the point being aimed at, along the car's path, rather than "
+        .. 'the camera itself. Set per camera: it cannot be keyframed.'),
+      plainRow('camera_pit', 'PIT ONLY', UNITS.flag,
+        'This camera is only used while the car is in the pit lane.'),
+      plainRow('camera_use_specific_cam', 'AC CAMERA', UNITS.specificCam,
+        "Hands the view to one of Assetto Corsa's own cameras instead of "
+        .. 'driving it. CamTool means CamTool keeps the shot.'),
     },
   },
   {
     colour = 'transform',
     rows = {
-      row('loc_x', 'X', UNITS.metres),
-      row('loc_y', 'Y', UNITS.metres),
-      row('loc_z', 'Z', UNITS.metres),
-      row('transform_loc_strength', 'STRENGTH LO.', UNITS.percent),
-      row('rot_x', 'PITCH', UNITS.degrees),
-      row('rot_y', 'ROLL', UNITS.degrees),
-      row('rot_z', 'HEADING', UNITS.degrees),
-      row('transform_rot_strength', 'STRENGTH RO.', UNITS.percent),
+      row('loc_x', 'X', UNITS.metres,
+        'Where the camera stands, along the world X axis.'),
+      row('loc_y', 'Y', UNITS.metres,
+        'Where the camera stands, along the world Y axis.'),
+      row('loc_z', 'Z', UNITS.metres, 'How high the camera stands.'),
+      row('transform_loc_strength', 'STRENGTH LO.', UNITS.percent,
+        'How much of the keyframed position to use against where the camera '
+        .. 'already is. NOT APPLIED YET: it is 100% on every reference '
+        .. 'camera and never keyframed, so nothing has needed it.'),
+      row('rot_x', 'PITCH', UNITS.degrees, 'Tilt up and down.'),
+      row('rot_y', 'ROLL', UNITS.degrees, 'Roll: the horizon leaning over.'),
+      row('rot_z', 'HEADING', UNITS.degrees, 'Which way the camera faces.'),
+      row('transform_rot_strength', 'STRENGTH RO.', UNITS.percent,
+        'How much of the keyframed angles to use against where the camera is '
+        .. 'already pointing. At 0% it keeps its own aim, at 100% it takes '
+        .. 'the keyframed one.'),
     },
   },
   {
     colour = 'tracking',
     rows = {
-      runtimeRow('trackedCarA', 'ACTIVE CAR', UNITS.car),
-      row('tracking_mix', 'MIX', UNITS.percent),
-      runtimeRow('trackedCarB', 'EXTRA CAR', UNITS.car),
-      row('tracking_offset', 'OFF TRACKING', UNITS.ratio),
-      row('tracking_offset_pitch', 'OFFSET PITCH', UNITS.degrees),
-      row('tracking_offset_heading', 'OFF HEADING', UNITS.degrees),
-      row('tracking_strength_pitch', 'STR PITCH', UNITS.percent),
-      row('tracking_strength_heading', 'STR HEADING', UNITS.percent),
+      runtimeRow('trackedCarA', 'ACTIVE CAR', UNITS.car,
+        'The car being followed. Session state: no camera file remembers it, '
+        .. 'and it goes back to car 0 every time Assetto Corsa starts.'),
+      row('tracking_mix', 'MIX', UNITS.percent,
+        'Blends the aim between the active car and the extra one. NOT APPLIED '
+        .. 'TO THE AIM YET in CamTool 3 -- only autofocus reads it, to focus '
+        .. 'on whichever car is nearer.'),
+      runtimeRow('trackedCarB', 'EXTRA CAR', UNITS.car,
+        'The second car, the one MIX blends with the active one.'),
+      row('tracking_offset', 'OFF TRACKING', UNITS.ratio,
+        'Aims ahead of the car or behind it. Negative leads, positive lags. '
+        .. 'Scaled by replay speed, so a slowed replay keeps the same lead.'),
+      row('tracking_offset_pitch', 'OFFSET PITCH', UNITS.degrees,
+        'Nudges the aim up or down by a fixed angle, after the tracking.'),
+      row('tracking_offset_heading', 'OFF HEADING', UNITS.degrees,
+        'Nudges the aim left or right by a fixed angle, after the tracking.'),
+      row('tracking_strength_pitch', 'STR PITCH', UNITS.percent,
+        'How much the tracking drives the tilt. At 0% the camera does not '
+        .. 'follow the car up or down.'),
+      row('tracking_strength_heading', 'STR HEADING', UNITS.percent,
+        'How much the tracking drives which way the camera faces. At 0% it '
+        .. 'does not turn towards the car at all.'),
     },
   },
 }
@@ -162,25 +199,49 @@ atr.COLUMNS = {
 ---the legacy never interpolates them, which core/evaluate records and
 ---docs/legacy.md explains.
 atr.SPLINE = {
-  row('spline_speed', 'SPEED', UNITS.ratio),
-  row('spline_affect_loc_xy', 'AFFECT XY', UNITS.percent),
-  row('spline_affect_loc_z', 'AFFECT Z', UNITS.percent),
-  levelRow('spline_affect_pitch', 'AFFECT PITCH', UNITS.percent),
-  levelRow('spline_affect_roll', 'AFFECT ROLL', UNITS.percent),
-  levelRow('spline_affect_heading', 'AFFECT HEADING', UNITS.percent),
-  row('spline_offset_loc_x', 'OFFSET X', UNITS.metres),
-  row('spline_offset_loc_z', 'OFFSET Z', UNITS.metres),
-  row('spline_offset_pitch', 'OFFSET PITCH', UNITS.degrees),
-  row('spline_offset_heading', 'OFFSET HEADING', UNITS.degrees),
-  row('spline_offset_spline', 'OFFSET ALONG', UNITS.ratio),
+  row('spline_speed', 'SPEED', UNITS.ratio,
+    'How fast the camera travels its recorded path against the car. 2 means '
+    .. 'it covers the path twice as fast.'),
+  row('spline_affect_loc_xy', 'AFFECT XY', UNITS.percent,
+    'How much the recorded path drives the camera horizontally.'),
+  row('spline_affect_loc_z', 'AFFECT Z', UNITS.percent,
+    'How much the recorded path drives the height of the camera.'),
+  levelRow('spline_affect_pitch', 'AFFECT PITCH', UNITS.percent,
+    'How much the recorded path drives the tilt. Set per camera, never '
+    .. 'keyframed.'),
+  levelRow('spline_affect_roll', 'AFFECT ROLL', UNITS.percent,
+    'How much the recorded path drives the roll. Set per camera, never '
+    .. 'keyframed.'),
+  levelRow('spline_affect_heading', 'AFFECT HEADING', UNITS.percent,
+    'How much the recorded path drives which way the camera faces. Set per '
+    .. 'camera, never keyframed.'),
+  row('spline_offset_loc_x', 'OFFSET X', UNITS.metres,
+    'Steps the camera sideways off the recorded path, across its direction '
+    .. 'of travel.'),
+  row('spline_offset_loc_z', 'OFFSET Z', UNITS.metres,
+    'Raises or lowers the camera off the recorded path.'),
+  row('spline_offset_pitch', 'OFFSET PITCH', UNITS.degrees,
+    'Tilts the camera away from the angle the path recorded.'),
+  row('spline_offset_heading', 'OFFSET HEADING', UNITS.degrees,
+    'Turns the camera away from the direction the path recorded.'),
+  row('spline_offset_spline', 'OFFSET ALONG', UNITS.ratio,
+    'Reads the recorded path earlier or later than the car, so the camera '
+    .. 'runs ahead of it or behind it along the same route.'),
 }
 
----Everything docs/ui-inventory.md lists that the mockup has no place for.
----Drawn, so that it is impossible to ship without noticing, and so the
----conversation about where each one goes happens over something visible.
-atr.MISSING = {
-  'recording a spline (per camera, and the track and pit ones)',
-  'load on startup, hotkeys', 'Activate Free Camera',
+---The legend the ? button shows. Everything the panel means, in one place,
+---which docs/ui-interactions.md asks for -- and the only place help is
+---exhaustive. Tooltips answer about one field; this answers about the panel.
+atr.LEGEND = {
+  'Diamond   filled = keyframed here, hollow = keyframed elsewhere in this ' ..
+    'camera, empty = never keyframed. A tinted field is animated.',
+  'Camera strip   red = the camera being edited, pale = the camera on screen.',
+  'Map   each camera tints the stretch of lap it covers. Click to select one.',
+  'Gestures   arrows step, drag scrubs, double click types, Escape cancels. ' ..
+    'Ctrl quarters the step, Shift quadruples it. The wheel never edits.',
+  'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry.',
+  'Save   writes over the file it came from, keeping one copy of what was ' ..
+    'there before CamTool 3 first touched it. Reset asks first.',
 }
 
 --------------------------------------------------------------------------------
@@ -342,6 +403,9 @@ function atr.draw(state)
   local actions = {}
   local width = ui.availableSpaceX()
 
+  -- The tooltip delay needs a clock, and CSP does not offer ImGui's.
+  parameter.beginFrame(state.dt)
+
   ------------------------------------------------------------------
   -- Session: pick a file, take the camera
   ------------------------------------------------------------------
@@ -452,6 +516,12 @@ function atr.draw(state)
   if ui.button((state.showMap and '[map]' or ' map ') .. '###showMap',
       vec2(52, theme.stripHeight)) then
     actions.toggleMap = true
+  end
+
+  ui.sameLine(0, 3)
+  if ui.button((state.showHelp and '[?]' or ' ? ') .. '###showHelp',
+      vec2(30, theme.stripHeight)) then
+    actions.toggleHelp = true
   end
 
   -- Position or time, and which curve maths the file gets. The second is not
@@ -600,21 +670,30 @@ function atr.draw(state)
   end
 
   ------------------------------------------------------------------
-  -- What has not found a place yet
+  -- Help: one line always, everything on request
   ------------------------------------------------------------------
-  ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
-  ui.text('Diamond: filled = keyframed here, hollow = keyframed elsewhere '
-    .. 'in this camera, empty = never keyframed.')
-  ui.text('Top strip: red = the camera being edited, pale = the camera on '
-    .. 'screen.')
-  ui.text('Elsewhere in CamTool 2, not here yet:')
-  ui.text('  ' .. table.concat(atr.MISSING, ', '))
-  ui.text('Diamond toggles the keyframe; arrows step; drag a value to scrub; '
-    .. 'double click it to type. Ctrl quarters the step, Shift quadruples it.')
-  ui.text('Save writes over the file it came from, keeping one copy of what '
-    .. 'was there before CamTool 3 first touched it.')
-  ui.text('Ctrl+Z undoes, Ctrl+Y redoes. Reset asks before it clears.')
-  ui.popStyleColor()
+  -- What used to sit here was a wall of text, and a list of what CamTool 2
+  -- has that this does not. Both are gone: the list belongs in the repo, not
+  -- in the window, and the wall was there whether or not anyone wanted it.
+  --
+  -- The status line is the one that makes the panel learnable, precisely
+  -- because nobody has to know it is there. A tooltip has to be gone looking
+  -- for; this is simply on screen.
+  parameter.endFrame()
+
+  if state.showHelp then
+    ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
+    for _, line in ipairs(atr.LEGEND) do
+      ui.text(line)
+    end
+    ui.popStyleColor()
+  else
+    local label, help = parameter.hovered()
+    ui.pushStyleColor(ui.StyleColor.Text, theme.statusLine)
+    ui.text(label ~= nil and (label .. '  --  ' .. (help or ''))
+      or 'Hover a value to read what it does.')
+    ui.popStyleColor()
+  end
 
   return actions
 end

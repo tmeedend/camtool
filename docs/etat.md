@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (372 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (380 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -232,18 +232,36 @@ fichier-ci dit où on en est. À lire avant de toucher à `apps/lua/CamTool3/ui/
 | Un glissé = une entrée d'undo, point d'entrée unique | ✅ |
 | Losanges à trois états | ✅ |
 | **Champ teinté quand le paramètre est animé** | ✅ |
-| **Infobulle par élément, avec délai** | ❌ à faire |
-| **Ligne de statut contextuelle en bas** | ❌ à faire |
-| **Bouton `?` avec la légende complète** | ❌ à faire |
-| **Supprimer le bloc d'aide du bas** (et la liste de chantier qu'il contient) | ❌ à faire |
+| Infobulle par élément, avec délai | ✅ (délai maison : CSP n'expose pas `DelayNormal`) |
+| Ligne de statut contextuelle en bas | ✅ |
+| Bouton `?` avec la légende complète | ✅ |
+| Supprimer le bloc d'aide du bas | ✅ |
 | Colonnes alignées ligne à ligne, largeurs égales | ✅ (`ui.columns`) |
 | Bandeau, grisé, carte | ✅ |
 
-Les quatre manques forment un seul chantier : **la couche d'aide**. Le bloc du
-bas part, et trois choses le remplacent — l'infobulle qu'on va chercher, la
-ligne de statut toujours visible, et le `?` exhaustif. La liste
-« pas encore implémenté » qu'il contient n'a rien à faire dans la fenêtre et
-revient ici (voir « Chantiers restants »).
+⚠️ **Les 32 phrases d'infobulle sont des brouillons.** Elles sont déduites du
+code qui implémente chaque paramètre, pas de l'usage : **ATR doit les relire**,
+c'est lui qui s'en sert. Elles sont toutes dans `ui/atr.lua`, une par ligne de
+`atr.COLUMNS` et `atr.SPLINE` — corriger une phrase est une modification d'une
+ligne. Un test vérifie que chaque paramètre en a une, donc un paramètre ajouté
+plus tard sans phrase échoue avant d'arriver en jeu.
+
+Deux d'entre elles disent qu'un paramètre **ne fait rien aujourd'hui**, ce qui
+est vrai et utile à lire dans la fenêtre :
+
+- `STRENGTH LO.` (`transform_loc_strength`) n'est pas appliqué par le portage.
+- `MIX` (`tracking_mix`) n'est **pas appliqué à la visée** : seul l'autofocus
+  le lit, pour faire le point sur la voiture la plus proche. Trouvé en
+  rédigeant les infobulles. Le mélange de visée entre deux voitures fait
+  partie du chantier « smart tracking ».
+
+**Ce que CamTool 2 a et que CamTool 3 n'a pas encore** — la liste qui était
+affichée dans la fenêtre, d'où le contrat la chasse :
+
+- enregistrer une spline (par caméra, et celles de piste et de stand) ;
+- `load on startup` et les raccourcis (demandent un fichier de réglages que
+  CamTool 3 n'a pas) ;
+- `Activate Free Camera`.
 
 **Décisions actées avec Théo** (ne pas re-trancher seul) :
 
