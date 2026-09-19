@@ -71,7 +71,8 @@ La conversion est faite à l'affichage (`set_text(valeur, …, "m"/"degrees")`).
 |---|---|
 | 📹 icône caméra | **Activate Free Camera** (libellé confirmé par l'infobulle) |
 | ◆ losange orange | ⚠️ rôle inconnu |
-| `CamTool v2.2.0 (1448 m)` | Titre, version, et **longueur du circuit en mètres** |
+| `CamTool v2.2.0` | Titre et version |
+| `(1448 m)` | **Position courante de la voiture**, en mètres. En mode temps : secondes. Vide si indisponible. ⚠️ Ce n'est *pas* la longueur du circuit. |
 | 📍 épingle | Mode **position** (`pos.png` / `pos_active.png`) |
 | ⏱ chronomètre | Mode **temps** (`time.png` / `time_active.png`) |
 | ⏻ power | **Activer / désactiver** CamTool (`on.png` / `off.png`). Aussi **F10**. |
@@ -89,11 +90,15 @@ Suit le même code couleur que le reste :
 
 Affichée en **mètres** en mode position, en **frames** en mode temps.
 
-Quatre boutons de navigation : `«` et `»` (grand pas, images `prev+.png` /
-`next+.png`), `‹` et `›` (petit pas). Le code expose **trois** amplitudes en mode
-`pos` (`_m`, `_mm`, `_mmm`) mais deux seulement en mode `time`.
-⚠️ La capture n'en montre que deux de chaque côté — la troisième amplitude est
-peut-être accessible autrement (modificateur ?).
+Quatre boutons de navigation entre **keyframes** : `«` et `»` (grand pas, images
+`prev+.png` / `next+.png`), `‹` et `›` (petit pas). Deux amplitudes de chaque
+côté, dans les deux modes.
+
+**Attention au code mort** : `keyframes__pos_mmm` et `_ppp` (une troisième
+amplitude) sont définis mais **branchés à aucun bouton**. De même, les boutons de
+replay de l'en-tête (`header_replay_mm`, `header_jump_to_keyframe`…) sont
+**entièrement en commentaire** (`CamTool_2.py` ~262-265) : ils n'existent pas dans
+l'application. Un `grep` naïf les fait apparaître — ils ne sont pas à réintégrer.
 
 ---
 
@@ -183,8 +188,15 @@ Une note de bas de panneau : **`*except roll`**. La force de rotation s'applique
 donc au pitch et au heading mais **pas au roll**. C'est
 `lbl_rot_strength_exception`, dont je cherchais le sens.
 
-`Pitch` et `Roll` ont un bouton reset, **pas `Heading`**. ⚠️ Asymétrie à
-confirmer : voulue, ou oubli ?
+`Pitch` et `Roll` ont un bouton reset, **pas `Heading`** — et ce sont les seuls
+de toute l'UI avec `Spline:` dans l'onglet Spline.
+
+Le reset remet la valeur à **0**, en respectant les deux niveaux : sur le
+keyframe s'il est keyframé, sur la caméra vivante sinon.
+
+L'absence de reset sur le cap est probablement **délibérée** : pitch 0 (horizon)
+et roll 0 (droit) sont des repères utiles, alors qu'un cap 0 pointerait vers un
+axe arbitraire du monde. *(Inférence, pas une certitude.)*
 
 ### Onglet Tracking
 
@@ -218,34 +230,57 @@ caméras de référence.
 
 ### Onglet Spline
 
-| Libellé | Valeur exemple | Pas | Reset |
-|---|---|---|---|
-| **`Record`** | bouton pleine largeur | — | — |
-| `Speed:` | `100%` | 0.01 | — |
+| Libellé | Valeur exemple | Pas | Borné | Reset |
+|---|---|---|---|---|
+| **`Record`** | bouton **tri-état** pleine largeur | — | — | — |
+| `Speed:` | `100%` | 0.05 | non | — |
 
-**Strength**
+**Strength** — tous bornés à [0, 1], pas de 0.1
 
-| Libellé | Valeur | Pas |
-|---|---|---|
-| `Location XY:` | `100%` | 0.05 |
-| `Location Z:` | `100%` | ⚠️ |
-| `Pitch:` | `100%` | ⚠️ |
-| `Roll:` | `100%` | ⚠️ |
-| `Heading:` | `100%` | ⚠️ |
+| Libellé | Paramètre |
+|---|---|
+| `Location XY:` | `spline_affect_loc_xy` |
+| `Location Z:` | `spline_affect_loc_z` |
+| `Pitch:` | `spline_affect_pitch` |
+| `Roll:` | `spline_affect_roll` |
+| `Heading:` | `spline_affect_heading` |
 
 **Offset**
 
-| Libellé | Valeur | Pas | Reset |
+| Libellé | Pas | Borné | Reset |
 |---|---|---|---|
-| `Pitch:` | `0.00°` | ⚠️ | — |
-| `Heading:` | `0.00°` | ⚠️ | — |
-| `Location X:` | `0.00 m` | ⚠️ | — |
-| `Location Z:` | `0.00 m` | ⚠️ | — |
-| `Spline:` | `0.00 m` | ⚠️ | **⟲** |
+| `Pitch:` | 1° | non | — |
+| `Heading:` | 5° | non | — |
+| `Location X:` | 0.25 | non | — |
+| `Location Z:` | 0.25 | non | — |
+| `Spline:` | **5 m en mode position, 10 en mode temps** | non | **⟲** |
 
-⚠️ **`Record`** est la seule fonction d'écriture de données hors sauvegarde de
-fichier : elle enregistre une trajectoire de caméra. Son déroulé (démarrage,
-arrêt, fréquence d'échantillonnage) reste à documenter.
+Le pas de `Spline` est exprimé en **unités réelles puis converti** :
+`5 / ac.getTrackLength()` en mode position. Le pas ressenti est donc le même quel
+que soit le circuit — à reproduire.
+
+### L'enregistrement de trajectoire
+
+`Record` suit le même motif tri-état que les boutons de spline des Settings :
+**Record → Stop → Remove → Record**.
+
+Pendant l'enregistrement (`Camera.record_spline`), à chaque échantillon sont
+capturés la position (3 axes), le pitch, le roll et le cap de la caméra, plus la
+position piste.
+
+Trois détails qui comptent pour le portage :
+
+- **Cadence** : un échantillon par seconde de *temps de replay*
+  (`dt * replayTimeMultiplier`), pas de temps réel — la densité le long de la
+  piste ne dépend donc pas de la vitesse de lecture.
+  ⚠️ Les splines de référence sont plus denses que cette règle ne le laisse
+  attendre (31 points sur ~5 % d'un tour de Silverstone). À éclaircir.
+- **Bouclage de tour** : `if abs(x - prev) > abs(x + 1 - prev): x += 1`.
+  **C'est là que naissent les `the_x > 1`** observés dans les fichiers, et donc
+  ce qui justifie le déballage de `spline.queryPosition`.
+- **Le cap est déroulé à l'enregistrement** (`normalize_angle` contre
+  l'échantillon précédent), donc les valeurs stockées sont continues, sans saut à
+  ±π. C'est ce qui permet de les interpoler directement.
 
 ### Onglet Settings
 
@@ -255,17 +290,43 @@ arrêt, fréquence d'échantillonnage) reste à documenter.
 | **`Load`** | bouton pleine largeur |
 | `Load on startup:` | bascule (`True`) |
 | `Enable hotkeys:` | bascule (`True`) |
-| `Track spline:` | bouton **`Remove`** |
-| `Pit spline:` | bouton **`Remove`** |
+| `Track spline:` | bouton **tri-état** (voir ci-dessous) |
+| `Pit spline:` | bouton **tri-état** |
 | **`Reset`** | bouton pleine largeur |
 
 `Enable hotkeys` commande l'enregistrement des raccourcis Y/U/I/O/P
 (`classes/hotkey.py`). `Load on startup` correspond à `load_last_used_data` dans
 `settings.json`.
 
-⚠️ `Reset` : portée exacte inconnue (la caméra ? toutes les caméras ? les
-réglages ?). **À vérifier avant de le reproduire** — c'est potentiellement
-destructif.
+**Les boutons de spline sont tri-état** : un seul bouton dont le libellé annonce
+ce qu'il va faire.
+
+```
+  aucune spline  →  [Record]  → clic → enregistrement en cours → [Stop]
+  enregistrement →  [Stop]    → clic → arrêt → [Remove] (ou [Record] si vide)
+  spline existante → [Remove] → clic → suppression → [Record]
+```
+
+La capture montre `Remove` parce que Théo a déjà des splines de piste et de
+stand enregistrées. Ce sont les splines **de piste** (`track_spline`,
+`pit_spline`), distinctes des splines **par caméra** de l'onglet Spline.
+
+### ⚠️ `Reset` est totalement destructif
+
+`data.reset()` remplace **les deux listes de caméras** (`pos` *et* `time`) par
+une unique caméra vide, **et** vide les splines de piste et de stand.
+
+```python
+def reset(self):
+    self.mode = {"pos": [Camera_Data(0)], "time": [Camera_Data(0)]}
+    self.pit_spline  = {…vide…}
+    self.track_spline = {…vide…}
+```
+
+**Aucune confirmation n'est demandée**, et CamTool 2 n'a pas d'annulation. Un
+clic accidentel détruit tout le travail non sauvegardé. À reproduire **avec une
+confirmation**, et c'est un argument de plus pour la pile d'annulation prévue
+dans `CLAUDE.md`.
 
 ---
 
@@ -312,11 +373,28 @@ vrai, retirés sinon.
 | Mouvement souris | Rotation de la caméra (mouse look) |
 | **Shift** maintenu | Zoom avant, progressif |
 | **Ctrl** maintenu | Zoom arrière, progressif |
-| Bouton gauche | Modifie le comportement du mouse look ⚠️ |
+| **Bouton gauche maintenu** | **Pilote la rotation** |
+| Bouton gauche relâché | La caméra **continue sur son inertie** |
 
-Le zoom a une **inertie** : `release_factor` suit une courbe sinus à
-l'enfoncement comme au relâchement — il ne s'arrête pas net. À reproduire pour
-conserver la sensation du geste.
+### Le lissage existe déjà, et ce n'est pas un lissage exponentiel
+
+`MouseLook` conserve un tableau des **60 dernières positions de souris**
+(`__array_size = 60`, soit une seconde à 60 fps) et pilote la caméra avec leur
+**moyenne**. C'est de là que vient la douceur du geste.
+
+Le bouton gauche commande la mise à jour de ce tableau :
+
+- **maintenu** → le tableau se remplit, la caméra suit la souris
+- **relâché** → le tableau se fige, la moyenne reste, **la caméra continue sur
+  son élan** et s'arrête progressivement
+
+Cela corrige une réserve notée plus tôt dans `docs/etat.md` : le portage envoie
+le delta souris brut, et j'avais supposé qu'un lissage exponentiel suffirait.
+**Mieux vaut reproduire la moyenne glissante sur 60 échantillons**, qui est ce
+que les vidéastes ont dans les mains.
+
+Le zoom a en plus sa propre inertie : `release_factor` suit une courbe sinus à
+l'enfoncement comme au relâchement — il ne s'arrête pas net.
 
 ### Dans les panneaux, les mêmes touches font autre chose
 
@@ -369,17 +447,24 @@ Le facteur 5 est dans le code sans commentaire.
 
 ## 9. Ce qui manque encore
 
-1. **Pas et bornage** des paramètres marqués ⚠️ (surtout l'onglet Spline).
-2. **`Record`** : déroulé complet de l'enregistrement de spline.
-3. **`Reset`** (Settings) : portée exacte. Potentiellement destructif.
-4. **Le losange orange ◆** de l'en-tête : rôle inconnu.
-5. **Troisième amplitude** de navigation en mode `pos` : le code l'expose, la
-   capture n'en montre que deux.
-6. **Asymétrie des resets** : Pitch et Roll en ont un, pas Heading.
-7. **États désactivés** : seul `Focus point`/`Autofocus` est confirmé ; d'autres
-   dépendances existent peut-être.
-8. **Bouton gauche de la souris** pendant le mouse look : effet exact.
+Il ne reste que des points mineurs :
 
-Tous relèvent désormais de la **lecture de code**, plus de l'observation — les
-captures ont réglé les questions de libellés, d'unités, de couleurs et de
-disposition.
+1. **Pas et bornage** de `Focus point` et `FOV` (onglet Camera).
+2. **Le losange orange ◆** de l'en-tête : rôle toujours inconnu.
+3. **Cadence d'échantillonnage des splines** : la règle lue dans le code (un
+   échantillon par seconde de temps de replay) donne moins de points que n'en
+   contiennent les fichiers de référence. Un enregistrement d'essai trancherait.
+4. **États désactivés** : seul `Focus point` / `Autofocus` est confirmé ;
+   d'autres dépendances existent peut-être.
+
+### Pièges relevés, à ne pas reproduire
+
+- **Code mort** : les boutons de replay de l'en-tête sont commentés, et la
+  troisième amplitude de navigation (`_mmm` / `_ppp`) n'est branchée à rien. Un
+  `grep` les fait apparaître comme s'ils existaient.
+- **`Reset` sans confirmation** détruit les deux listes de caméras et les deux
+  splines de piste, sans annulation possible.
+- **Transparence des panneaux** : le replay transparaît derrière les valeurs et
+  fausse la lecture des couleurs.
+- **Shift / Ctrl ont deux sens** selon qu'on est dans les panneaux (× 4 / ÷ 4) ou
+  en mouse look (zoom avant / arrière).

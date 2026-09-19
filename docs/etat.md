@@ -73,9 +73,12 @@ en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 
 ### Réserves connues, non bloquantes
 
-- **Mouse look** : la visée est moins douce que la caméra libre d'AC (F7), qui
-  applique un lissage. Le portage envoie le delta souris brut — un lissage
-  exponentiel suffirait.
+- **Mouse look** : la visée est moins douce que dans CamTool 2. La cause est
+  identifiée : le legacy pilote la caméra avec la **moyenne des 60 dernières
+  positions de souris**, et le bouton gauche commande le remplissage de ce
+  tampon — le relâcher laisse la caméra finir sur son élan. Le portage envoie le
+  delta brut. Reproduire la moyenne glissante, pas un lissage exponentiel (voir
+  `docs/ui-inventory.md`).
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
 
