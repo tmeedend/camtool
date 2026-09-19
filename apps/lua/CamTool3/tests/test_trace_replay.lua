@@ -66,12 +66,10 @@ local RECORDINGS = {
       pitch = 0.02,
       roll = 1e-5,
 
-      -- DEFECT, not a tolerance. CamTool 2 interpolates camera_fov in the
-      -- form the file stores, 1/(fov+15), and converts to degrees afterwards.
-      -- The port converts at migration and interpolates degrees, so every
-      -- zoom follows a different curve: equal at the keyframes, up to 3.6 deg
-      -- apart between them over the whole recording.
-      fov = 2.3,
+      -- Exact, since evaluate started interpolating camera_fov in the form
+      -- the file stores it in. It was 2.3 deg over this window before that,
+      -- and 3.6 over the whole recording.
+      fov = 1e-9,
 
       -- DEFECT, not a tolerance, and a smaller one than it was: reading the
       -- autofocus flag correctly took this from 500 m to 277. What is left is

@@ -11,6 +11,7 @@
 ]]
 
 local interpolation = require('core/interpolation')
+local fov = require('core/fov')
 
 local evaluate = {}
 
@@ -64,6 +65,27 @@ local INTERPOLATOR = {
   spline_affect_heading = CAMERA_LEVEL,
 }
 
+---Parameters that are interpolated in a different space from the one they are
+---stored in, because CamTool 2 interpolates them before converting.
+---
+---camera_fov is the only one. The file holds 1/(fov+15), roughly a focal
+---length, and the legacy runs the interpolator over that and converts the
+---result to degrees afterwards. Migration converts at load time so that a
+---version 1 document is in honest units throughout, which means the
+---conversion has to be undone here and redone after, or every zoom follows a
+---different curve: equal at the keyframes and up to 3.6 degrees apart between
+---them, measured against a recorded Silverstone lap.
+---
+---The round trip through encode is exact in real arithmetic and within a
+---couple of bits in floating point. It is not exact for a stored zero, which
+---both directions answer with the same sentinel -- but none of the 1768
+---camera_fov values in the reference files is zero.
+local SPACE = {
+  camera_fov = { into = fov.encode, back = fov.decode },
+}
+
+evaluate.SPACE = SPACE
+
 evaluate.SIN = SIN
 evaluate.BEZIER = BEZIER
 evaluate.CAMERA_LEVEL = CAMERA_LEVEL
@@ -113,10 +135,23 @@ function evaluate.parameter(camera, param, position)
   local positions, values = evaluate.seriesFor(camera, param)
   if #values == 0 then return nil end
 
-  if kind == SIN then
-    return interpolation.interpolate_sin(position, positions, values)
+  local space = SPACE[param]
+  if space ~= nil then
+    for i = 1, #values do values[i] = space.into(values[i]) end
   end
-  return interpolation.interpolate(position, positions, values)
+
+  local result
+  if kind == SIN then
+    result = interpolation.interpolate_sin(position, positions, values)
+  else
+    result = interpolation.interpolate(position, positions, values)
+  end
+
+  if space ~= nil and result ~= nil then
+    result = space.back(result)
+  end
+
+  return result
 end
 
 ---Evaluate every keyframed parameter of a camera at a track position.

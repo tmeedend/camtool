@@ -96,8 +96,12 @@ test('parameter routes through the interpolator the legacy uses', function()
   near(evaluate.parameter(camera, 'loc_x', 0.3),
     interpolation.interpolate(0.3, x, { 0, 10, -5 }), 1e-12)
 
+  -- The sine easing, but run over the stored form of the value rather than
+  -- over degrees. See the camera_fov test further down for why.
+  local fov = require('core/fov')
   near(evaluate.parameter(camera, 'camera_fov', 0.3),
-    interpolation.interpolate_sin(0.3, x, { 10, 20, 30 }), 1e-12)
+    fov.decode(interpolation.interpolate_sin(0.3, x,
+      { fov.encode(10), fov.encode(20), fov.encode(30) })), 1e-12)
 end)
 
 test('parameter is nil when unkeyframed or camera-level', function()
@@ -286,4 +290,39 @@ test('#23: the frozen camera is visible end to end', function()
     if math.abs(fixedValues[i] - fixedValues[1]) > 1e-9 then moved = true end
   end
   eq(moved, true, 'fixed mode actually moves the camera')
+end)
+
+test('camera_fov is interpolated in the space the file stores it in', function()
+  -- CamTool 2 runs the interpolator over 1/(fov+15) and converts the result to
+  -- degrees. Migration converts at load time, so evaluate has to undo that and
+  -- redo it, or every zoom follows a different curve -- equal at the
+  -- keyframes and up to 3.6 degrees apart between them, measured against a
+  -- recorded Silverstone lap.
+  local fov = require('core/fov')
+  local interpolation = require('core/interpolation')
+
+  local a, b = 7.5, 2.0
+  local camera = {
+    keyframes = {
+      { keyframe = 0.2, interpolation = { camera_fov = a } },
+      { keyframe = 0.4, interpolation = { camera_fov = b } },
+    },
+  }
+
+  local at = 0.3
+  local got = evaluate.parameter(camera, 'camera_fov', at)
+
+  local legacy = fov.decode(interpolation.interpolate_sin(
+    at, { 0.2, 0.4 }, { fov.encode(a), fov.encode(b) }))
+  local naive = interpolation.interpolate_sin(at, { 0.2, 0.4 }, { a, b })
+
+  near(got, legacy, 1e-12, 'must follow the legacy curve')
+  eq(math.abs(got - naive) > 0.1, true, string.format(
+    'and must differ from interpolating degrees, which gives %.4f against %.4f',
+    naive, got))
+
+  -- The keyframes themselves are where the two agree, so they prove nothing
+  -- on their own -- but a conversion done twice would show up here.
+  near(evaluate.parameter(camera, 'camera_fov', 0.2), a, 1e-12)
+  near(evaluate.parameter(camera, 'camera_fov', 0.4), b, 1e-12)
 end)
