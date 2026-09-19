@@ -309,6 +309,20 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   bug case cochée et zoome correctement case décochée.
   Note : le déclencheur ne teste pas s'il s'agit d'un circuit, donc le bug frappe
   aussi les spéciales de rallye, où le décalage n'a même pas de raison d'être.
+  **Contre-épreuve passée** : sur `ks_red_bull_ring_layout_gp-init.json`, dont la
+  dernière caméra (UI n°11) traverse la ligne avec 6 keyframes stockés décalés,
+  la séquence de FOV (1,00° → 3,32° → 2,50° → 4,50°) est **identique** case
+  cochée ou décochée. La détection `hasWrappedKeyframes` reconnaît donc bien le
+  cas correct sans le modifier. Les trois niveaux sont validés : bug reproduit
+  dans CamTool 2, reproduit puis corrigé dans CamTool 3, cas sain intact.
+  **Reste à trancher : le correctif doit-il devenir le comportement par défaut ?**
+  (voir Décisions ouvertes)
+
+  Deux anomalies de données trouvées au passage, sans rapport avec le code :
+  `spa_-ATR.json` a une dernière caméra à **un seul keyframe** (le décalage n'a
+  alors aucun effet observable), et `spa_-init.json` a une dernière caméra avec
+  `camera_in = 1.0078` — **jamais activée**, puisque la sélection compare
+  `position < camera_in` et que la position ne dépasse pas 1.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
 - Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
 - Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
@@ -362,3 +376,8 @@ splines enregistrées, fonctionnement fenêtre fermée.
   mélanger anciennes et nouvelles caméras dans un même set.
 - Le **bug `SolveCubic`** (registre des bizarreries) : corriger dans le mode
   `fixed`, ou le garder tel quel ?
+- **#23 : le correctif par défaut ?** Il est aujourd'hui derrière une case à
+  cocher, legacy par défaut, donc les fichiers migrés gardent le bug. À la
+  différence des bugs de courbe (#1, #4) qui *déplacent* une trajectoire, #23
+  remplace l'animation voulue par **rien** — la caméra ignore ses keyframes.
+  Difficile d'imaginer une vidéo qui en dépende.
