@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (239 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (245 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -85,26 +85,36 @@ disponible derrière une case à cocher. **#20** (stuttering) ne se reproduit pa
 en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 **#38** n'a pas pu être reproduit.
 
+## 🎮 Jamais vu en jeu — à tester
+
+Tout ce qui suit est écrit, testé hors jeu et commité, mais **personne ne l'a
+vu tourner**. À reprendre dans l'ordre ; ce qui casse en premier casse
+probablement le reste.
+
+**Avant tout : copier `apps/python/CamTool_2/data/` ailleurs.** Les garde-fous
+sont testés, mais c'est la première fois que ce code écrit, et ça ne coûte
+rien.
+
+| # | Quoi | Comment savoir que c'est bon |
+|---|---|---|
+| 1 | Shake et profondeur de champ | Rejouer deux fois le même passage : le tremblement doit être **identique**. DOF : une caméra en `Autofocus`, la distance suit la voiture. Réserve : le DOF exige **YEBIS** actif dans CSP. |
+| 2 | Courbes de FOV | Un zoom doit maintenant suivre la même courbe que CamTool 2 — c'est le correctif de l'espace d'interpolation. Comparer à l'œil sur le même passage. |
+| 3 | Autofocus respecté | Une caméra avec `AF` éteint ne doit plus faire le point sur la voiture (24 caméras sur 589 sont dans ce cas). |
+| 4 | Panneau ATR, lecture | Bande des caméras, bande des keyframes, losanges à trois états, unités, colonnes alignées. |
+| 5 | Panneau ATR, édition | Flèches, glisser (8 px par pas), double-clic pour taper. **Le plus important : taper `35` dans `FOV` doit donner `35.00 deg`**, et pareil sur `PITCH` (degrés → radians) et `STR PITCH` (pourcent → 0..1). |
+| 6 | Ctrl / Shift | Quatre fois plus fin, quatre fois plus gros. Sauf sur `FOV` et `Focus point`, où c'est normal qu'ils ne fassent rien. |
+| 7 | Annuler / refaire | Boutons et Ctrl+Z / Ctrl+Y, y compris sur les ajouts de caméras et de keyframes. |
+| 8 | `+` / `−` | Un keyframe naît **à la tête de lecture** et se sélectionne seul. `−` refuse le dernier keyframe d'une caméra et la dernière caméra d'un fichier. |
+| 9 | `Reset` | Le **premier** clic prévient seulement. |
+| 10 | Section SPLINE | Apparaît avec le nombre de points sur Silverstone `seb`, disparaît sur une caméra sans tracé. |
+| 11 | **Sauvegarde** | Écrit dans `apps/lua/CamTool3/data/`, **jamais** dans celui de CamTool 2. Vérifier que le fichier d'origine n'a pas changé de date. Recharger doit retrouver les modifications. |
+| 12 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
+
 ## ⏳ En attente de Théo
 
-Ce que la session précédente a laissé en suspens. **À lire avant de proposer la
-suite.**
+Ce qui demande le jeu et n'est pas dans la checklist ci-dessus.
 
-### 1. Test en jeu non fait : shake et profondeur de champ
-
-Le portage est commité et testé hors jeu, mais **personne ne l'a vu tourner**.
-
-- Charger un fichier, `Grab camera` (le mode lecture se sélectionne seul).
-- **Shake** : décocher/recocher `apply shake`. Puis **rejouer deux fois le même
-  passage** — le tremblement doit être *identique*, c'est le test qui compte
-  (l'horloge dérive de la position de replay, pas du temps réel).
-- **Profondeur de champ** : une caméra avec `Autofocus`, vérifier que la
-  distance affichée suit la voiture. Décocher `apply depth of field` pour
-  comparer.
-- Réserve : le DOF exige **YEBIS** actif dans CSP. Distance qui bouge mais rien à
-  l'écran = probablement ça, pas un bug du portage.
-
-### 2. Une trace qui contienne la dernière caméra (#23)
+### Une trace qui contienne la dernière caméra (#23)
 
 Deux traces sont faites — Silverstone `seb` et le_lancone `lancia`, 7200
 frames chacune. **Ce qu'elles ont donné est plus bas.**
@@ -238,6 +248,52 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
 Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
 que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
 compatibilité.
+
+## 📁 Fichiers : deux dossiers, deux formats
+
+**CamTool 3 n'écrit jamais dans le dossier de CamTool 2.**
+
+| Dossier | Rôle |
+|---|---|
+| `apps/python/CamTool_2/data/` | Les fichiers de l'utilisateur. **Lecture seule.** Hors git, certains ont des années. |
+| `apps/lua/CamTool3/data/` | Ce que CamTool 3 écrit. Créé à la première sauvegarde, ignoré par git. |
+
+Ouvrir un fichier CamTool 2 et le sauvegarder en fait une **copie** dans le
+dossier CamTool 3 ; l'original reste tel que CamTool 2 l'a laissé. C'est la
+migration à sens unique de `docs/legacy.md`, rendue visible dans le système de
+fichiers. Le panneau liste les deux, les siens d'abord, ceux de CamTool 2
+marqués — une fois qu'un fichier a été sauvé ici, c'est cette copie qu'on
+travaille.
+
+Raison concrète : CamTool 2 liste `*.json` de son dossier et **échouerait** à
+charger un document v1. Son chargeur parcourt les clés de premier niveau comme
+si c'étaient des listes de caméras, trébucherait sur `version` et
+`interpolation_mode`, avalerait l'exception et n'afficherait rien.
+
+### Reconnaître un fichier CamTool 2 d'un fichier CamTool 3
+
+`data.versionOf(raw)` : **absence de champ `version` = CamTool 2** (version 0).
+CamTool 2 n'a jamais écrit ce champ, CamTool 3 l'écrit toujours. La détection
+est donc fiable, et c'est elle qui déclenche la migration.
+
+### Les deux axes, à ne pas confondre
+
+- **`version`** — comment les valeurs sont **encodées** sur le disque. v0 : FOV
+  en `1/(fov+15)`. v1 : FOV en degrés. Migration testée, à sens unique.
+- **`interpolation_mode`** — quelles **maths de courbe** s'appliquent.
+  `legacy` reproduit CamTool 2, bizarreries comprises ; `fixed` applique les
+  corrections.
+
+Les collapser serait tentant et faux : migrer l'encodage ne doit pas changer
+les courbes d'un montage déjà fait. Un fichier CamTool 2 migré est donc
+**v1 + legacy**.
+
+**Les deux cases « legacy » du panneau de sondes ne sont plus des préférences.**
+`playback.applyMode` les dérive de `interpolation_mode` au chargement, et le
+panneau ATR affiche le mode et permet d'en changer volontairement. Réponse à
+la question « faut-il les cocher pour un fichier CamTool 2 ? » : **non, le
+fichier le dit**. Les cases restent dans le panneau de sondes comme outil de
+diagnostic.
 
 ## Chantiers restants, par taille croissante
 
