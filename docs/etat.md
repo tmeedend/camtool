@@ -17,7 +17,8 @@
 local.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (107 tests au dernier point).
+`luajit tests/run.lua` (150 tests au dernier point). Le binaire n'est pas dans
+le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
 
@@ -38,6 +39,37 @@ Ce que le POC a prouvé **en jeu**, et qui fonde la décision :
 
 Et hors jeu : une boucle de test réelle (LuaJIT + runner maison), avec les trois
 interpolateurs confrontés point par point au vrai code Python.
+
+### Ce qui se teste maintenant hors jeu
+
+La chaîne de lecture est sortie de `CamTool3.lua` : elle vit dans
+`core/playback.lua`, pure, sans `ac` ni CSP, entrées et sorties en nombres
+simples. L'app n'en garde que ce qui parle au jeu. `CamTool3.lua` passe de 1103
+à 875 lignes.
+
+Ce que ça ouvre, et qui demandait un lancement d'AC jusqu'ici :
+
+- **Un tour entier hors jeu** (`tests/lap.lua`), au choix à travers l'app et les
+  faux CSP, ou directement dans le core. La voiture suit le tracé **réellement
+  enregistré** dans le fichier caméra quand il y en a un — deux fichiers de
+  référence en portent un, donc les distances et les angles sont ceux du jeu.
+- **Golden master** (`tests/fixtures/playback_golden.lua`) : quatre scénarios
+  figés frame par frame. Sensibilité vérifiée : 1e-6 rad sur la visée fait
+  tomber les quatre. À regénérer **seulement** pour un changement de
+  comportement voulu, et à dire dans le commit.
+- **Balayage d'invariants** (`tests/sweep.lua`) : `inf`/`nan`, vecteur look non
+  unitaire, FOV hors bornes, distance de focus négative, caméra qui se
+  téléporte au milieu de son plan, caméra inatteignable. Les seuils sont des
+  ratios (un plan est fluide à n'importe quelle vitesse), stables de 600 à
+  10800 frames par tour. Chaque règle a son test de morsure : une règle qui ne
+  se déclenche jamais ne vaut rien.
+
+Rien de neuf trouvé dans les quatre fichiers de référence. **#23 est maintenant
+mesuré et plus seulement décrit** : la dernière caméra de `le_lancone` tient 54°
+de FOV là où elle devrait zoomer à 12°, et le correctif ne change que ça.
+
+Ce que ça ne couvre toujours pas : l'image (flou, artefacts, UI), et la
+justesse vis-à-vis de CamTool 2 — pour ça il faut l'enregistreur ci-dessous.
 
 ### Déjà porté et validé en jeu
 
@@ -80,6 +112,12 @@ frame de replay, positions des voitures) et ses sorties (position caméra, cap,
 tangage, roulis, FOV, focus) dans un JSONL. Je rejoue ces entrées dans le core
 Lua hors jeu et je compare les sorties.
 
+**Moins cher qu'avant** : côté Lua, `playback.frame(state, doc, input)` prend
+déjà exactement ces entrées et rend exactement ces sorties, et `tests/lap.lua`
+sait dérouler une séquence de frames. Il ne reste qu'un chargeur de JSONL. Côté
+Python il y a **un seul point d'écriture** à envelopper :
+`InterpolateFrame.interpolate`, appelé à `CamTool_2.py:1389`.
+
 **Ce que ça apporte** : un golden master de la **chaîne entière**, là où les
 tests actuels vérifient les fonctions isolément. C'est précisément là que les
 bugs se sont logés (repli du cap non keyframé, DOF écrasé par la sonde). Une
@@ -112,7 +150,8 @@ Scénarios proposés : Silverstone `seb` (splines), `le_lancone` (dernière cam�
    sait pas encore les *sélectionner* quand la voiture est aux stands (le legacy
    le fait via `car_is_in_pitline`, avec une seconde passe de sélection).
    `evaluate.activeCameraIndex` accepte déjà un argument `wantPit`, rien ne
-   l'appelle avec.
+   l'appelle avec. Le balayage le constate : sur Red Bull Ring, 9 caméras sur 11
+   se déclenchent, les deux manquantes sont les caméras de stand.
 3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
 4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
 5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la

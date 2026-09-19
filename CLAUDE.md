@@ -104,7 +104,22 @@ Même principe côté Lua, mêmes exigences. **Outillage : un seul binaire.**
   un dossier demanderait `lfs`, donc une dépendance C.
 
 Commande de validation, depuis `apps/lua/CamTool3/` : `luajit tests/run.lua`
-(code de sortie non nul si un test échoue).
+(code de sortie non nul si un test échoue). **`luajit` n'est pas dans le `PATH`
+des sessions non interactives** : depuis un outil, utiliser le chemin complet
+`%LOCALAPPDATA%\Programs\LuaJIT\bin\luajit.exe`.
+
+Ce que la suite couvre, au-delà des tests unitaires :
+
+- `tests/lap.lua` déroule **un tour entier** hors jeu, soit à travers l'app et
+  les faux CSP, soit directement dans `core/playback`. La voiture suit le tracé
+  enregistré dans le fichier caméra lui-même quand il y en a un.
+- `tests/fixtures/playback_golden.lua` fige les sorties caméra de quatre
+  scénarios : **golden master, à regénérer seulement pour un changement de
+  comportement voulu** (`luajit tools/gen_playback_golden.lua`, et le dire dans
+  le message de commit).
+- `tests/sweep.lua` cherche dans un tour ce qu'on cherchait à l'œil en jeu :
+  `inf`/`nan`, vecteur look non unitaire, FOV absurde, caméra qui se téléporte
+  au milieu de son plan, caméra inatteignable.
 
 Piège de portage déjà identifié et couvert par un test : **Lua ne lève pas sur
 une division par zéro**, il renvoie `inf`. Là où Python lève une exception
