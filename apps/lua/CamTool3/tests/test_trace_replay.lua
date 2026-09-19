@@ -30,12 +30,58 @@ local trace = require('tests/trace')
 
 local test, eq = runner.test, runner.eq
 
----Recordings made in game. Empty until someone records one.
+---Recordings made in game.
 ---
 ---  fixture     the converted trace
 ---  cameraFile  the camera document it was recorded against
+---  options     how the port has to be set for the comparison to be fair
 ---  tolerance   the worst gap each measure is allowed, with the reason
-local RECORDINGS = {}
+---
+---A tolerance is not a target. Three of the ones below are the size of a known
+---defect, named as such; shrinking them is the point of fixing it.
+local RECORDINGS = {
+  {
+    name = 'silverstone seb, 45 seconds of a real lap',
+    fixture = 'tests/fixtures/trace_seb',
+    cameraFile = 'tests/fixtures/camera_file_seb',
+    -- CamTool 2 has the issue #16 startup transient, so the port has to be
+    -- asked for it too. Recorded with it off, the aim was out by 1.56 rad for
+    -- the first frames and by nothing afterwards -- which is the diagnosis of
+    -- #16 confirmed on a real session rather than argued from the source.
+    options = { legacyZeroFill = true },
+    tolerance = {
+      -- Exact, to the last bits of a double, over 2700 frames: keyframes,
+      -- beziers, recorded paths and the mixing between them all agree with
+      -- CamTool 2. The bound is far above the 1.3e-13 measured and still far
+      -- below anything a real change could produce.
+      position = 1e-9,
+
+      -- The shake phase, and only that. CamTool 2's fallback clock is a
+      -- running total of dt since the app started, so a recording that begins
+      -- mid-session cannot say what phase the shake was in; the cameras that
+      -- shake are exactly the ones that miss. Every camera with no shake
+      -- agrees to the last bit. Recording the clock itself would close this,
+      -- and is the obvious version 2 of the trace format.
+      heading = 0.14,
+      pitch = 0.02,
+      roll = 1e-5,
+
+      -- DEFECT, not a tolerance. CamTool 2 interpolates camera_fov in the
+      -- form the file stores, 1/(fov+15), and converts to degrees afterwards.
+      -- The port converts at migration and interpolates degrees, so every
+      -- zoom follows a different curve: equal at the keyframes, up to 3.6 deg
+      -- apart between them over the whole recording.
+      fov = 2.3,
+
+      -- DEFECT, not a tolerance. camera_use_tracking_point is 0 or 1 in the
+      -- file, and 0 is truthy in Lua, so the port autofocuses on every camera
+      -- while CamTool 2 autofocuses on the ones that asked. Same family as
+      -- the division by zero in CLAUDE.md: Python semantics that do not
+      -- survive the crossing.
+      focus = 500,
+    },
+  },
+}
 
 --------------------------------------------------------------------------------
 -- The machinery

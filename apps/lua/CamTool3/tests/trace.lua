@@ -45,14 +45,35 @@ local function angleDelta(a, b)
   return d
 end
 
----Replay position in seconds, the clock the shake runs on.
----CamTool 2 computes it as the interpolated replay position divided by the
----frame length in seconds; a refresh rate of -1 means no replay is synced.
-local function clockOf(row)
+---The clock the shake runs on, rebuilt the way CamTool 2 built it.
+---
+---Two ways, and the recording says which was in force. With a synced replay it
+---is the interpolated replay position in seconds, deterministic and the same
+---on every re-render. Without one -- get_refresh_rate returns -1 -- CamTool 2
+---falls back to adding up dt, which makes the shake depend on the frame rate
+---of the session that produced it, and resets to zero whenever the replay is
+---paused.
+---
+---CamTool 3 always uses the deterministic clock, on purpose. That is a chosen
+---difference, already known, and feeding it here would shake every camera out
+---of phase and drown out everything else this comparison is for. So the
+---legacy clock is reconstructed instead, and the question of which clock to
+---keep stays where it belongs -- in the port, not in the measurement.
+---@param state table @carries the running total between frames
+---@return number @seconds
+local function clockOf(state, row)
   local rate = row.rrate
-  if type(rate) ~= 'number' or rate <= 0 then return 0 end
-  if type(row.rpos) ~= 'number' then return 0 end
-  return row.rpos / (1000 / rate)
+  local synced = row.status == 1 and type(rate) == 'number' and rate > 0
+
+  if synced and type(row.rpos) == 'number' then
+    state.clock = row.rpos / (1000 / rate)
+  elseif type(row.rtm) == 'number' and row.rtm ~= 0 then
+    state.clock = state.clock + (row.dt or 0) * row.rtm
+  else
+    state.clock = 0
+  end
+
+  return state.clock
 end
 
 ---What the trace says the camera was asked for, in the core's own terms.
@@ -86,6 +107,7 @@ function trace.replay(recording, cameraFile, options)
 
   local state = playbackCore.new(settings)
   local input = {}
+  local clock = { clock = 0 }
 
   local result = {
     compared = 0,
@@ -113,7 +135,7 @@ function trace.replay(recording, cameraFile, options)
 
       input.trackPos = row.x
       input.replayRate = row.rtm
-      input.clock = clockOf(row)
+      input.clock = clockOf(clock, row)
 
       -- AC hands out (x, y, z) with y up; CamTool stores z up.
       local car = row.carpos0
