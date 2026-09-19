@@ -287,7 +287,7 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   bien interpolé (easing sinus), mais `camera_offset_shake_strength` a un
   emplacement dans chaque keyframe et est pourtant lu **au niveau caméra**,
   jamais interpolé. Idem pour `spline_affect_pitch`/`roll`/`heading`.
-- **#23 dernière caméra buguée — MÉCANISME IDENTIFIÉ, reproduit par un test.**
+- **#23 dernière caméra buguée — CAUSE CONFIRMÉE en jeu par Théo.**
   La dernière caméra est active de son `camera_in` jusqu'à la fin du tour, puis
   au-delà de la ligne jusqu'à ce que la première prenne le relais. Pour
   interpoler à travers ce saut, CamTool lit ses keyframes **un tour en arrière**
@@ -302,8 +302,13 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   Correctif en mode `fixed` : ne décaler que si les keyframes sont réellement
   stockés décalés (`evaluate.hasWrappedKeyframes`). Les deux comportements sont
   derrière une case à cocher, legacy par défaut.
-  **À confirmer par Théo dans CamTool 2** : la dernière caméra de `le_lancone`
-  doit y être figée elle aussi.
+  **Confirmé dans CamTool 2** : sur `le_lancone` (fichier `lancia`), la dernière
+  caméra doit passer de 54,2° à 12,3° de FOV à 96,36 % du parcours. Le zoom ne
+  se produit pas — elle reste figée sur son premier keyframe, exactement comme
+  le prédit le mécanisme ci-dessus. Le même fichier dans CamTool 3 reproduit le
+  bug case cochée et zoome correctement case décochée.
+  Note : le déclencheur ne teste pas s'il s'agit d'un circuit, donc le bug frappe
+  aussi les spéciales de rallye, où le décalage n'a même pas de raison d'être.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
 - Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
 - Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
