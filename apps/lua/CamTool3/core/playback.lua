@@ -131,6 +131,7 @@ function playback.frame(state, doc, input)
   -- Nothing here may survive a frame that produced no camera.
   out.active = false
   out.activeCam = nil
+  out.specificCam = nil
   out.x, out.y, out.z = nil, nil, nil
   out.fov = nil
   out.dofDistance, out.dofFactor = nil, nil
@@ -146,6 +147,11 @@ function playback.frame(state, doc, input)
   if activeCam == nil then return out end
 
   local camera = cameras[activeCam]
+
+  -- Does this camera hand the view to one of Assetto Corsa's own? Reported
+  -- rather than acted on: switching cameras is the adapter's job, and the
+  -- rest of this function still runs so the panel keeps showing real values.
+  out.specificCam = camera.camera_use_specific_cam
 
   -- Keyframes are read at a position of their own for the camera that spans
   -- the start line. See #23.

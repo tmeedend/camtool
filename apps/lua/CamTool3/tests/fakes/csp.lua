@@ -38,6 +38,7 @@ function fakes.install(opts)
     grabbed = false,
     disposed = false,
     replayPositions = {},
+    cameraCalls = {},
     audioWrites = {},
     transform = {
       position = { x = 0, y = 0, z = 0 },
@@ -119,6 +120,25 @@ function fakes.install(opts)
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
 
     isKeyDown = function() return false end,
+
+    -- Handing the view to one of Assetto Corsa's own cameras. CamTool 2 had
+    -- to press F1 the right number of times; these are what CSP added.
+    CameraMode = {
+      Cockpit = 0, Car = 1, Drivable = 2, Track = 3, Helicopter = 4,
+      OnBoardFree = 5, Free = 6,
+    },
+    setCurrentCamera = function(mode)
+      handle.cameraMode = mode
+      handle.cameraCalls[#handle.cameraCalls + 1] = { 'mode', mode }
+    end,
+    setCurrentDrivableCamera = function(mode)
+      handle.drivableCamera = mode
+      handle.cameraCalls[#handle.cameraCalls + 1] = { 'drivable', mode }
+    end,
+    setCurrentCarCamera = function(index)
+      handle.carCamera = index
+      handle.cameraCalls[#handle.cameraCalls + 1] = { 'car', index }
+    end,
 
     -- Track identity, used to build the camera-file prefix.
     getTrackID = function() return opts.trackID or 'fake_track' end,

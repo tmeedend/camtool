@@ -21,6 +21,7 @@
 
 local storage = require('adapters/storage')
 local atrPanel = require('ui/atr')
+local cameramode = require('core/cameramode')
 local edit = require('core/edit')
 local atrParameter = require('ui/parameter')
 local angles = require('core/angles')
@@ -167,6 +168,11 @@ end
 -- The shake clock is the replay position in seconds, never wall time, so the
 -- same footage shakes identically on every render.
 local shakeClockReadout = 0
+
+-- Which Assetto Corsa camera the view has been handed to, or nil while
+-- CamTool is driving. Kept so the switch happens on change rather than every
+-- frame, which would fight anyone pressing F1 themselves.
+local handedTo = nil
 
 -- Set by playback each frame, cleared at the top of every update. Without this,
 -- the manual DOF probe below runs afterwards and clobbers the played-back focus
@@ -393,6 +399,43 @@ local function runPlayback(transform)
 
   local out = playbackCore.frame(pb, doc, pbIn)
   if not out.active then return end
+
+  ------------------------------------------------------------------
+  -- Cameras that hand the view to Assetto Corsa
+  ------------------------------------------------------------------
+  -- Eleven of the reference cameras do this, and until now the port drove
+  -- its own camera straight through them. Handing over means two things:
+  -- ask AC for the camera the file names, and stop writing the transform --
+  -- ownShare at zero lets AC's own view through the grab we are still
+  -- holding, so coming back is a matter of putting it back.
+  local handOver = cameramode.find(out.specificCam)
+  if handOver ~= nil then
+    if handedTo ~= handOver.value then
+      handedTo = handOver.value
+      ac.setCurrentCamera(ac.CameraMode[handOver.mode])
+      -- CamTool 2 could not ask for these: for the F1 family it pressed F1
+      -- the right number of times from a remembered offset, which is why it
+      -- needed the user to line the view up first. These two calls are what
+      -- CSP added, and what makes the manual sync unnecessary.
+      if handOver.drivable ~= nil then
+        ac.setCurrentDrivableCamera(handOver.drivable)
+      end
+      if handOver.carCamera ~= nil then
+        ac.setCurrentCarCamera(handOver.carCamera)
+      end
+      log('camera ' .. tostring(out.activeCam) .. ' hands the view to '
+        .. handOver.label)
+    end
+    cam.ownShare = 0
+    return
+  end
+
+  if handedTo ~= nil then
+    handedTo = nil
+    ac.setCurrentCamera(ac.CameraMode.Free)
+    cam.ownShare = ownShare
+    log('taking the view back')
+  end
 
   if out.x ~= nil then
     transform.position = toWorld(out.x, out.y, out.z)

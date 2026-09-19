@@ -77,6 +77,10 @@ theme.stripLive = rgbm(0.45, 0.22, 0.24, 1)
 -- long before anyone can say why.
 theme.rowHeight = 22
 theme.labelHeight = 17
+---The buttons of the session bar. Same height as a value row: at 18 the text
+---rode high in them, which is the one thing that still looked untidy once the
+---rows below were fixed.
+theme.barHeight = 22
 theme.arrowWidth = 16
 theme.gap = 4
 theme.padding = 6

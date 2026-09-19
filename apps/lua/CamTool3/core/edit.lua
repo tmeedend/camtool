@@ -25,6 +25,8 @@
   files people already made. Unifying them is Theo's call, not a tidy-up.
 ]]
 
+local cameramode = require('core/cameramode')
+
 local edit = {}
 
 --------------------------------------------------------------------------------
@@ -309,27 +311,20 @@ function edit.toggleFlag(camera, key)
   return { holder = camera, key = key, before = before, after = after }
 end
 
----The lowest and highest values of camera_use_specific_cam. Minus one is
----CamTool driving; 0 to 13 hand the view to one of Assetto Corsa's own
----cameras and skip the interpolation entirely. CamTool 2 wraps between the
----two ends, so this does too.
-edit.SPECIFIC_CAM_MIN = -1
-edit.SPECIFIC_CAM_MAX = 13
+---Step camera_use_specific_cam through the list in core/cameramode, which is
+---where the values and their names live.
+edit.SPECIFIC_CAM_MIN = cameramode.MIN
+edit.SPECIFIC_CAM_MAX = cameramode.MAX
 
 ---@return EditChange|nil
 function edit.cycleSpecificCam(camera, direction)
   if camera == nil then return nil, 'no camera' end
   local key = 'camera_use_specific_cam'
   local before = camera[key]
-  if type(before) ~= 'number' then before = edit.SPECIFIC_CAM_MIN end
-
-  local after = before + (direction or 1)
-  if after > edit.SPECIFIC_CAM_MAX then after = edit.SPECIFIC_CAM_MIN end
-  if after < edit.SPECIFIC_CAM_MIN then after = edit.SPECIFIC_CAM_MAX end
+  local after = cameramode.cycle(before, direction)
 
   camera[key] = after
-  return { holder = camera, key = key, before = camera[key] ~= before
-    and before or before, after = after }
+  return { holder = camera, key = key, before = before, after = after }
 end
 
 --------------------------------------------------------------------------------

@@ -67,13 +67,9 @@ local UNITS = {
     read = function(v) return v end,
   },
   specificCam = {
-    -- Minus one means CamTool drives. Anything else hands the view to one of
-    -- Assetto Corsa's own cameras, and CamTool 2 then skips its whole
-    -- interpolation -- which the port does not do yet.
-    show = function(v)
-      if v == nil or v < 0 then return 'CamTool' end
-      return 'AC cam ' .. tostring(math.floor(v))
-    end,
+    -- The names are CamTool 2's own, which are the words already in the
+    -- user's head: "steering wheel" is findable where "AC cam 0" is not.
+    show = function(v) return require('core/cameramode').label(v) end,
     read = function(v) return v end,
   },
 }
@@ -126,7 +122,7 @@ atr.COLUMNS = {
       row('camera_shake_strength', 'SHAKE CAMERA', UNITS.percent),
       row('camera_offset_shake_strength', 'SHAKE TRACKING', UNITS.percent),
       plainRow('camera_pit', 'PIT ONLY', UNITS.flag),
-      plainRow('camera_use_specific_cam', 'SPECIFIC CAM', UNITS.specificCam),
+      plainRow('camera_use_specific_cam', 'AC CAMERA', UNITS.specificCam),
     },
   },
   {
@@ -348,40 +344,40 @@ function atr.draw(state)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
 
-  if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(18, 18)) then
+  if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(theme.barHeight, theme.barHeight)) then
     actions.prevFile = true
   end
   ui.sameLine(0, 2)
   if ui.button((state.fileName or 'no file') .. '##fileName',
-      vec2(width - 160, 18)) then
+      vec2(width - 160, theme.barHeight)) then
     actions.loadFile = true
   end
   ui.sameLine(0, 2)
-  if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(18, 18)) then
+  if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(theme.barHeight, theme.barHeight)) then
     actions.nextFile = true
   end
   ui.sameLine(0, 6)
   if ui.button((state.held and 'Release camera' or 'Take camera') .. '##hold',
-      vec2(110, 18)) then
+      vec2(110, theme.barHeight)) then
     if state.held then actions.release = true else actions.grab = true end
   end
   ui.sameLine(0, 4)
   local depth = state.undoDepth or 0
-  if ui.button(string.format('Undo (%d)##undo', depth), vec2(74, 18)) then
+  if ui.button(string.format('Undo (%d)##undo', depth), vec2(74, theme.barHeight)) then
     actions.undo = true
   end
   ui.sameLine(0, 4)
   if ui.button(string.format('Redo (%d)##redo', state.redoDepth or 0),
-      vec2(70, 18)) then
+      vec2(70, theme.barHeight)) then
     actions.redo = true
   end
   ui.sameLine(0, 4)
   -- The star is the only thing saying there is work not on disk yet.
-  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save', vec2(60, 18)) then
+  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save', vec2(60, theme.barHeight)) then
     actions.save = true
   end
   ui.sameLine(0, 4)
-  if ui.button('Reset##reset', vec2(56, 18)) then
+  if ui.button('Reset##reset', vec2(56, theme.barHeight)) then
     actions.reset = true
   end
 
@@ -393,7 +389,7 @@ function atr.draw(state)
     ui.sameLine(0, 8)
     local legacy = state.mode ~= 'fixed'
     if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '##mode',
-        vec2(96, 18)) then
+        vec2(96, theme.barHeight)) then
       actions.mode = legacy and 'fixed' or 'legacy'
     end
   end
@@ -406,12 +402,12 @@ function atr.draw(state)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
   if ui.button((state.listName == 'pos' and '[position]' or ' position ')
-      .. '##modePos', vec2(78, 18)) then
+      .. '##modePos', vec2(78, theme.barHeight)) then
     actions.listName = 'pos'
   end
   ui.sameLine(0, 2)
   if ui.button((state.listName == 'time' and '[time]' or ' time ')
-      .. '##modeTime', vec2(64, 18)) then
+      .. '##modeTime', vec2(64, theme.barHeight)) then
     actions.listName = 'time'
   end
   ui.popStyleColor(3)

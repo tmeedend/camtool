@@ -600,3 +600,147 @@ test('every spline parameter is real, and the camera-level ones have no diamond'
       spec.cameraLevel and 'camera level' or 'keyframable'))
   end
 end)
+
+--------------------------------------------------------------------------------
+-- Handing the view to Assetto Corsa
+--------------------------------------------------------------------------------
+
+test('a camera with an AC camera set hands the view over', function()
+  -- Eleven of the reference cameras do this, and Le Lancone's camera 5 asks
+  -- for the steering wheel view. Until now the port drove straight through
+  -- them and nothing happened, which is what Theo saw.
+  --
+  -- A document of one camera, so which one is live is not in question.
+  local doc = {
+    pos = { {
+      camera_in = 0,
+      camera_use_specific_cam = 0,       -- steering wheel
+      camera_use_tracking_point = 0,
+      keyframes = { { keyframe = 0, interpolation = { loc_x = 0, loc_y = 0, loc_z = 5 } } },
+    } },
+    time = {},
+  }
+
+  local handle = fakes.install({
+    cameraFile = doc,
+    splinePosition = 0.5,
+    clicks = {
+      ['no file##fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
+      ['Take camera##hold'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 6 do
+    _G.script.windowAtr(0.016)
+    _G.script.update(0.016)
+  end
+
+  eq(handle.cameraMode, 2, 'Drivable is the mode the steering wheel view needs')
+  eq(handle.drivableCamera, 5, 'and the steering wheel is number five of it')
+
+  -- Asked for once, not every frame: doing it every frame would fight
+  -- anyone pressing F1 themselves.
+  local modeCalls = 0
+  for _, call in ipairs(handle.cameraCalls) do
+    if call[1] == 'mode' then modeCalls = modeCalls + 1 end
+  end
+  eq(modeCalls, 1, 'the switch has to happen on change, not every frame')
+
+  handle.restoreIo()
+end)
+
+test('a camera that drives itself takes the view back', function()
+  local doc = {
+    pos = {
+      { camera_in = 0, camera_use_specific_cam = 0,
+        keyframes = { { keyframe = 0, interpolation = { loc_x = 0, loc_y = 0, loc_z = 5 } } } },
+      { camera_in = 0.4, camera_use_specific_cam = -1,
+        keyframes = { { keyframe = 0.4, interpolation = { loc_x = 9, loc_y = 9, loc_z = 9 } } } },
+    },
+    time = {},
+  }
+
+  local handle = fakes.install({
+    cameraFile = doc,
+    splinePosition = 0.1,
+    clicks = {
+      ['no file##fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
+      ['Take camera##hold'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- sim.frame has to move: the app does its per-frame work once per render
+  -- frame and returns early otherwise, so a loop that never advances it runs
+  -- the first frame four times.
+  for _ = 1, 4 do
+    handle.sim.frame = handle.sim.frame + 1
+    _G.script.windowAtr(0.016)
+    _G.script.update(0.016)
+  end
+  eq(handle.cameraMode, 2, 'handed over on the first camera')
+
+  -- Drive on to the second camera, which drives itself.
+  handle.car.splinePosition = 0.6
+  for _ = 1, 4 do
+    handle.sim.frame = handle.sim.frame + 1
+    _G.script.update(0.016)
+  end
+
+  eq(handle.cameraMode, 6, 'Free is CamTool driving again')
+
+  handle.restoreIo()
+end)
+
+test('the names come from CamTool 2, not from numbers', function()
+  local cameramode = require('core/cameramode')
+
+  eq(cameramode.label(-1), 'CamTool')
+  eq(cameramode.label(nil), 'CamTool')
+  eq(cameramode.label(0), 'steering wheel', 'Le Lancone camera 5 asks for this')
+  eq(cameramode.label(8), 'behind')
+  eq(cameramode.label(13), 'cockpit')
+
+  -- Every value CamTool 2 could store has a name.
+  for value = cameramode.MIN + 1, cameramode.MAX do
+    local entry = cameramode.find(value)
+    eq(entry ~= nil, true, 'no entry for ' .. value)
+    eq(#entry.label > 0, true)
+    eq(type(entry.mode), 'string')
+  end
+end)
+
+test('the F1 family asks for a named camera rather than counting presses', function()
+  -- The whole point of doing this in Lua. CamTool 2 pressed F1 the right
+  -- number of times from a remembered offset, so the user had to line the
+  -- view up by hand first; CSP takes the camera by name.
+  local cameramode = require('core/cameramode')
+
+  local wheel = cameramode.find(0)
+  eq(wheel.mode, 'Drivable')
+  eq(wheel.drivable, 5, 'asked for directly, not counted to')
+
+  local behind = cameramode.find(8)
+  eq(behind.mode, 'Car')
+  eq(behind.carCamera, 5)
+
+  local helicopter = cameramode.find(2)
+  eq(helicopter.mode, 'Helicopter')
+  eq(helicopter.drivable, nil)
+  eq(helicopter.carCamera, nil)
+end)
+
+test('cycling walks the whole list and wraps', function()
+  local cameramode = require('core/cameramode')
+  eq(cameramode.cycle(-1, 1), 0)
+  eq(cameramode.cycle(13, 1), -1, 'wraps at the top')
+  eq(cameramode.cycle(-1, -1), 13, 'and at the bottom')
+  eq(cameramode.cycle(nil, 1), 0, 'a camera that never set it starts here')
+end)
