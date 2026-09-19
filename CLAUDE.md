@@ -154,6 +154,9 @@ Toute modification touchant `adapters/`, l'UI ou `acUpdate` se termine par une *
 - Supprimer le code commenté mort seulement quand l'équivalent est validé (le code commenté documente souvent les tentatives CSP échouées — reporter l'info dans le tableau DLL avant suppression).
 - Code, identifiants, commentaires et messages de commit en anglais. Échanges avec Théo en français.
 - Branche `camtool-3` pour la refonte ; les correctifs 2.x restent possibles sur `main`.
+- **Ne pas consigner l'état des push dans la documentation** : Théo s'en occupe,
+  et l'information périme au premier `git push`. Pousser seulement quand il le
+  demande.
 
 ## Refonte UX — règles actées
 

@@ -13,9 +13,6 @@
 | `poc/lua` | Le POC qui a fondé la décision Lua. Conservée comme repère, figée. |
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
-**Rien n'est poussé sur `origin`** à ce jour : tout le travail CamTool 3 est
-local.
-
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
 `luajit tests/run.lua` (161 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
