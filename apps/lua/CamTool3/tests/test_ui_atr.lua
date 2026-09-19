@@ -1173,11 +1173,12 @@ local function runHandOver(opts)
 end
 
 test('a game that clamps the camera we asked for is caught saying so', function()
-  -- CamTool 2 walks the F1 family modulo SIX, so its cycle has six positions
-  -- and "steering wheel" is the sixth. CSP names five. Whether the sixth
-  -- exists or lands back on the fifth is not something reading the SDK can
-  -- settle -- and "it looks the same as cockpit" is not evidence either. So
-  -- the app asks, reads back, and says when the two disagree.
+  -- The sixth of the F1 family: CamTool 2 walks that family modulo SIX, while
+  -- CSP's enum names five. The real game takes the sixth -- confirmed, the
+  -- enum is just incomplete -- but another build need not, and a camera
+  -- quietly swapped for its neighbour is invisible from anywhere else. So the
+  -- app asks, reads back, and says when the two disagree. Here the fake is
+  -- the build that clamps.
   local handle = runHandOver({ drivableCeiling = 4 })
 
   local asked = false

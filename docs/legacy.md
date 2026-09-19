@@ -112,15 +112,21 @@ Nature différente, donc traitement différent :
 | 4 | cockpit | `Dash` = 4 |
 | 5 | **steering wheel** | **rien — l'énumération s'arrête à 4** |
 
-Les cinq premières correspondent une à une. La sixième n'a pas de nom côté
-CSP. Soit elle existe sans être documentée, soit la demander retombe sur la
-cinquième — ce qui rendrait `steering wheel` et `cockpit` identiques à
-l'écran, et c'est exactement ce que Théo a signalé.
+Les cinq premières correspondent une à une. La sixième n'a **pas de nom** côté
+CSP, et la question s'est posée de savoir si elle existait : la demander
+aurait pu retomber sur la cinquième, rendant `steering wheel` et `cockpit`
+identiques à l'écran.
 
-Lire le SDK ne tranche pas. `CamTool3.lua` demande donc la caméra puis
-**relit `sim.driveableCameraMode`** à la frame suivante, et logge
-`WARNING ... settled on N` quand le jeu a retenu autre chose. La réponse
-viendra du log, pas d'une lecture.
+**Vérifié en jeu par Théo : ce sont bien deux vues différentes.** La sixième
+position existe donc, `ac.setCurrentDrivableCamera(5)` l'atteint, et
+**l'énumération `ac.DrivableCamera` du SDK est incomplète** — à retenir avant
+de se fier à ses bornes pour autre chose.
+
+`CamTool3.lua` garde la relecture de `sim.driveableCameraMode` à la frame
+suivante, qui logge `WARNING ... settled on N` si le jeu retient autre chose
+que ce qu'on a demandé. Elle ne se déclenche plus ici ; elle reste parce
+qu'une autre version de CSP pourrait ne pas se comporter pareil, et qu'une
+caméra silencieusement remplacée est invisible autrement.
 
 ### Migration à sens unique — acté par Théo
 

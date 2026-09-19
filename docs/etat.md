@@ -79,6 +79,10 @@ interpolateurs, conventions d'angles, tracking avec anticipation (lead/lag),
 splines enregistrées, shake (rotation et offset), profondeur de champ avec
 autofocus, fonctionnement fenêtre fermée.
 
+**Les caméras d'Assetto Corsa, y compris la sixième de la famille F1** :
+`steering wheel` et `cockpit` donnent bien deux vues différentes, alors que
+l'énumération du SDK s'arrête à la cinquième. Détail dans `docs/legacy.md`.
+
 **La carte du circuit et les gestes du panneau** (validés par Théo sur Spa) :
 le tracé teinté caméra par caméra, la rotation qui remplit la bande, la
 hauteur bornée par la fenêtre, l'anneau de survol, le clic qui sélectionne la
@@ -130,7 +134,6 @@ rien.
 | 11 | **Sauvegarde** | Écrit dans `apps/lua/CamTool3/data/`, **jamais** dans celui de CamTool 2. Vérifier que le fichier d'origine n'a pas changé de date. Recharger doit retrouver les modifications. |
 | 12 | **Caméras AC** | Sur `le_lancone`, la caméra 5 demande la vue **volant**. CamTool 3 doit passer la main : la vue devient celle d'AC, et revient quand la caméra suivante reprend. Onze caméras de référence sont dans ce cas. |
 | 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
-| 14 | **`steering wheel` vs `cockpit`** | Les deux doivent donner deux vues différentes. Si elles se ressemblent, chercher `settled on` dans le log : l'app demande la caméra et **relit** ce qu'AC a retenu. Voir la réserve plus bas. |
 
 ## ⏳ En attente de Théo
 
@@ -395,8 +398,9 @@ diagnostic.
    synchronisation manuelle que l'utilisateur devait faire avant. Elle
    disparaît.
 
-   ⚠️ **Réserve ouverte sur la sixième caméra de la famille F1** : voir plus
-   bas, `steering wheel` est peut-être hors bornes.
+   **La sixième caméra de la famille F1 existe**, bien que
+   `ac.DrivableCamera` n'en nomme que cinq : `steering wheel` et `cockpit`
+   donnent bien deux vues différentes, vérifié en jeu. Voir `docs/legacy.md`.
 
    Passer la main = demander la caméra **et** cesser d'écrire le transform :
    `ownShare` à 0 laisse passer la vue d'AC à travers le grab qu'on garde,
@@ -410,17 +414,6 @@ diagnostic.
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 
 ### Réserves connues, non bloquantes
-
-- **`steering wheel` est peut-être hors bornes.** `CamMode.changeCamModeZero`
-  de CamTool 2 travaille **modulo 6** : son cycle F1 a six positions, et
-  « steering wheel » est la sixième (`drivable = 5`). Or `ac.DrivableCamera` de
-  CSP n'en nomme que cinq (0 à 4, `cockpit` = 4 = `Dash`). Soit la sixième
-  existe sans être documentée, soit la demander retombe sur la cinquième — ce
-  qui expliquerait que Théo ne voie pas de différence entre les deux. Lire le
-  SDK ne tranche pas, et « ça se ressemble » non plus. L'app demande donc la
-  caméra puis **relit `sim.driveableCameraMode`** à la frame suivante et logge
-  `WARNING ... settled on N` si AC a retenu autre chose. Un lancement règle la
-  question.
 
 - **Les champs sont vides tant qu'aucune caméra n'est choisie.** `atrCamera`
   retombe sur `pbOut.activeCam`, qui n'existe que **caméra prise** (le calcul de

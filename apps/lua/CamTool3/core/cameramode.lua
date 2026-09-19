@@ -14,7 +14,11 @@
   the manual sync with it, are gone.
 
   The numbers below are CamTool 2's, taken from the branch in CamTool_2.py
-  that dispatches to CamMode. The names are CamTool 2's too, which matters
+  that dispatches to CamMode. Note the steering wheel: CamMode walks the F1
+  family modulo SIX, so drivable camera 5 is a real camera even though CSP's
+  ac.DrivableCamera enum stops at 4. Confirmed in game -- it is a different
+  view from cockpit, which is 4. The enum is incomplete, so do not trust its
+  bounds here. The names are CamTool 2's too, which matters
   more than it looks: they are the words already in the user's head, and
   "steering wheel" is findable where "AC cam 0" is not.
 

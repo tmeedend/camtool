@@ -438,14 +438,18 @@ local function runPlayback(transform)
       end
       log('camera ' .. tostring(out.activeCam) .. ' hands the view to '
         .. handOver.label)
-      -- Ask for it on the next frame what it actually settled on.
+      -- Check next frame that this is the camera the game actually took.
       --
-      -- CamTool 2 walks the F1 family modulo SIX (CamMode.changeCamModeZero),
-      -- so its cycle has six positions and "steering wheel" is the sixth.
-      -- CSP's ac.DrivableCamera names five, 0 to 4. Either the sixth exists
-      -- and is merely unnamed, or asking for it lands somewhere else -- and
-      -- "it looks the same as cockpit" is not evidence either way. The read
-      -- back is.
+      -- The sixth of the F1 family is the reason. CamTool 2 walks that family
+      -- modulo SIX (CamMode.changeCamModeZero) so its cycle has six
+      -- positions, while ac.DrivableCamera names five. Asking for the sixth
+      -- could have landed back on the fifth, which would make "steering
+      -- wheel" and "cockpit" the same view. It does not -- confirmed in game,
+      -- the enum is simply incomplete.
+      --
+      -- The check stays anyway: another CSP build need not behave the same,
+      -- and a camera quietly swapped for its neighbour is invisible from
+      -- anywhere else.
       checkHandOver = handOver
     end
     cam.ownShare = 0
