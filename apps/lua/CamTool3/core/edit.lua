@@ -426,6 +426,23 @@ function edit.addCamera(cameras, position)
   return structural(cameras, before)
 end
 
+---Empty a camera list, leaving one blank camera behind -- CamTool 2's Reset,
+---which does the same to both lists and both track splines with no
+---confirmation and no way back. Here it is one list, it is undoable, and the
+---panel asks first.
+---@return EditStructuralChange|nil change, string|nil why
+function edit.clearCameras(cameras)
+  if type(cameras) ~= 'table' or #cameras == 0 then
+    return nil, 'nothing to clear'
+  end
+
+  local before = copyList(cameras)
+  for i = #cameras, 1, -1 do cameras[i] = nil end
+  edit.addCamera(cameras, 0)
+
+  return structural(cameras, before)
+end
+
 ---@return EditStructuralChange|nil change, string|nil why
 function edit.removeCamera(cameras, index)
   if type(cameras) ~= 'table' then return nil, 'no camera list' end

@@ -504,3 +504,43 @@ test('saving with nothing loaded is refused, not crashed', function()
 
   handle.restoreIo()
 end)
+
+test('Reset asks before it clears anything', function()
+  -- The one button in CamTool 2 that can throw away an afternoon in a single
+  -- click. Here the first press only warns.
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    clicks = {
+      ['no file##fileName'] = true,
+      ['fake_track_-cameras.json##fileName'] = true,
+      ['Reset##reset'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Draw twice: the first Reset warns, the second goes through. Both have to
+  -- survive, and neither may write anything to disk.
+  for _ = 1, 3 do
+    local ok, err = pcall(_G.script.windowAtr, 0.016)
+    if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
+  end
+  eq(next(handle.written), nil, 'Reset must not touch the file')
+
+  handle.restoreIo()
+end)
+
+test('the undo and redo buttons are both offered', function()
+  local handle = fakes.install({ clicks = { ['Redo (0)##redo'] = true } })
+  local doc = dataModule.load(rawFile)
+
+  local actions = atr.draw({
+    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0.02, trackLength = 5802, undoDepth = 3, redoDepth = 0,
+  })
+  eq(actions.redo, true)
+
+  handle.restoreIo()
+end)

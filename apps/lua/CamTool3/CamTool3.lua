@@ -869,10 +869,15 @@ local atrKeyframe = 1
 -- Every edit, newest last. edit.apply hands back a record that can be put
 -- back, so undo is this stack and nothing more.
 local undoStack = {}
+local redoStack = {}
 local UNDO_KEPT = 200
 
 -- What the session line says instead of the loaded file name, after a save.
 local atrStatus = nil
+
+-- Reset asks once. CamTool 2 does not, and it is the one button that can
+-- throw away an afternoon in a single click.
+local atrConfirmReset = false
 
 -- How far one press moves a keyframe along the track. CamTool 2 offers 1, 10
 -- and 100 m on separate buttons; one row plus the modifiers covers the same
@@ -898,6 +903,24 @@ local function remember(change)
   if change == nil then return end
   undoStack[#undoStack + 1] = change
   while #undoStack > UNDO_KEPT do table.remove(undoStack, 1) end
+  -- A new edit is a new branch: what was undone is no longer ahead of us.
+  redoStack = {}
+end
+
+local function undoOnce()
+  if #undoStack == 0 then return end
+  local change = undoStack[#undoStack]
+  table.remove(undoStack)
+  edit.revert(change)
+  redoStack[#redoStack + 1] = change
+end
+
+local function redoOnce()
+  if #redoStack == 0 then return end
+  local change = redoStack[#redoStack]
+  table.remove(redoStack)
+  edit.reapply(change)
+  undoStack[#undoStack + 1] = change
 end
 
 ---The ATR panel. Read only for now: it shows a camera and its keyframes, and
@@ -920,6 +943,7 @@ function script.windowAtr(dt)
     doc = doc,
     fileName = fileIndex >= 1 and files[fileIndex] or nil,
     undoDepth = #undoStack,
+    redoDepth = #redoStack,
     status = atrStatus,
     listName = pb.options.listName,
     loadedName = doc ~= nil and docName or nil,
@@ -1070,9 +1094,15 @@ function script.windowAtr(dt)
     end
   end
 
-  if actions.undo and #undoStack > 0 then
-    edit.revert(undoStack[#undoStack])
-    table.remove(undoStack)
+  -- Ctrl+Z and Ctrl+Y, the shortcuts everyone reaches for first. Read here
+  -- rather than as an app hotkey so they only fire while this window has the
+  -- keyboard, and cannot fight whatever else is bound to them.
+  local ctrlHeld = ac.isKeyDown(ac.KeyIndex.Control)
+  if actions.undo or (ctrlHeld and ui.keyboardButtonPressed(ac.KeyIndex.Z)) then
+    undoOnce()
+  end
+  if actions.redo or (ctrlHeld and ui.keyboardButtonPressed(ac.KeyIndex.Y)) then
+    redoOnce()
   end
 
   -- The session controls, so that starting work no longer means opening the
@@ -1087,7 +1117,29 @@ function script.windowAtr(dt)
   if actions.loadFile then
     loadSelectedFile()
     atrStatus = nil
-    undoStack = {}
+    undoStack, redoStack = {}, {}
+  end
+
+  -- Reset. CamTool 2 wipes both camera lists and both track splines with no
+  -- confirmation and no way back, which docs/ui-inventory.md flags as its
+  -- most destructive button. Here it asks first, and what it does is undoable
+  -- like everything else.
+  if actions.reset and doc ~= nil then
+    if atrConfirmReset then
+      atrConfirmReset = false
+      local list = doc[pb.options.listName]
+      if type(list) == 'table' and #list > 0 then
+        remember(edit.clearCameras(list))
+        atrCamera, atrKeyframe = 1, 1
+        atrStatus = 'reset -- undo puts it back'
+      end
+    else
+      atrConfirmReset = true
+      atrStatus = 'Reset clears every camera of this list. Click again.'
+    end
+  elseif atrConfirmReset and next(actions) ~= nil then
+    -- Anything else clicked means they thought better of it.
+    atrConfirmReset = false
   end
 
   if actions.save then
@@ -1099,7 +1151,7 @@ function script.windowAtr(dt)
         atrStatus = 'saved ' .. docName
         -- The stack is what says there is work not on disk; once it is on
         -- disk, there is not.
-        undoStack = {}
+        undoStack, redoStack = {}, {}
         log('saved ' .. docName)
       else
         atrStatus = 'SAVE FAILED: ' .. tostring(err)

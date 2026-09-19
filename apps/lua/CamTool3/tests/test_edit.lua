@@ -432,3 +432,36 @@ test('a camera with no Specific cam set starts from CamTool', function()
   edit.cycleSpecificCam(c, 1)
   eq(c.camera_use_specific_cam, 0, 'nil reads as -1, so one step is 0')
 end)
+
+test('Reset clears a list but leaves one camera, and can be undone', function()
+  -- CamTool 2 wipes both lists and both track splines with no confirmation
+  -- and no way back. This clears one list, keeps a camera to work from, and
+  -- goes on the undo stack like everything else.
+  local cameras = { { camera_in = 0.1 }, { camera_in = 0.5 }, { camera_in = 0.9 } }
+  local change = edit.clearCameras(cameras)
+
+  eq(#cameras, 1, 'a list with no cameras at all is not usable')
+  eq(#cameras[1].keyframes, 1)
+
+  edit.revert(change)
+  eq(#cameras, 3)
+  eq(cameras[2].camera_in, 0.5, 'the same cameras, in the same order')
+end)
+
+test('undo and redo walk the same path in both directions', function()
+  local c = camera()
+  local one = edit.apply({ camera = c, keyframeIndex = 2,
+    key = 'tracking_mix', op = 'nudge', direction = 1 })
+  local two = edit.apply({ camera = c, keyframeIndex = 1,
+    key = 'loc_x', op = 'set', value = 3 })
+
+  edit.revert(two)
+  edit.revert(one)
+  eq(c.tracking_mix, 0.5)
+  eq(c.keyframes[1].interpolation.loc_x, 10)
+
+  edit.reapply(one)
+  edit.reapply(two)
+  eq(c.tracking_mix, 0.75)
+  eq(c.keyframes[1].interpolation.loc_x, 3)
+end)

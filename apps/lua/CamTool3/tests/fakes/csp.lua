@@ -145,6 +145,8 @@ function fakes.install(opts)
     Direction = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3 },
     arrowButton = function(label) return clicked(label) end,
     invisibleButton = function(label) return clicked(label) end,
+    keyboardButtonPressed = function(key) return opts.keyPressed == key end,
+    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90 },
 
     -- The pointer, for the drag and the double click. These answer the same
     -- for every widget, so a test that wants to be sure which one reacted

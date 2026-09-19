@@ -281,9 +281,18 @@ function atr.draw(state)
     actions.undo = true
   end
   ui.sameLine(0, 4)
+  if ui.button(string.format('Redo (%d)##redo', state.redoDepth or 0),
+      vec2(70, 18)) then
+    actions.redo = true
+  end
+  ui.sameLine(0, 4)
   -- The star is the only thing saying there is work not on disk yet.
   if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save', vec2(60, 18)) then
     actions.save = true
+  end
+  ui.sameLine(0, 4)
+  if ui.button('Reset##reset', vec2(56, 18)) then
+    actions.reset = true
   end
   ui.popStyleColor(3)
 
@@ -471,6 +480,7 @@ function atr.draw(state)
     .. 'double click it to type. Ctrl quarters the step, Shift quadruples it.')
   ui.text('Save writes over the file it came from, keeping one copy of what '
     .. 'was there before CamTool 3 first touched it.')
+  ui.text('Ctrl+Z undoes, Ctrl+Y redoes. Reset asks before it clears.')
   ui.popStyleColor()
 
   return actions
