@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (359 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (366 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -117,8 +117,9 @@ rien.
 | 18 | Carte, hauteur | Fenêtre par défaut : la carte ne prend pas plus d'un tiers du panneau. Fenêtre étirée : elle grandit jusqu'à 300 px et pas au-delà. Pas de bande vide sous un circuit large. |
 | 19 | **Clic sur la carte** | Survoler le tracé dessine un **anneau blanc** qui suit le pointeur : c'est la cible du clic, rendue visible. S'il suit le tracé, les repères concordent ; s'il est décalé, il dit de combien. Puis cliquer sélectionne la caméra, et cliquer le vide au milieu ne change **rien**. |
 | 20 | Bouton `map` | Range et ressort la carte. La bande disparaît entièrement, les paramètres remontent. |
-| 21 | **Molette sur une valeur** | Un cran = un pas, Ctrl et Shift comme ailleurs. ⚠️ **À vérifier : est-ce que le panneau défile en même temps ?** Si oui il faudra consommer la molette. |
-| 22 | Glisser une valeur | Existe depuis le composant paramètre (8 px par pas) mais ne marche que sur une caméra **vivante** — un champ à `--` n'a rien à bouger. À tester avec le replay en lecture et une caméra sélectionnée. |
+| 21 | **Glisser une valeur** | Sélectionner une caméra d'abord (sinon tout est à `--` et il n'y a rien à bouger). Le curseur doit devenir ↔ au survol. Un clic qui ripe de 2 px ne change **rien**. Un glissé vertical non plus. |
+| 22 | Glisser, annuler | **Échap pendant le glissé** remet la valeur de départ. Et `Undo` doit compter **+1 pour tout le glissé**, pas un par frame — c'est le point que les faux ne peuvent pas vérifier (leur `itemActive` répond vrai pour tous les champs à la fois, alors qu'ImGui n'en a qu'un d'actif). |
+| 23 | Pas de molette | La molette sur un champ ne doit **rien** changer : elle reste au défilement du panneau. |
 
 ## ⏳ En attente de Théo
 
@@ -369,6 +370,13 @@ diagnostic.
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 
 ### Réserves connues, non bloquantes
+
+- **Les champs sont vides tant qu'aucune caméra n'est choisie.** `atrCamera`
+  retombe sur `pbOut.activeCam`, qui n'existe que **caméra prise** (le calcul de
+  lecture sort tôt si la caméra n'est pas tenue). Sans ça, tous les champs
+  affichent `--` et aucun geste n'a de prise. Cliquer une caméra dans la bande
+  ou sur la carte les remplit, même sans prendre la caméra. À trancher : est-ce
+  qu'ouvrir un fichier devrait suffire à voir la caméra 1 ?
 
 - **Mouse look** : la visée est moins douce que dans CamTool 2. La cause est
   identifiée : le legacy pilote la caméra avec la **moyenne des 60 dernières

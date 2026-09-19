@@ -460,6 +460,29 @@ end
 
 ---Put back what a change changed. Undo is a stack of these.
 ---@param change EditChange|EditStructuralChange
+---Does this change continue an entry a drag has already opened?
+---
+---A drag is one gesture and should cost one undo, however many frames it
+---takes. Recording every frame would bury the rest of the stack under a
+---two-second drag and make undoing it a walk back pixel by pixel. So the
+---entry already on the stack keeps the value from before the gesture started
+---and grows a new end -- but only while all three of these hold.
+---
+---The gesture is a COUNTER, not the name of the row. Two drags of the same
+---parameter are two entries, and only a counter can tell them apart: the row
+---is called the same thing both times.
+---@param open table|nil @{ gesture = , change = } or nil when none is open
+---@param change table @what edit.apply just returned
+---@param gesture number|nil @the drag in progress, nil when none is
+---@return boolean
+function edit.continues(open, change, gesture)
+  if gesture == nil or open == nil or change == nil then return false end
+  return open.gesture == gesture
+    and open.change ~= nil
+    and open.change.holder == change.holder
+    and open.change.key == change.key
+end
+
 function edit.revert(change)
   if type(change) ~= 'table' then return false end
   if change.list ~= nil then

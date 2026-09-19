@@ -153,8 +153,12 @@ test('the ATR window exists and survives many frames', function()
   for _ = 1, 30 do
     local ok, err = pcall(_G.script.windowMain, 0.016)
     if not ok then error('windowMain raised: ' .. tostring(err), 2) end
-    ok, err = pcall(_G.script.update, 0.016)
-    if not ok then error('update raised: ' .. tostring(err), 2) end
+    -- Through handle.tick, which advances the render frame. Calling
+    -- script.update directly in a loop runs the app's work exactly ONCE: it
+    -- guards against its two entry points firing in the same frame, and with
+    -- the counter standing still every call after the first is that guard
+    -- doing its job. Thirty frames of nothing, and no way to tell.
+    handle.tick(0.016)
     ok, err = pcall(_G.script.windowAtr, 0.016)
     if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
   end
@@ -341,14 +345,17 @@ test('dragging a value reports how many steps it moved', function()
   -- Sixteen pixels at eight pixels a step is two steps, and the sign follows
   -- the direction of travel. core/edit then applies the parameter's own step
   -- and the modifiers, so a drag and an arrow can never disagree.
+  --
+  -- Two draws: the first frame arms the gesture past the dead zone, the
+  -- second is the drag proper. That is the shape of the real thing too.
   local handle = fakes.install({
     itemActive = true, mouseDragDelta = { x = 16, y = 0 },
   })
   parameter.cancelEditing()
 
-  local action, amount = parameter.draw('drag1', {
-    label = 'MIX', text = '50%', width = 140,
-  })
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('drag1', spec)
+  local action, amount = parameter.draw('drag1', spec)
   eq(action, 'drag')
   runner.near(amount, 2, 1e-12)
 
@@ -361,9 +368,134 @@ test('dragging leftwards moves the other way', function()
   })
   parameter.cancelEditing()
 
-  local _, amount = parameter.draw('drag2', { label = 'MIX', text = '50%', width = 140 })
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('drag2', spec)
+  local _, amount = parameter.draw('drag2', spec)
   runner.near(amount, -1, 1e-12)
 
+  handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- What makes the drag safe
+--------------------------------------------------------------------------
+
+test('a click that slips a pixel or two moves nothing', function()
+  -- The dead zone. Without it, pressing a value to read it more closely is
+  -- enough to change it, and the change only shows up in the edit.
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 2, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  eq(parameter.draw('slip', spec), nil)
+  eq(parameter.draw('slip', spec), nil, 'and it does not creep in later either')
+
+  handle.restoreIo()
+end)
+
+test('a drag is horizontal: moving up and down changes nothing', function()
+  -- Vertical would mean the same thing as scrolling the panel, and the mouse
+  -- would have to choose between them.
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 0, y = 60 },
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('vert', spec)
+  eq(parameter.draw('vert', spec), nil)
+
+  handle.restoreIo()
+end)
+
+test('the pointer says the value can be dragged', function()
+  -- Discoverability, and the only hint the panel gives.
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  parameter.draw('cursor1', { label = 'MIX', text = '50%', width = 140 })
+  eq(handle.cursor, ui.MouseCursor.ResizeEW)
+
+  handle.restoreIo()
+end)
+
+test('a value with nothing behind it does not offer the cursor', function()
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  parameter.draw('cursor2', {
+    label = 'FOCUS POINT', text = nil, present = false, width = 140,
+  })
+  eq(handle.cursor, nil, 'nothing to drag, so nothing promised')
+
+  handle.restoreIo()
+end)
+
+test('Escape during a drag asks for the value back', function()
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 30, y = 0 },
+    keyPressed = 27,
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('esc', spec)
+  eq(parameter.draw('esc', spec), 'dragCancel')
+
+  handle.restoreIo()
+end)
+
+test('after Escape the same hold cannot start dragging again', function()
+  -- The button is still down. Without this, letting go of Escape would rearm
+  -- the gesture a few pixels later and quietly carry on.
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 30, y = 0 },
+    keyPressed = 27,
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('esc2', spec)
+  eq(parameter.draw('esc2', spec), 'dragCancel')
+
+  handle.restoreIo()
+
+  -- Escape let go of, mouse still held.
+  handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 60, y = 0 },
+  })
+  eq(parameter.draw('esc2', spec), nil, 'still held, still not dragging')
+  handle.restoreIo()
+end)
+
+test('one gesture answers with one number, and the next with another', function()
+  -- What keeps a drag to one undo entry, and two drags of the same row to
+  -- two. The row id cannot tell them apart -- it is the same both times.
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 16, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  eq(parameter.draggingGesture(), nil, 'nothing yet')
+  parameter.draw('g', spec)
+  local first = parameter.draggingGesture()
+  eq(type(first), 'number')
+  parameter.draw('g', spec)
+  eq(parameter.draggingGesture(), first, 'the same gesture, still going')
+  handle.restoreIo()
+
+  -- Let go, then drag the same row again.
+  handle = fakes.install({ itemActive = false })
+  parameter.draw('g', spec)
+  eq(parameter.draggingGesture(), nil, 'let go')
+  handle.restoreIo()
+
+  handle = fakes.install({ itemActive = true, mouseDragDelta = { x = 16, y = 0 } })
+  parameter.draw('g', spec)
+  eq(parameter.draggingGesture() ~= first, true, 'a second gesture, not the first')
   handle.restoreIo()
 end)
 
@@ -875,92 +1007,6 @@ test('a window dragged out tall gets a bigger map, up to the ceiling', function(
   end
 
   eq(tallest <= theme.mapHeightMax, true, 'never past the ceiling')
-
-  handle.restoreIo()
-end)
-
---------------------------------------------------------------------------
--- The wheel
---------------------------------------------------------------------------
-
-test('rolling the wheel over a value moves it one step a notch', function()
-  -- The gesture that needs no aim: hover and roll, no value running away
-  -- under the pointer. It goes through the same entry point as the arrows and
-  -- the drag, so Ctrl and Shift still divide and multiply it.
-  local handle = fakes.install({ itemHovered = true, mouseWheel = 1 })
-  parameter.cancelEditing()
-
-  local action, amount = parameter.draw('wheel1', {
-    label = 'MIX', text = '50%', width = 140,
-  })
-  eq(action, 'drag')
-  runner.near(amount, 1, 1e-12)
-
-  handle.restoreIo()
-end)
-
-test('rolling the other way moves the other way', function()
-  local handle = fakes.install({ itemHovered = true, mouseWheel = -2 })
-  parameter.cancelEditing()
-
-  local _, amount = parameter.draw('wheel2', {
-    label = 'MIX', text = '50%', width = 140,
-  })
-  runner.near(amount, -2, 1e-12)
-
-  handle.restoreIo()
-end)
-
-test('the wheel does nothing unless the pointer is on the value', function()
-  local handle = fakes.install({ itemHovered = false, mouseWheel = 3 })
-  parameter.cancelEditing()
-
-  local action = parameter.draw('wheel3', {
-    label = 'MIX', text = '50%', width = 140,
-  })
-  eq(action, nil)
-
-  handle.restoreIo()
-end)
-
-test('a value with nothing behind it cannot be wheeled either', function()
-  local handle = fakes.install({ itemHovered = true, mouseWheel = 3 })
-  parameter.cancelEditing()
-
-  local action = parameter.draw('wheel4', {
-    label = 'FOCUS POINT', text = nil, present = false, width = 140,
-  })
-  eq(action, nil)
-
-  handle.restoreIo()
-end)
-
-test('a wheel nudged mid-drag does not fight the hand already moving it', function()
-  -- Both would be reported in the same frame, and the two would disagree
-  -- about how far the value should go.
-  local handle = fakes.install({
-    itemActive = true, itemHovered = true,
-    mouseDragDelta = { x = 16, y = 0 }, mouseWheel = 5,
-  })
-  parameter.cancelEditing()
-
-  local _, amount = parameter.draw('wheel5', {
-    label = 'MIX', text = '50%', width = 140,
-  })
-  runner.near(amount, 2, 1e-12, 'the drag, not the wheel')
-
-  handle.restoreIo()
-end)
-
-test('a readout cannot be wheeled -- there is nothing to set', function()
-  local handle = fakes.install({ itemHovered = true, mouseWheel = 1 })
-  parameter.cancelEditing()
-
-  local action = parameter.draw('wheel6', {
-    label = 'ACTIVE CAR', text = 'car 0', runtime = true,
-    noTyping = true, width = 140,
-  })
-  eq(action, nil)
 
   handle.restoreIo()
 end)

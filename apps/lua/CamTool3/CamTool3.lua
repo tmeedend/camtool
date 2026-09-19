@@ -952,12 +952,48 @@ local function liveValue(key)
   return nil
 end
 
+---The undo entry a drag in progress is stretching, with the gesture it
+---belongs to. See remember.
+local openDrag = nil
+
 local function remember(change)
   if change == nil then return end
+
+  -- A drag is one gesture and costs one undo, however many frames it takes.
+  -- Recording every frame would bury the rest of the stack under a two-second
+  -- drag, and undoing would then walk back through it a pixel at a time.
+  -- Instead the entry already on the stack keeps the value from before the
+  -- gesture started and grows a new end.
+  local gesture = atrParameter.draggingGesture()
+  if edit.continues(openDrag, change, gesture) then
+    openDrag.change.after = change.after
+    return
+  end
+
   undoStack[#undoStack + 1] = change
   while #undoStack > UNDO_KEPT do table.remove(undoStack, 1) end
   -- A new edit is a new branch: what was undone is no longer ahead of us.
   redoStack = {}
+
+  openDrag = gesture ~= nil and { gesture = gesture, change = change } or nil
+end
+
+---Escape during a drag: put the value back where the gesture found it.
+---
+---The open entry already holds that value, so this is the same revert undo
+---would do -- minus the entry, which never became a thing the user did.
+local function cancelDrag()
+  if openDrag == nil then return end
+
+  for i = #undoStack, 1, -1 do
+    if undoStack[i] == openDrag.change then
+      table.remove(undoStack, i)
+      break
+    end
+  end
+
+  edit.revert(openDrag.change)
+  openDrag = nil
 end
 
 local function undoOnce()
@@ -1041,6 +1077,10 @@ function script.windowAtr(dt)
     atrKeyframe = 1
     atrParameter.cancelEditing()
   end
+  -- Once nothing is being dragged, the entry is closed: the next edit starts
+  -- a new one even on the same parameter.
+  if atrParameter.draggingGesture() == nil then openDrag = nil end
+
   if actions.toggleMap then atrShowMap = not atrShowMap end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
@@ -1087,7 +1127,9 @@ function script.windowAtr(dt)
           op, value = 'set', request.amount
         end
 
-        if op ~= nil then
+        if request.op == 'dragCancel' then
+          cancelDrag()
+        elseif op ~= nil then
           remember(edit.apply({
             camera = camera,
             keyframeIndex = keyframeCount > 0 and atrKeyframe or nil,

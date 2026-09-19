@@ -36,6 +36,7 @@ local parameter = {}
 ---| '"decrement"' @the left arrow
 ---| '"increment"' @the right arrow
 ---| '"drag"' @the value was dragged; the payload is how many steps
+---| '"dragCancel"' @Escape during a drag: put the value back as it was
 ---| '"commit"' @a number was typed; the payload is that number
 ---| '"badge"' @the marker beside the label, where there is one
 
@@ -49,13 +50,24 @@ local DIAMOND_SIZE = 9
 ---point as the arrows.
 local PIXELS_PER_STEP = 8
 
----One notch of the wheel is one step, the same step the arrows take.
+---How far the pointer travels before the drag takes hold.
 ---
----Video tools have trained this: in Fusion, Nuke and Premiere the wheel over
----a number changes it. It costs nothing to offer next to the drag, and it is
----the one gesture that needs no aim -- hover and roll, without the value
----running away under the pointer.
-local STEPS_PER_NOTCH = 1
+---A click that slips by a pixel must not move a value. Four is enough to tell
+---the two apart and short enough that nobody notices it.
+local DEAD_ZONE_PX = 4
+
+-- Which row the mouse is holding, and how far that hold has got.
+--
+--   holding    pressed, but not yet past the dead zone
+--   armed      dragging; every pixel now moves the value
+--   cancelled  Escape was pressed; nothing moves until the button is let go
+--
+-- dragToken counts the gestures. Two drags of the same row are two entries on
+-- the undo stack, and only a counter can tell them apart -- the row's own id
+-- is the same both times.
+local dragId = nil
+local dragState = 'idle'
+local dragToken = 0
 
 -- Which row is being typed into, and what is in the field. One at a time,
 -- so this is a plain pair rather than a table: opening a second field closes
@@ -205,21 +217,49 @@ function parameter.draw(id, spec)
 
     local live = spec.present ~= false and not spec.noTyping
 
+    -- The cursor is what makes the gesture discoverable, and it does it
+    -- better than any line of help text under the panel.
+    if live and ui.itemHovered() then
+      ui.setMouseCursor(ui.MouseCursor.ResizeEW)
+    end
+
+    -- Horizontal only. A vertical drag would mean the same thing as scrolling
+    -- the panel, and the mouse would have to choose.
+    --
+    -- The wheel deliberately does NOT do this. It is the same gesture whether
+    -- you meant to scroll the panel or change a number -- only the pointer
+    -- tells them apart, and nobody looks at the pointer while scrolling. Worse,
+    -- if the panel scrolls at the same time, the rows travel under the pointer
+    -- and one roll touches several parameters with nothing to show for it. For
+    -- work whose mistakes only surface in the edit, that is the worst case
+    -- there is.
     if live and ui.itemActive() then
-      local delta = ui.mouseDragDelta(0)
-      if delta ~= nil and delta.x ~= 0 then
-        action, payload = 'drag', delta.x / PIXELS_PER_STEP
-        -- Reset so the next frame reports the movement since this one; the
-        -- drag is then a stream of small steps rather than one growing jump.
-        ui.resetMouseDragDelta(0)
+      if dragId ~= id then dragId, dragState = id, 'holding' end
+
+      -- Threshold zero: the dead zone is ours, measured on the axis that
+      -- matters, rather than ImGui's which counts both.
+      local delta = ui.mouseDragDelta(0, 0)
+      local dx = delta ~= nil and delta.x or 0
+
+      if dragState == 'holding' then
+        if math.abs(dx) >= DEAD_ZONE_PX then
+          dragState, dragToken = 'armed', dragToken + 1
+          ui.resetMouseDragDelta(0)
+        end
+      elseif dragState == 'armed' then
+        if ui.keyboardButtonPressed(ui.KeyIndex.Escape) then
+          -- Blender's escape hatch, and the reason a drag is safe to try: the
+          -- value goes back to what it was before the gesture started.
+          action, dragState = 'dragCancel', 'cancelled'
+        elseif dx ~= 0 then
+          action, payload = 'drag', dx / PIXELS_PER_STEP
+          -- Reset so the next frame reports the movement since this one; the
+          -- drag is then a stream of small steps rather than one growing jump.
+          ui.resetMouseDragDelta(0)
+        end
       end
-    elseif live and ui.itemHovered() then
-      -- Only when nothing is being dragged, so a wheel nudged mid-drag cannot
-      -- fight the hand already moving the value.
-      local wheel = ui.mouseWheel()
-      if type(wheel) == 'number' and wheel ~= 0 then
-        action, payload = 'drag', wheel * STEPS_PER_NOTCH
-      end
+    elseif dragId == id then
+      dragId, dragState = nil, 'idle'
     end
 
     if not spec.noTyping and ui.itemHovered() and ui.mouseDoubleClicked(0) then
@@ -241,6 +281,15 @@ function parameter.draw(id, spec)
   ui.endGroup()
 
   return action, payload
+end
+
+---Which gesture is dragging, or nil when none is.
+---
+---The caller uses it to keep one drag to one undo entry: while this answers
+---the same number, the edits it produces are all the same gesture stretching.
+---@return number|nil
+function parameter.draggingGesture()
+  return dragState == 'armed' and dragToken or nil
 end
 
 ---Give up any field being typed into. Called when the panel switches to

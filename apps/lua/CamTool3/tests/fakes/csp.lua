@@ -40,6 +40,7 @@ function fakes.install(opts)
     -- was drawn outside its box, that the track was stroked once per run of
     -- colour. Not enough to say it looks right -- nothing here can.
     drawn = {},
+    buttons = {},
     grabbed = false,
     disposed = false,
     replayPositions = {},
@@ -195,7 +196,11 @@ function fakes.install(opts)
     arrowButton = function(label) return clicked(label) end,
     invisibleButton = function(label) return clicked(label) end,
     keyboardButtonPressed = function(key) return opts.keyPressed == key end,
-    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90 },
+    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27 },
+    -- The pointer shape over a draggable value. A plain table because the
+    -- catch-all below answers with a function, and indexing a function raises.
+    MouseCursor = { Arrow = 0, ResizeEW = 6 },
+    setMouseCursor = function(shape) handle.cursor = shape end,
 
     -- The pointer, for the drag and the double click. These answer the same
     -- for every widget, so a test that wants to be sure which one reacted
@@ -204,7 +209,6 @@ function fakes.install(opts)
     itemHovered = function() return opts.itemHovered == true end,
     mouseDoubleClicked = function() return opts.mouseDoubleClicked == true end,
     mouseDragDelta = function() return opts.mouseDragDelta end,
-    mouseWheel = function() return opts.mouseWheel or 0 end,
     resetMouseDragDelta = function() end,
     setNextItemWidth = function() end,
 
@@ -273,7 +277,12 @@ function fakes.install(opts)
     slider = function(_, value) return value, false end,
     checkbox = function(label) return clicked(label) end,
     radioButton = function(label) return clicked(label) end,
-    button = function(label) return clicked(label) end,
+    -- Labels are recorded: several of the panel's readouts are written into
+    -- them, the undo depth among them, and a test has no other way to see it.
+    button = function(label)
+      handle.buttons[#handle.buttons + 1] = label
+      return clicked(label)
+    end,
     hotkeyCtrl = function() return false end,
     hotkeyAlt = function() return false end,
     hotkeyShift = function() return false end,
@@ -330,6 +339,20 @@ function fakes.install(opts)
 
   handle.sim = sim
   handle.camera = grabbedCamera
+
+  ---Advance one render frame and run the app's per-frame work.
+  ---
+  ---Bumping sim.frame is not a detail. The app runs its work once per render
+  ---frame and guards against the two entry points firing in the same one, so
+  ---with the counter left where it starts, a test that loops thirty times
+  ---runs exactly one frame and cannot tell. Anything that needs the app to
+  ---actually advance goes through here.
+  ---@param dt number|nil
+  function handle.tick(dt)
+    sim.frame = sim.frame + 1
+    if _G.script.update ~= nil then pcall(_G.script.update, dt or 0.016) end
+  end
+
   return handle
 end
 

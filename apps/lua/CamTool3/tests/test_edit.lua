@@ -510,3 +510,49 @@ test('switching the maths is an edit, and undoes', function()
   edit.revert(change)
   eq(doc.interpolation_mode, 'legacy')
 end)
+
+--------------------------------------------------------------------------
+-- One drag, one undo
+--------------------------------------------------------------------------
+
+local function change(holder, key, before, after)
+  return { holder = holder, key = key, before = before, after = after }
+end
+
+test('the same gesture on the same value stretches one entry', function()
+  local holder = {}
+  local open = { gesture = 7, change = change(holder, 'camera_fov', 40, 41) }
+  eq(edit.continues(open, change(holder, 'camera_fov', 41, 42), 7), true)
+end)
+
+test('a second drag of the same parameter is a second entry', function()
+  -- The one that makes the gesture a counter rather than the row's name: let
+  -- go, drag the same field again, and that has to be undoable on its own.
+  local holder = {}
+  local open = { gesture = 7, change = change(holder, 'camera_fov', 40, 41) }
+  eq(edit.continues(open, change(holder, 'camera_fov', 41, 42), 8), false)
+end)
+
+test('a drag that wanders onto another parameter starts a new entry', function()
+  local holder = {}
+  local open = { gesture = 7, change = change(holder, 'camera_fov', 40, 41) }
+  eq(edit.continues(open, change(holder, 'tracking_mix', 0, 0.1), 7), false)
+end)
+
+test('the same parameter on another keyframe is another entry', function()
+  -- Same key, different holder: the keyframe under the playhead moved on.
+  local open = { gesture = 7, change = change({}, 'camera_fov', 40, 41) }
+  eq(edit.continues(open, change({}, 'camera_fov', 41, 42), 7), false)
+end)
+
+test('an arrow or a typed value never continues a drag', function()
+  local holder = {}
+  local open = { gesture = 7, change = change(holder, 'camera_fov', 40, 41) }
+  eq(edit.continues(open, change(holder, 'camera_fov', 41, 42), nil), false,
+    'no gesture in progress, so nothing to stretch')
+end)
+
+test('with nothing open there is nothing to continue', function()
+  eq(edit.continues(nil, change({}, 'camera_fov', 40, 41), 7), false)
+  eq(edit.continues({ gesture = 7 }, change({}, 'camera_fov', 40, 41), 7), false)
+end)
