@@ -374,6 +374,9 @@ local function runPlayback(transform)
   if not pb.haveAim then
     local look = cam.transformOriginal.look
     pbIn.seedHeading, pbIn.seedPitch = angles.fromLook(look.x, look.y, look.z)
+    -- Same for the focus the camera is already holding, so the first frame
+    -- that holds rather than refocuses does not snap the plane to zero.
+    pbIn.seedFocus = cam.dofDistanceOriginal
   end
 
   pbIn.trackPos = focusedTrackPosition()

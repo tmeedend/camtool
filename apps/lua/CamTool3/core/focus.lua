@@ -12,6 +12,8 @@
   would sit in empty space between them and leave both soft.
 ]]
 
+local angles = require('core/angles')
+
 local focus = {}
 
 ---Below this, the legacy switches DOF off entirely rather than focusing.
@@ -54,11 +56,19 @@ end
 ---The legacy holds the previous focus when the camera is aimed more than a
 ---quarter turn away from the tracked car: refocusing on something off screen
 ---would pump the depth of field for no reason.
----@param cameraHeading number @radians
----@param trackedHeading number @radians
+---
+---Two details, both from the legacy and both measurable against a recording.
+---The tracked heading is put on the camera's branch first, so two aims a full
+---turn apart on paper but identical on screen compare as identical. And the
+---camera heading the caller passes is the one from the PREVIOUS frame: the
+---legacy reads it through ctt, which caches it for the frame and is not
+---cleared by set_rotation, so the gate never sees the heading being set now.
+---@param cameraHeading number @radians, the previous frame's
+---@param trackedHeading number @radians, the aim at the car before offsets
 ---@return boolean
 function focus.shouldRefocus(cameraHeading, trackedHeading)
-  return math.abs(cameraHeading - trackedHeading) <= math.pi / 2
+  local onBranch = angles.normalize(cameraHeading, trackedHeading)
+  return math.abs(cameraHeading - onBranch) <= math.pi / 2
 end
 
 ---DOF strength for a focus distance, from CamToolTool.set_focus_point:

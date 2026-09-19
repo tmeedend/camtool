@@ -71,16 +71,41 @@ local RECORDINGS = {
       -- and 3.6 over the whole recording.
       fov = 1e-9,
 
-      -- DEFECT, not a tolerance, and a smaller one than it was: reading the
-      -- autofocus flag correctly took this from 500 m to 277. What is left is
-      -- the gate that decides when to refocus. CamTool 2 holds the focus when
-      -- the camera is aimed more than a right angle away from the car, and it
-      -- measures that against the heading of the PREVIOUS frame, because ctt
-      -- caches the heading and set_rotation does not clear it. The port
-      -- measures it against the heading it has just worked out, so the two
-      -- stop refocusing at different moments and one of them holds a stale
-      -- distance. Every camera that is refocusing agrees exactly.
-      focus = 277,
+      -- Exact, after two fixes: reading the autofocus flag properly took this
+      -- from 500 m to 277, and aligning the refocus gate with the legacy's --
+      -- previous frame's heading, raw aim, normalised -- took it to 6e-6.
+      focus = 1e-5,
+    },
+  },
+  {
+    name = 'le lancone, the first third of a lap',
+    fixture = 'tests/fixtures/trace_lancone',
+    cameraFile = 'tests/fixtures/camera_file_lastcam',
+    options = { legacyZeroFill = true },
+    -- A second track, a 48-camera file, and a camera set built quite
+    -- differently from Silverstone's. Position comes out at exactly zero
+    -- here, not merely small.
+    --
+    -- It does NOT contain the camera issue #23 lives on: Le Lancone is 7.3 km
+    -- and two minutes of replay only covers the first third of a lap, so the
+    -- recording stops long before the start line. Catching that one means
+    -- seeking the replay close to the end of the lap before recording.
+    tolerance = {
+      position = 1e-9,
+
+      -- Three frames of 7200, all at a camera change and all downstream of
+      -- what the camera was doing before the recording began -- which the
+      -- trace cannot carry for the aim, since reading the heading in game
+      -- would fill a cache the game fills later.
+      heading = 0.36,
+      pitch = 1e-9,
+      roll = 1e-9,
+
+      fov = 1e-9,
+
+      -- Five frames of 7200, same cause: on the first frame CamTool 2 holds a
+      -- distance it had before the recording and the port focuses on the car.
+      focus = 465,
     },
   },
 }

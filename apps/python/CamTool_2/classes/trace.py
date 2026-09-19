@@ -152,6 +152,12 @@ class Trace(object):
                 "rpos": replay.get_interpolated_replay_pos(),
                 "rrate": replay.get_refresh_rate(),
                 "focused": ac.getFocusedCar(),
+                # The focus distance the camera already has. Safe to read here,
+                # unlike heading and roll: ext_getCameraDofFocus goes straight
+                # to CSP and fills no cache, so asking changes nothing. Worth
+                # having because the legacy holds this value whenever it
+                # decides not to refocus, and a reader cannot guess it.
+                "focus0": ctt.get_focus_point(),
             }
 
             # The two cars a camera can track, and where they are. Raw AC order

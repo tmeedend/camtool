@@ -128,8 +128,15 @@ function trace.replay(recording, cameraFile, options)
       result.skippedNoOutput = result.skippedNoOutput + 1
     else
       if not seeded then
-        input.seedHeading = recorded.heading
-        input.seedPitch = recorded.pitch
+        -- head0 and pitch0 exist only in a recording made from a lap. A real
+        -- one cannot carry them, so its first frame is seeded from its own
+        -- result and agrees by construction; see the head of this file.
+        input.seedHeading = row.head0 or recorded.heading
+        input.seedPitch = row.pitch0 or recorded.pitch
+        -- What the camera was already focused on. Recordings carry it as
+        -- focus0; the two made before that field existed do not, and for
+        -- those the first frame's own result is the closest thing available.
+        input.seedFocus = row.focus0 or recorded.focus
         seeded = true
       end
 
@@ -244,6 +251,12 @@ function trace.fromLap(rows, listName)
         rrate = 1000,
         focused = 0,
         car0 = 0,
+        -- What the core was holding on the way into the frame. A recording
+        -- made in game carries only focus0; the other two are what makes a
+        -- lap replay onto itself exactly.
+        focus0 = row.focusBefore,
+        head0 = row.headingBefore,
+        pitch0 = row.pitchBefore,
         -- Back to AC order, since that is what a recording holds.
         carpos0 = { row.carX, row.carZ, row.carY },
         pos = { row.x, row.y, row.z },

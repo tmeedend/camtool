@@ -239,6 +239,15 @@ function lap.runCore(opts)
     input.carX, input.carY, input.carZ = sampler(position)
     input.clock = i * frameMs / 1000
 
+    -- The aim and focus the core is holding on the way in. A real recording
+    -- cannot carry the heading -- reading it in game would fill a cache the
+    -- game fills later -- but a lap turned into a recording can, and the
+    -- replay of such a recording has to start from exactly here to land on
+    -- exactly the same frames.
+    local headingBefore = state.heading or input.seedHeading
+    local pitchBefore = state.pitch or input.seedPitch
+    local focusBefore = state.focusDistance
+
     local out = playbackCore.frame(state, doc, input)
 
     -- The output table is reused frame to frame, so this has to be a copy.
@@ -254,6 +263,9 @@ function lap.runCore(opts)
       -- turned into one has to carry them as well.
       carX = input.carX, carY = input.carY, carZ = input.carZ,
       clock = input.clock,
+      headingBefore = headingBefore,
+      pitchBefore = pitchBefore,
+      focusBefore = focusBefore,
     }
     for _, field in ipairs(lap.CORE_FIELDS) do row[field] = out[field] end
     rows[i] = row

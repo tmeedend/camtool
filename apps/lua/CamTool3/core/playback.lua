@@ -102,6 +102,7 @@ end
 ---  clock         replay position in seconds, the shake clock
 ---  seedHeading   the camera's real heading, used once to seed the held aim
 ---  seedPitch     likewise for pitch
+---  seedFocus     the camera's focus distance, likewise for the held focus
 ---@return table @the output table, reused between frames: copy what you keep
 function playback.frame(state, doc, input)
   local out = state.out
@@ -139,9 +140,17 @@ function playback.frame(state, doc, input)
 
   -- Where the legacy reads the camera's live angles: the previous frame's
   -- result, seeded from the real orientation the first time through.
+  --
+  -- The held focus is seeded the same way and for the same reason. The legacy
+  -- holds it by reading the camera back, so on the frame it first holds, the
+  -- value is whatever the camera already had. Starting from zero instead puts
+  -- the focus plane on the lens until something writes a real distance.
   if not state.haveAim then
     state.heading = input.seedHeading or 0
     state.pitch = input.seedPitch or 0
+    if type(input.seedFocus) == 'number' then
+      state.focusDistance = input.seedFocus
+    end
     state.haveAim = true
   end
   local currentHeading, currentPitch = state.heading, state.pitch
@@ -218,6 +227,9 @@ function playback.frame(state, doc, input)
   end
 
   local aimHeading, aimPitch = nil, nil
+  -- The aim at the car before the offsets are added. The focus gate wants
+  -- this one, not the offset aim the camera ends up using.
+  local aimHeadingRaw = nil
   local pitchStrength = 0
   local aimStrength = 0
 
@@ -248,6 +260,7 @@ function playback.frame(state, doc, input)
         tracking.target(state.carHistory, offset, input.replayRate, offsetShake)
 
       aimHeading, aimPitch = angles.aimAt(px, py, pz, targetX, targetY, targetZ)
+      aimHeadingRaw = aimHeading
       aimHeading = aimHeading + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
       aimPitch = aimPitch + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
 
@@ -331,7 +344,10 @@ function playback.frame(state, doc, input)
     -- 0 or 1 rather than as a boolean -- hence data.isOn, since a plain `if`
     -- would read 0 as on.
     if dataModule.isOn(camera.camera_use_tracking_point) and carPosX ~= nil then
-      if aimHeading == nil or focus.shouldRefocus(heading, aimHeading) then
+      -- currentHeading, not heading: the legacy's gate reads the camera's
+      -- heading through ctt, which still holds the previous frame's value at
+      -- this point in the frame.
+      if aimHeadingRaw == nil or focus.shouldRefocus(currentHeading, aimHeadingRaw) then
         distance = focus.auto({ x = px, y = py, z = pz },
           { x = carPosX, y = carPosY, z = carPosZ }, nil, 0)
         state.focusDistance = distance
