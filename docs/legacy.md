@@ -83,6 +83,7 @@ un test, pour qu'aucune correction n'arrive par accident.
 | 4 | `SolveQuadratic(0, 0, c)` renvoie `c` | cubique dégénérée, tous coefficients nuls sauf `d` | la constante est servie comme paramètre de courbe `t`, sans borne [0,1] | `cubic_golden.lua` |
 | 5 | Mélange de position : les axes Y et Z utilisent `ctt.get_position(0)` — l'axe **X** (`InterpolateFrame.py` ~156 et ~177) | `transform_loc_strength < 1` | Y et Z sont mélangés avec la coordonnée X de la caméra. Copier-coller. **Dormant** : vaut 1.0 sur les 566 caméras de référence, jamais keyframé | — |
 | 6 | `locCameraData.transform_rot_strength = loc_transform_loc_strength` (~119) | `transform_loc_strength` keyframé | la force de **translation** est écrite dans le cache de la force de **rotation**. **Dormant** : jamais keyframé dans les fichiers de référence | — |
+| 7 | `self.__shake_offset / info.graphics.replayTimeMultiplier` (`Camera.py` ~644) — division **sans affectation**, le résultat est jeté | shake d'offset actif en ralenti ou accéléré | le shake d'offset n'est **pas** mis à l'échelle par la vitesse de replay, contrairement au shake de rotation qui l'est. Diviser maintenant changerait le rendu des caméras existantes | `test_shake.lua` |
 
 Nature différente, donc traitement différent :
 

@@ -22,6 +22,8 @@ require('tests/test_data')
 require('tests/test_evaluate')
 require('tests/test_tracking')
 require('tests/test_spline')
+require('tests/test_shake')
+require('tests/test_focus')
 require('tests/test_app_smoke')
 
 os.exit(runner.run() and 0 or 1)

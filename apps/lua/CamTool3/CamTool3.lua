@@ -19,6 +19,8 @@ local evaluate = require('core/evaluate')
 local angles = require('core/angles')
 local tracking = require('core/tracking')
 local spline = require('core/spline')
+local shake = require('core/shake')
+local focus = require('core/focus')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -195,6 +197,38 @@ local splineQuery = 0
 -- are stored wrapped, which freezes cameras like le_lancone's last one on their
 -- first keyframe. That is issue #23; leave this on to reproduce it.
 local legacyLastCamera = true
+
+-- Shake needs two things: how fast the camera is panning, and a clock. The clock
+-- is the replay position in seconds, never wall time, so the same footage shakes
+-- identically on every render.
+local headingHistory = {}
+local applyShake = true
+local applyFocus = true
+local shakeMomentum = 0
+local focusDistance = 0
+local shakeClockReadout = 0
+
+-- Set by playback each frame, cleared at the top of every update. Without this,
+-- the manual DOF probe below runs afterwards and clobbers the played-back focus
+-- with the camera's original factor -- the same trap playbackFov already avoids.
+local playbackDofDistance = nil
+local playbackDofFactor = nil
+
+---Replay position in seconds. Deterministic on purpose: re-rendering the same
+---footage must shake identically, which a wall clock would not give.
+local function shakeClock()
+  local ms = sim.replayFrameMs
+  if type(ms) ~= 'number' or ms <= 0 then return 0 end
+  return (sim.replayCurrentFrame or 0) * ms / 1000
+end
+
+---Keep the last N headings, most recent first, for the pan-speed measure.
+local function pushHeading(value)
+  table.insert(headingHistory, 1, value)
+  while #headingHistory > shake.DEFAULT_MOMENTUM_WINDOW do
+    table.remove(headingHistory)
+  end
+end
 local keyframeQuery = 0
 local isLastCamera = false
 
@@ -463,6 +497,9 @@ local function runPlayback(transform)
       ------------------------------------------------------------------
       -- Aim: keyframes, the tracked car, and the path
       ------------------------------------------------------------------
+      -- Fetched once: the tracking aim and the autofocus both need it.
+      local carPosX, carPosY, carPosZ = focusedCarPosition()
+
       -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
       -- InterpolateFrame.py.
       local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
@@ -480,7 +517,7 @@ local function runPlayback(transform)
       aimStrength = 0
 
       if applyTracking and px ~= nil and py ~= nil and pz ~= nil then
-        local carX, carY, carZ = focusedCarPosition()
+        local carX, carY, carZ = carPosX, carPosY, carPosZ
         if carX ~= nil then
           tracking.push(carHistory, carX, carY, carZ)
 
@@ -492,8 +529,17 @@ local function runPlayback(transform)
           if ignoreLead then offset = 0 end
           aimOffset = offset
 
+          -- The offset shake wobbles the aim point along the car's path rather
+          -- than rotating the camera. It is added to the lead/lag weight, which
+          -- is where the legacy puts it.
+          local offsetShake = 0
+          if applyShake then
+            offsetShake = shake.trackingOffset(
+              camera.camera_offset_shake_strength or 0, shakeClock(), shakeMomentum)
+          end
+
           local targetX, targetY, targetZ =
-            tracking.target(carHistory, offset, sim.replayPlaybackRate, 0)
+            tracking.target(carHistory, offset, sim.replayPlaybackRate, offsetShake)
 
           aimHeading, aimPitch = angles.aimAt(px, py, pz, targetX, targetY, targetZ)
           aimHeading = aimHeading + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
@@ -517,7 +563,21 @@ local function runPlayback(transform)
         aimPitch, pitchStrength,
         splinePoint and splinePoint.pitch or nil, affectPitch)
 
+      -- Rotation shake rides on top of the combined aim. camera_shake_strength
+      -- IS keyframable, unlike the offset shake above -- that asymmetry is
+      -- issue #25.
+      if applyShake then
+        shakeMomentum = shake.momentum(headingHistory)
+        shakeClockReadout = shakeClock()
+        local shakePitch, shakeHeading = shake.rotation(
+          pick(v.camera_shake_strength, camera.camera_shake_strength, 0),
+          shakeClock(), shakeMomentum, sim.replayPlaybackRate)
+        heading = heading + shakeHeading
+        pitch = pitch + shakePitch
+      end
+
       appliedHeading, appliedPitch = heading, pitch
+      pushHeading(heading)
 
       local lx, ly, lz = angles.lookVector(heading, pitch)
       local look = vec3(lx, ly, lz)
@@ -547,6 +607,34 @@ local function runPlayback(transform)
       if v.camera_fov ~= nil and v.camera_fov > 0 and v.camera_fov < 180 then
         playbackFov = v.camera_fov
       end
+
+      ------------------------------------------------------------------
+      -- Depth of field
+      ------------------------------------------------------------------
+      if applyFocus and px ~= nil and py ~= nil and pz ~= nil then
+        local distance = nil
+
+        -- camera_use_tracking_point is the Autofocus toggle.
+        if camera.camera_use_tracking_point and carPosX ~= nil then
+          if aimHeading == nil or focus.shouldRefocus(heading, aimHeading) then
+            distance = focus.auto({ x = px, y = py, z = pz },
+              { x = carPosX, y = carPosY, z = carPosZ }, nil, 0)
+            focusDistance = distance
+          else
+            -- Aimed away from the car: hold the previous distance rather than
+            -- pumping the focus onto something off screen.
+            distance = focusDistance
+          end
+        elseif v.camera_focus_point ~= nil then
+          distance = v.camera_focus_point
+          focusDistance = distance
+        end
+
+        if distance ~= nil then
+          playbackDofDistance = distance
+          playbackDofFactor = focus.dofFactor(distance)
+        end
+      end
     end
   end
 end
@@ -569,6 +657,8 @@ local function perFrame(dt)
 
   -- Stale values must not survive a frame where playback produced nothing.
   playbackFov = nil
+  playbackDofDistance = nil
+  playbackDofFactor = nil
 
   if replayDriveOn and sim.isReplayActive and sim.replayFrames > 1 then
     local framesPerSecond = 1000 / math.max(sim.replayFrameMs, 0.001)
@@ -671,7 +761,10 @@ local function perFrame(dt)
     cam.fov = cam.fovOriginal
   end
 
-  if applyDof then
+  if playbackDofDistance ~= nil then
+    cam.dofDistance = playbackDofDistance
+    cam.dofFactor = playbackDofFactor
+  elseif applyDof then
     cam.dofFactor = dofFactor
     cam.dofDistance = dofDistance
   else
@@ -892,6 +985,11 @@ local function drawPlayback()
     if ui.checkbox('follow the recorded spline', applySpline) then
       applySpline = not applySpline
     end
+    if ui.checkbox('apply shake', applyShake) then applyShake = not applyShake end
+    ui.sameLine()
+    if ui.checkbox('apply depth of field', applyFocus) then applyFocus = not applyFocus end
+    ui.text(string.format('shake: pan %.3f  clock %.2f s   focus %.1f m',
+      num(shakeMomentum), num(shakeClockReadout), num(focusDistance)))
     if doc ~= nil and activeCam ~= nil and doc[listName] ~= nil then
       local c = doc[listName][activeCam]
       if c ~= nil and spline.exists(c) then

@@ -15,7 +15,7 @@ local runner = require('tests/runner')
 local fakes = require('tests/fakes/csp')
 local rawFile = require('tests/fixtures/camera_file_v0')
 
-local test, eq = runner.test, runner.eq
+local test, eq, near = runner.test, runner.eq, runner.near
 
 ---Load the app fresh with the given fake options, returning the fake handle.
 local function loadApp(opts)
@@ -350,6 +350,66 @@ test('grabbing with no file loaded leaves the mode alone', function()
 
   eq(logged(handle, 'grab OK'), true, 'the grab itself must still happen')
   eq(logged(handle, 'mode: playback'), false, 'but the mode must not change')
+
+  handle.restoreIo()
+end)
+
+test('shake and depth of field run without leaving the camera adrift', function()
+  -- Autofocus on, so the focus path is exercised rather than skipped, and a
+  -- shake strength so the rotation path does real work.
+  local doc = {
+    pos = {
+      {
+        camera_in = 0.0,
+        camera_use_tracking_point = true,
+        camera_offset_shake_strength = 0.5,
+        tracking_strength_heading = 1,
+        tracking_strength_pitch = 1,
+        tracking_offset = -0.1,
+        keyframes = {
+          { keyframe = 0.0, interpolation = {
+            loc_x = 0, loc_y = 0, loc_z = 10, camera_shake_strength = 0.5 } },
+          { keyframe = 1.0, interpolation = {
+            loc_x = 50, loc_y = 0, loc_z = 10, camera_shake_strength = 0.5 } },
+        },
+      },
+    },
+    time = {},
+  }
+
+  local handle = fakes.install({
+    cameraFile = doc,
+    splinePosition = 0.5,
+    clicks = {
+      ['Load this file'] = true,
+      ['Grab camera'] = true,
+      ['Play CamTool 2 file (12)'] = true,
+    },
+  })
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for i = 1, 40 do
+    handle.sim.frame = i
+    handle.sim.replayCurrentFrame = 100 + i
+    _G.script.windowMain(0.016)
+    local ok, err = pcall(_G.script.update, 0.016)
+    if not ok then error('shake/focus raised: ' .. tostring(err), 2) end
+  end
+
+  -- Depth of field must have been given a real distance, not left at zero.
+  eq(type(handle.camera.dofDistance), 'number')
+  if handle.camera.dofDistance <= 0 then
+    error('autofocus never set a distance', 2)
+  end
+  eq(handle.camera.dofFactor, 1, 'a distance past 0.1 m switches DOF on')
+
+  -- The aim must still be a unit vector: shake adds to the angles, so a sign
+  -- or unit slip would show up as a broken look vector.
+  local look = handle.transform.look
+  local length = math.sqrt(look.x * look.x + look.y * look.y + look.z * look.z)
+  near(length, 1, 1e-9, 'shake must not denormalise the aim')
 
   handle.restoreIo()
 end)
