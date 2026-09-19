@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (245 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (250 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -108,7 +108,8 @@ rien.
 | 9 | `Reset` | Le **premier** clic prévient seulement. |
 | 10 | Section SPLINE | Apparaît avec le nombre de points sur Silverstone `seb`, disparaît sur une caméra sans tracé. |
 | 11 | **Sauvegarde** | Écrit dans `apps/lua/CamTool3/data/`, **jamais** dans celui de CamTool 2. Vérifier que le fichier d'origine n'a pas changé de date. Recharger doit retrouver les modifications. |
-| 12 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
+| 12 | **Caméras AC** | Sur `le_lancone`, la caméra 5 demande la vue **volant**. CamTool 3 doit passer la main : la vue devient celle d'AC, et revient quand la caméra suivante reprend. Onze caméras de référence sont dans ce cas. |
+| 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
 
 ## ⏳ En attente de Théo
 
@@ -311,10 +312,22 @@ diagnostic.
    l'appelle avec. Le balayage le constate : sur Red Bull Ring, 9 caméras sur 11
    se déclenchent, les deux manquantes sont les caméras de stand.
 3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
-4. **`camera_use_specific_cam`** : 11 caméras de référence valent 0, 5 ou 8 —
-   CamTool 2 y passe la main à une caméra AC (volant, embarquée…) au lieu
-   d'interpoler. Le portage ne connaît pas ce cas et pilotera sa propre caméra.
-   Repéré en auditant les types des drapeaux, pas encore traité.
+4. ~~**`camera_use_specific_cam`**~~ — **fait** (`core/cameramode.lua`).
+   Le champ s'appelle `AC CAMERA` dans le panneau et affiche les noms de
+   CamTool 2 (« volant », « derrière », « cockpit »…) plutôt qu'un numéro.
+
+   **Ce que CSP a apporté** : `ac.setCurrentDrivableCamera` et
+   `ac.setCurrentCarCamera` prennent la caméra voulue. CamTool 2 ne pouvait
+   pas — pour la famille F1 il **appuyait sur F1 le bon nombre de fois**
+   depuis un décalage mémorisé (`CamMode.changeCamModeZero`), d'où la
+   synchronisation manuelle que l'utilisateur devait faire avant. Elle
+   disparaît.
+
+   Passer la main = demander la caméra **et** cesser d'écrire le transform :
+   `ownShare` à 0 laisse passer la vue d'AC à travers le grab qu'on garde,
+   donc reprendre la main est juste le remettre. Le changement se fait au
+   changement, pas à chaque frame, pour ne pas se battre avec quelqu'un qui
+   appuie sur F1.
 5. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
 6. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
