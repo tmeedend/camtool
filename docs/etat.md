@@ -189,8 +189,8 @@ part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe 
    CamTool 2 y passe la main à une caméra AC (volant, embarquée…) au lieu
    d'interpoler. Le portage ne connaît pas ce cas et pilotera sa propre caméra.
    Repéré en auditant les types des drapeaux, pas encore traité.
-4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
-5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
+5. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+6. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 
 ### Réserves connues, non bloquantes
