@@ -54,6 +54,26 @@ playback.DEFAULTS = {
   legacyZeroFill = false,
 }
 
+---Set the legacy switches from a document's interpolation_mode.
+---
+---These two are not preferences, they are a property of the file. A CamTool 2
+---file is loaded as 'legacy' and has to behave as CamTool 2 did, quirks
+---included, or footage already cut would change. A file authored in CamTool 3
+---is 'fixed' and gets the corrected maths. core/data writes that field on
+---load and carries it through saves; this is what acts on it.
+---
+---Leaving them as loose checkboxes made it possible to play a legacy file
+---with the corrected curves without meaning to, which is the one thing the
+---two-axis design in core/data exists to prevent.
+---@param state table
+---@param mode string|nil @'legacy' or 'fixed'
+function playback.applyMode(state, mode)
+  local legacy = mode ~= 'fixed'
+  state.options.legacyLastCamera = legacy
+  state.options.legacyZeroFill = legacy
+  playback.resetHistory(state)
+end
+
 ---Rebuild the per-frame history: the rolling record of the tracked car that
 ---feeds the lead/lag aim point, and the heading window the shake reads as pan
 ---speed. Called on a fresh grab, and whenever the zero fill switch changes,

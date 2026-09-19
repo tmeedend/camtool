@@ -384,6 +384,19 @@ function atr.draw(state)
   if ui.button('Reset##reset', vec2(56, 18)) then
     actions.reset = true
   end
+
+  -- Which curve maths this file gets. Not a preference: a CamTool 2 file is
+  -- loaded as legacy and has to behave as CamTool 2 did, or footage already
+  -- cut would change. Shown so it is never a surprise, and switchable
+  -- because a file can be moved to the corrected curves on purpose.
+  if state.loadedName ~= nil then
+    ui.sameLine(0, 8)
+    local legacy = state.mode ~= 'fixed'
+    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '##mode',
+        vec2(96, 18)) then
+      actions.mode = legacy and 'fixed' or 'legacy'
+    end
+  end
   ui.popStyleColor(3)
 
   -- Position or time. CamTool 2 puts this in the header as two icons; the

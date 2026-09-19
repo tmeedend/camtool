@@ -219,7 +219,14 @@ function lap.runCore(opts)
   local frameMs = opts.frameMs or 16.6
 
   local doc = dataModule.load(opts.cameraFile)
-  local state = playbackCore.new(opts.options)
+
+  -- The file decides the legacy maths, exactly as the app does on load; an
+  -- explicit option in the test then wins over it, which is how a sweep asks
+  -- for the corrected curves on a legacy file.
+  local state = playbackCore.new()
+  playbackCore.applyMode(state, doc.interpolation_mode)
+  for key, value in pairs(opts.options or {}) do state.options[key] = value end
+  playbackCore.resetHistory(state)
 
   local sampler = opts.sampler or lap.trackSampler(doc) or lap.circleSampler()
 

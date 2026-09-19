@@ -105,7 +105,10 @@ function trace.replay(recording, cameraFile, options)
     settings.listName = rows[1].mode
   end
 
-  local state = playbackCore.new(settings)
+  local state = playbackCore.new()
+  playbackCore.applyMode(state, doc.interpolation_mode)
+  for key, value in pairs(settings) do state.options[key] = value end
+  playbackCore.resetHistory(state)
   local input = {}
   local clock = { clock = 0 }
 

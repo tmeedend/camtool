@@ -187,7 +187,12 @@ function edit.apply(request)
     if request.op ~= 'set' then return nil, 'an explicit holder only takes set' end
     local holderBefore = request.holder[key]
     local holderAfter = request.value
-    if type(holderAfter) ~= 'number' then return nil, 'no value given' end
+    -- A string gets through here too: interpolation_mode is set this way, so
+    -- that switching a file's maths lands on the undo stack like everything
+    -- else rather than being a change nothing remembers.
+    if type(holderAfter) ~= 'number' and type(holderAfter) ~= 'string' then
+      return nil, 'no value given'
+    end
     if holderAfter == holderBefore then return nil, 'unchanged' end
     request.holder[key] = holderAfter
     return {

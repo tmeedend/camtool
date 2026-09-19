@@ -224,6 +224,8 @@ local function loadSelectedFile()
   end
 
   doc, docError, docName = loaded, nil, name
+  -- The file says which maths it wants; see core/playback.applyMode.
+  playbackCore.applyMode(pb, loaded.interpolation_mode)
   log(string.format('loaded %s -- %d cameras, version %s, mode %s',
     name, dataModule.cameraCount(loaded), tostring(loaded.version),
     tostring(loaded.interpolation_mode)))
@@ -948,6 +950,7 @@ function script.windowAtr(dt)
     undoDepth = #undoStack,
     redoDepth = #redoStack,
     status = atrStatus,
+    mode = doc ~= nil and doc.interpolation_mode or nil,
     listName = pb.options.listName,
     loadedName = doc ~= nil and docName or nil,
     held = cameraActive(),
@@ -1117,6 +1120,16 @@ function script.windowAtr(dt)
   end
   if actions.prevFile and fileIndex > 1 then fileIndex = fileIndex - 1 end
   if actions.nextFile and fileIndex < #files then fileIndex = fileIndex + 1 end
+  if actions.mode ~= nil and doc ~= nil and actions.mode ~= doc.interpolation_mode then
+    -- Changing the maths of a file is an edit like any other, so it is
+    -- undoable and the star appears until it is saved.
+    remember(edit.apply({
+      camera = doc, holder = doc, key = 'interpolation_mode',
+      op = 'set', value = actions.mode,
+    }))
+    playbackCore.applyMode(pb, doc.interpolation_mode)
+  end
+
   if actions.loadFile then
     loadSelectedFile()
     atrStatus = nil

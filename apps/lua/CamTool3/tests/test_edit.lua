@@ -465,3 +465,48 @@ test('undo and redo walk the same path in both directions', function()
   eq(c.tracking_mix, 0.75)
   eq(c.keyframes[1].interpolation.loc_x, 3)
 end)
+
+test('the legacy switches come from the file, not from a preference', function()
+  -- The one thing the two-axis design in core/data exists to prevent: a
+  -- CamTool 2 file played with the corrected curves without anyone meaning
+  -- it, which would change footage already cut.
+  local playback = require('core/playback')
+
+  local state = playback.new()
+  playback.applyMode(state, 'legacy')
+  eq(state.options.legacyLastCamera, true)
+  eq(state.options.legacyZeroFill, true)
+
+  playback.applyMode(state, 'fixed')
+  eq(state.options.legacyLastCamera, false)
+  eq(state.options.legacyZeroFill, false)
+
+  -- A file with no mode at all is treated as legacy, which is what an
+  -- unknown file most likely is.
+  playback.applyMode(state, nil)
+  eq(state.options.legacyLastCamera, true)
+end)
+
+test('a migrated CamTool 2 file asks for legacy maths', function()
+  local dataModule = require('core/data')
+  local doc = dataModule.load(require('tests/fixtures/camera_file_lap'))
+  eq(doc.version, 1, 'the encoding is migrated')
+  eq(doc.interpolation_mode, 'legacy', 'but the maths is not')
+end)
+
+test('a CamTool 3 file that says nothing gets the corrected maths', function()
+  local dataModule = require('core/data')
+  local doc = dataModule.load({ version = 1, pos = {}, time = {} })
+  eq(doc.interpolation_mode, 'fixed')
+end)
+
+test('switching the maths is an edit, and undoes', function()
+  local doc = require('core/data').load(require('tests/fixtures/camera_file_lap'))
+  local change = edit.apply({
+    camera = doc, holder = doc, key = 'interpolation_mode',
+    op = 'set', value = 'fixed',
+  })
+  eq(doc.interpolation_mode, 'fixed')
+  edit.revert(change)
+  eq(doc.interpolation_mode, 'legacy')
+end)
