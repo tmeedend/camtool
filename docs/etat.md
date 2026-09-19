@@ -53,10 +53,11 @@ en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 
 ## Chantiers restants, par taille croissante
 
-1. **`docs/ui-inventory.md`** — l'inventaire exhaustif de l'UI CamTool 2
-   n'existe pas, alors que `CLAUDE.md` en fait la référence de la règle « ISO
-   fonctionnel ». Prérequis de la refonte : sans lui, on perdra des boutons sans
-   s'en apercevoir.
+1. **Compléter `docs/ui-inventory.md`** — la première passe est faite : modèle
+   d'interaction, zones d'écran, les cinq onglets, raccourcis et gestes souris.
+   Huit points restent ouverts, listés en fin de document. Trois d'entre eux
+   (libellés réels, disposition à l'écran, boutons de replay) demandent de
+   **voir l'app tourner** : Théo ou des captures.
 2. **Shake** (`camera_shake_strength`, `camera_offset_shake_strength`) et
    **focus point DOF** (`camera_focus_point`).
 3. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
