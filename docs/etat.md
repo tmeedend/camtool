@@ -17,7 +17,7 @@
 local.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (158 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (160 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -60,7 +60,8 @@ Ce que ça ouvre, et qui demandait un lancement d'AC jusqu'ici :
 - **Rejeu de traces CamTool 2** (`tests/trace.lua`) : l'oracle. CamTool 2
   enregistre en jeu ce qu'on lui donne et ce qu'il demande à la caméra ; le
   rejeu redonne ces entrées à `core/playback` et mesure l'écart, paramètre par
-  paramètre. **Il manque l'enregistrement** — voir « En attente de Théo ».
+  paramètre. **Une trace réelle est commitée** (Silverstone `seb`, 2700
+  frames) — voir les résultats plus bas.
 - **Balayage d'invariants** (`tests/sweep.lua`) : `inf`/`nan`, vecteur look non
   unitaire, FOV hors bornes, distance de focus négative, caméra qui se
   téléporte au milieu de son plan, caméra inatteignable. Les seuils sont des
@@ -106,43 +107,60 @@ Le portage est commité et testé hors jeu, mais **personne ne l'a vu tourner**.
 - Réserve : le DOF exige **YEBIS** actif dans CSP. Distance qui bouge mais rien à
   l'écran = probablement ça, pas un bug du portage.
 
-### 2. Enregistrer une trace (15 minutes en jeu, une fois)
+### 2. Une deuxième trace, quand tu voudras
 
-L'enregistreur **est écrit et commité**, des deux côtés. Ce qui manque est
-l'enregistrement lui-même, que seul un lancement d'AC peut produire.
+La première est faite : Silverstone `seb`, 7200 frames, rejouée et commitée
+(2700 frames en fixture). **Ce qu'elle a donné est plus bas.** Une trace de
+`le_lancone` reste souhaitable — c'est là que #23 se voit — mais elle n'est
+plus bloquante.
 
-Ce que ça donne : l'**oracle**. Le golden master dit « ça n'a pas changé », le
-balayage dit « ce n'est pas cassé » ; seul CamTool 2 peut dire « c'est ce que
-CamTool 2 fait ». Une session achète la réponse pour de bon, rejouable sans
-toi.
+Marche à suivre, depuis `apps/lua/CamTool3/` :
 
-Marche à suivre :
+1. `"dev_record_trace": true` dans `apps/python/CamTool_2/settings.json`
+   (`load_settings` remplace tout le dictionnaire, donc le défaut de
+   `Settings.__init__` ne suffit pas — piège réel, documenté et contourné).
+2. Jouer le replay, app **activée**. Arrêt automatique à deux minutes.
+3. `python tools/trace_to_lua.py <trace>.jsonl tests/fixtures/trace_<nom>.lua N`
+4. Ajouter l'entrée à `RECORDINGS` dans `tests/test_trace_replay.lua`.
 
-1. Ajouter `"dev_record_trace": true` dans `apps/python/CamTool_2/settings.json`
-   (le défaut dans `Settings.__init__` ne suffit pas : `load_settings` remplace
-   tout le dictionnaire — le piège était bien réel, il est documenté et
-   contourné).
-2. Lancer AC, ouvrir CamTool 2, charger le fichier caméra du scénario, jouer le
-   replay. L'enregistrement s'arrête seul au bout de **deux minutes**. Console
-   AC : `recording a trace to ...`.
-3. Le fichier arrive dans `apps/python/CamTool_2/traces/` (ignoré par git).
-4. Conversion, depuis `apps/lua/CamTool3/` :
-   `python tools/trace_to_lua.py <la trace>.jsonl tests/fixtures/trace_<nom>.lua`
-5. Ajouter la trace à `RECORDINGS` dans `tests/test_trace_replay.lua`, lancer,
-   et inscrire les écarts mesurés comme tolérances.
+## 🎯 Ce que la première trace a dit
 
-Scénarios proposés : Silverstone `seb` (splines), `le_lancone` (dernière
-caméra, là où #23 se voit).
+Silverstone `seb`, 7200 frames, comparaison de ce que chaque côté demande à la
+caméra.
 
-**À savoir avant de lire les écarts.** Le rejeu ignore volontairement les
-frames enregistrées pendant un mouse look (CamTool 2 y mélange sa sortie avec
-la position courante de la caméra, ce que le portage ne modélise pas), et le
-smart tracking n'est pas porté : les caméras qui l'utilisent divergeront par
-construction. La valeur est dans la **localisation** de l'écart.
+**Exact :**
 
-Ce que ça n'apporte pas : rien sur l'image, et la comparaison se fait contre
-CamTool 2 **bugs compris** — voulu pour le mode `legacy`, muet sur la qualité
-d'une correction.
+- **Position** : 2,3 × 10⁻¹³ m au pire sur 7200 frames. Keyframes, béziers,
+  splines et leurs mélanges donnent le même résultat que CamTool 2.
+- **Sélection de caméra** : 0 divergence sur 7200 frames.
+- **Visée** : 0,00000 rad sur toutes les caméras sans shake.
+- **#16 confirmé en session réelle** : avec `legacyZeroFill` désactivé, le cap
+  part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe à
+  0,13. Le diagnostic tenait.
+
+**Deux défauts trouvés et corrigés :**
+
+- **FOV interpolé dans le mauvais espace.** CamTool 2 interpole la forme
+  stockée `1/(fov+15)` et convertit après ; le portage convertissait à la
+  migration. Jusqu'à **3,6° d'écart sur un 25°**, égal aux keyframes et
+  divergent entre les deux. Corrigé dans `core/evaluate` : écart ramené à
+  7 × 10⁻¹⁵°.
+- **Autofocus actif partout.** `camera_use_tracking_point` vaut 0 ou 1 et
+  **0 est vrai en Lua** — 24 caméras sur 589 étaient concernées. Corrigé via
+  `data.isOn`. Les caméras en autofocus donnent maintenant la distance exacte.
+
+**Un défaut trouvé, pas corrigé :** la porte de refocalisation. CamTool 2 tient
+la mise au point quand la caméra vise à plus d'un angle droit de la voiture, et
+mesure ça contre le cap de la frame **précédente** (`ctt` met le cap en cache
+et `set_rotation` ne le vide pas). Le portage le mesure contre le cap qu'il
+vient de calculer : les deux cessent de refocaliser à des instants différents.
+Écart résiduel : 277 m, sur les seules frames concernées.
+
+**Une limite de la mesure, pas du portage :** la phase du shake. L'horloge de
+repli de CamTool 2 cumule `dt` depuis le démarrage de l'app, donc une trace qui
+commence en cours de session ne peut pas la reconstituer. Les 0,13 rad
+résiduels tombent exactement sur les caméras qui tremblent ; celles sans shake
+sont à zéro. **Version 2 du format de trace : enregistrer l'horloge.**
 
 ## Chantiers restants, par taille croissante
 
@@ -159,6 +177,10 @@ d'une correction.
    l'appelle avec. Le balayage le constate : sur Red Bull Ring, 9 caméras sur 11
    se déclenchent, les deux manquantes sont les caméras de stand.
 3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
+4. **`camera_use_specific_cam`** : 11 caméras de référence valent 0, 5 ou 8 —
+   CamTool 2 y passe la main à une caméra AC (volant, embarquée…) au lieu
+   d'interpoler. Le portage ne connaît pas ce cas et pilotera sa propre caméra.
+   Repéré en auditant les types des drapeaux, pas encore traité.
 4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
 5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
