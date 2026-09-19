@@ -17,7 +17,7 @@
 local.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (160 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (161 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -60,8 +60,8 @@ Ce que ça ouvre, et qui demandait un lancement d'AC jusqu'ici :
 - **Rejeu de traces CamTool 2** (`tests/trace.lua`) : l'oracle. CamTool 2
   enregistre en jeu ce qu'on lui donne et ce qu'il demande à la caméra ; le
   rejeu redonne ces entrées à `core/playback` et mesure l'écart, paramètre par
-  paramètre. **Une trace réelle est commitée** (Silverstone `seb`, 2700
-  frames) — voir les résultats plus bas.
+  paramètre. **Deux traces réelles sont commitées** (Silverstone `seb`,
+  le_lancone `lancia`) — voir les résultats plus bas.
 - **Balayage d'invariants** (`tests/sweep.lua`) : `inf`/`nan`, vecteur look non
   unitaire, FOV hors bornes, distance de focus négative, caméra qui se
   téléporte au milieu de son plan, caméra inatteignable. Les seuils sont des
@@ -107,12 +107,16 @@ Le portage est commité et testé hors jeu, mais **personne ne l'a vu tourner**.
 - Réserve : le DOF exige **YEBIS** actif dans CSP. Distance qui bouge mais rien à
   l'écran = probablement ça, pas un bug du portage.
 
-### 2. Une deuxième trace, quand tu voudras
+### 2. Une trace qui contienne la dernière caméra (#23)
 
-La première est faite : Silverstone `seb`, 7200 frames, rejouée et commitée
-(2700 frames en fixture). **Ce qu'elle a donné est plus bas.** Une trace de
-`le_lancone` reste souhaitable — c'est là que #23 se voit — mais elle n'est
-plus bloquante.
+Deux traces sont faites — Silverstone `seb` et le_lancone `lancia`, 7200
+frames chacune. **Ce qu'elles ont donné est plus bas.**
+
+Il manque le scénario #23 : le_lancone fait 7,3 km, et deux minutes de replay
+ne couvrent que le **premier tiers** du tour. L'enregistrement s'arrête donc
+bien avant la ligne, et la dernière caméra — celle qui porte #23 — n'y est
+jamais active. Pour l'attraper : **positionner le replay juste avant la ligne
+d'arrivée** avant d'activer l'app.
 
 Marche à suivre, depuis `apps/lua/CamTool3/` :
 
@@ -123,44 +127,51 @@ Marche à suivre, depuis `apps/lua/CamTool3/` :
 3. `python tools/trace_to_lua.py <trace>.jsonl tests/fixtures/trace_<nom>.lua N`
 4. Ajouter l'entrée à `RECORDINGS` dans `tests/test_trace_replay.lua`.
 
-## 🎯 Ce que la première trace a dit
+## 🎯 Ce que les traces ont dit
 
-Silverstone `seb`, 7200 frames, comparaison de ce que chaque côté demande à la
-caméra.
+Deux sessions, 7200 frames chacune, comparaison de ce que chaque côté demande à
+la caméra. État après corrections :
 
-**Exact :**
+| mesure | Silverstone `seb` | le_lancone `lancia` |
+|---|---|---|
+| position | 2,3 × 10⁻¹³ m | **0** |
+| sélection de caméra | 0 / 7200 | 0 / 7200 |
+| FOV | 7,1 × 10⁻¹⁵ ° | 7,1 × 10⁻¹⁵ ° |
+| focus | 6,4 × 10⁻⁶ m | 464 m (frame 0) |
+| tangage | 0,014 rad | 8,6 × 10⁻¹² rad |
+| roulis | 9,9 × 10⁻⁷ rad | 0 |
+| cap | 0,130 rad | 0,354 rad (3 frames) |
 
-- **Position** : 2,3 × 10⁻¹³ m au pire sur 7200 frames. Keyframes, béziers,
-  splines et leurs mélanges donnent le même résultat que CamTool 2.
-- **Sélection de caméra** : 0 divergence sur 7200 frames.
-- **Visée** : 0,00000 rad sur toutes les caméras sans shake.
-- **#16 confirmé en session réelle** : avec `legacyZeroFill` désactivé, le cap
-  part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe à
-  0,13. Le diagnostic tenait.
+**#16 confirmé en session réelle** : avec `legacyZeroFill` désactivé, le cap
+part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe à
+0,13. Le diagnostic tenait.
 
-**Deux défauts trouvés et corrigés :**
+**Trois défauts trouvés et corrigés**, tous invisibles sans oracle :
 
 - **FOV interpolé dans le mauvais espace.** CamTool 2 interpole la forme
   stockée `1/(fov+15)` et convertit après ; le portage convertissait à la
   migration. Jusqu'à **3,6° d'écart sur un 25°**, égal aux keyframes et
-  divergent entre les deux. Corrigé dans `core/evaluate` : écart ramené à
-  7 × 10⁻¹⁵°.
+  divergent entre les deux. Corrigé dans `core/evaluate`.
 - **Autofocus actif partout.** `camera_use_tracking_point` vaut 0 ou 1 et
-  **0 est vrai en Lua** — 24 caméras sur 589 étaient concernées. Corrigé via
-  `data.isOn`. Les caméras en autofocus donnent maintenant la distance exacte.
+  **0 est vrai en Lua** — 24 caméras sur 589 concernées. Corrigé via
+  `data.isOn`.
+- **Porte de refocalisation et distance tenue.** CamTool 2 interroge la porte
+  avec le cap de la frame **précédente** (`ctt` met le cap en cache, que
+  `set_rotation` ne vide pas) et avec la visée *brute*, normalisée sur la
+  branche du cap. Et quand il tient, il tient ce que la caméra a réellement,
+  pas la dernière valeur qu'il a calculée. Le focus passe de 500 m à 6 × 10⁻⁶.
 
-**Un défaut trouvé, pas corrigé :** la porte de refocalisation. CamTool 2 tient
-la mise au point quand la caméra vise à plus d'un angle droit de la voiture, et
-mesure ça contre le cap de la frame **précédente** (`ctt` met le cap en cache
-et `set_rotation` ne le vide pas). Le portage le mesure contre le cap qu'il
-vient de calculer : les deux cessent de refocaliser à des instants différents.
-Écart résiduel : 277 m, sur les seules frames concernées.
+**Ce qui reste n'est pas du portage, c'est l'état d'avant la trace :**
 
-**Une limite de la mesure, pas du portage :** la phase du shake. L'horloge de
-repli de CamTool 2 cumule `dt` depuis le démarrage de l'app, donc une trace qui
-commence en cours de session ne peut pas la reconstituer. Les 0,13 rad
-résiduels tombent exactement sur les caméras qui tremblent ; celles sans shake
-sont à zéro. **Version 2 du format de trace : enregistrer l'horloge.**
+- La **phase du shake** (0,13 rad sur Silverstone). L'horloge de repli de
+  CamTool 2 cumule `dt` depuis le démarrage de l'app ; une trace qui commence
+  en cours de session ne peut pas la reconstituer. Les caméras sans shake sont
+  à zéro exactement.
+- Le **cap et le focus d'avant la première frame** (3 et 5 frames sur 7200
+  pour le_lancone, toutes à un changement de caméra). Le focus est désormais
+  enregistré (`focus0`, lecture CSP non cachée donc sans risque) ; le cap ne
+  peut pas l'être, le lire en jeu remplirait un cache que le jeu remplit plus
+  tard.
 
 ## Chantiers restants, par taille croissante
 
