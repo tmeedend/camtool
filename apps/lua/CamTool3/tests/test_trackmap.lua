@@ -353,3 +353,62 @@ test('assign says false, not nil, when no camera covers a point', function()
   eq(#owners, 5)
   eq(owners[3], false)
 end)
+
+--------------------------------------------------------------------------
+-- The fallback outline, for a track with no AI spline
+--------------------------------------------------------------------------
+
+test('a recorded track spline becomes an outline', function()
+  local doc = data.load(rawFile)
+  local points = trackmap.fromRecordedSpline(doc.track_spline)
+
+  eq(points ~= nil, true, 'the fixture has a recorded track spline')
+  eq(#points > 50, true)
+
+  -- It is a real lap of Red Bull Ring, so it has extent on both axes and its
+  -- progress climbs.
+  local b = trackmap.bounds(points)
+  eq(b.maxX - b.minX > 100, true)
+  eq(b.maxY - b.minY > 100, true)
+  eq(points[2].p > points[1].p, true)
+end)
+
+test('a recorded spline is already in CamTool space, so nothing is converted', function()
+  local doc = data.load(rawFile)
+  local points = trackmap.fromRecordedSpline(doc.track_spline)
+  near(points[1].x, doc.track_spline.loc_x[1], 1e-12)
+  near(points[1].y, doc.track_spline.loc_y[1], 1e-12)
+end)
+
+test('progress past the start line folds back into the lap', function()
+  -- A spline recorded across the line stores positions past 1, the same wrap
+  -- core/spline deals with. Ownership works in lap fractions and would read
+  -- 1.02 as past every camera.
+  local points = trackmap.fromRecordedSpline({
+    loc_x = { 0, 10, 20 },
+    loc_y = { 0, 10, 20 },
+    the_x = { 0.98, 1.01, 1.04 },
+  })
+  near(points[1].p, 0.98, 1e-12)
+  near(points[2].p, 0.01, 1e-12)
+  near(points[3].p, 0.04, 1e-12)
+end)
+
+test('an empty or missing recorded spline is nil, not an outline of nothing', function()
+  local seb = data.load(require('tests/fixtures/camera_file_seb'))
+  eq(trackmap.fromRecordedSpline(seb.track_spline), nil,
+    'this file records no track spline')
+  eq(trackmap.fromRecordedSpline(nil), nil)
+  eq(trackmap.fromRecordedSpline({ loc_x = { 1 }, loc_y = { 1 }, the_x = { 0 } }),
+    nil, 'a single point is not a track')
+end)
+
+test('a recorded spline with bad numbers in it loses those points only', function()
+  local points = trackmap.fromRecordedSpline({
+    loc_x = { 0, 1 / 0, 20, 30 },
+    loc_y = { 0, 5, 0 / 0, 30 },
+    the_x = { 0, 0.1, 0.2, 0.3 },
+  })
+  eq(#points, 2)
+  near(points[2].p, 0.3, 1e-12)
+end)

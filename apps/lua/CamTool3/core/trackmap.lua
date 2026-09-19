@@ -252,4 +252,43 @@ function trackmap.assign(points, segments, out)
   return out
 end
 
+---An outline built from a spline recorded in a camera file.
+---
+---The fallback for a track with no AI spline: `track_spline` is what CamTool 2
+---wrote when the user drove or flew a lap with recording on. Coarse -- 96
+---samples for a 4 km circuit in the reference files, against a thousand from
+---the AI spline -- and present only in files where it was recorded, so it is a
+---fallback and not the source.
+---
+---Already in CamTool space, since CamTool 2 wrote it, so loc_x and loc_y are
+---the horizontal pair and nothing is converted.
+---
+---A spline recorded across the start line stores positions past 1, the same
+---wrap core/spline deals with. Progress is folded back into 0..1 here so that
+---ownership, which works in lap fractions, can read it.
+---@param recorded table|nil @{ loc_x = {}, loc_y = {}, the_x = {} }
+---@return table[]|nil @points, nil when there is nothing recorded
+function trackmap.fromRecordedSpline(recorded)
+  if type(recorded) ~= 'table' then return nil end
+
+  local xs, ys, ps = recorded.loc_x, recorded.loc_y, recorded.the_x
+  if type(xs) ~= 'table' or type(ys) ~= 'table' or type(ps) ~= 'table' then
+    return nil
+  end
+
+  local count = math.min(#xs, #ys, #ps)
+  if count < 2 then return nil end
+
+  local points = {}
+  for i = 1, count do
+    if isFinite(xs[i]) and isFinite(ys[i]) and isFinite(ps[i]) then
+      local p = ps[i] % 1
+      points[#points + 1] = { x = xs[i], y = ys[i], p = p }
+    end
+  end
+
+  if #points < 2 then return nil end
+  return points
+end
+
 return trackmap

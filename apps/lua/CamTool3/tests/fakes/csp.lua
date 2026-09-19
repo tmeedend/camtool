@@ -56,6 +56,9 @@ function fakes.install(opts)
     replayCurrentFrame = 100,
     replayFrameMs = 16.6,
     replayPlaybackRate = 1,
+    -- A 500 m circle is a hair over 3141 m round.
+    trackLengthM = opts.trackLengthM or 3141.59,
+    isTrackOpen = opts.isTrackOpen == true,
     focusedCar = 0,
     carsCount = 1,
     dt = 0.016,
@@ -138,6 +141,27 @@ function fakes.install(opts)
     setCurrentCarCamera = function(index)
       handle.carCamera = index
       handle.cameraCalls[#handle.cameraCalls + 1] = { 'car', index }
+    end,
+
+    -- The track's shape, for the map. A circle of known radius, so a test can
+    -- work out by hand where a point should land -- with opts.trackRadius at
+    -- zero standing in for a track whose fast_lane is missing.
+    --
+    -- opts.noTrackSpline models the real case the map has to survive: drift
+    -- and gymkhana layouts, parking-lot maps and the odd scenic mod ship
+    -- without one.
+    hasTrackSpline = function()
+      return opts.noTrackSpline ~= true
+    end,
+    trackProgressToWorldCoordinate = function(p)
+      local r = opts.trackRadius or 500
+      local angle = p * 2 * math.pi
+      -- AC is Y-up: the horizontal pair is x and z.
+      return vec3fake(r * math.cos(angle), 0, r * math.sin(angle))
+    end,
+    getTrackAISplineSides = function(p)
+      if opts.trackSides == nil then return { x = 6, y = 6 } end
+      return opts.trackSides(p)
     end,
 
     -- Track identity, used to build the camera-file prefix.
