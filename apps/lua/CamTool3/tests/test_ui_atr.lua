@@ -1211,3 +1211,70 @@ test('a game that obeys says nothing', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- The contract in docs/ui-interactions.md
+--------------------------------------------------------------------------
+
+test('Escape drops what was being typed and leaves the value alone', function()
+  -- The contract asks for Escape on a typed entry as well as on a drag.
+  -- Nothing was applied until Enter, so there is nothing to put back -- but
+  -- the field has to close, and it must not commit half a number.
+  local handle = fakes.install({
+    itemHovered = true, mouseDoubleClicked = true,
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'FOV', text = '40.00 deg', raw = '40', width = 140 }
+  parameter.draw('esc-type', spec)
+  handle.restoreIo()
+
+  -- Typing, then Escape.
+  handle = fakes.install({ typed = '35', keyPressed = 27 })
+  local action = parameter.draw('esc-type', spec)
+  eq(action, nil, 'nothing committed')
+  handle.restoreIo()
+
+  -- And the field is closed: the next frame draws a value, not an entry box.
+  handle = fakes.install({})
+  parameter.draw('esc-type', spec)
+  local sawValue = false
+  for i = 1, #handle.buttons do
+    if tostring(handle.buttons[i]):find('esc%-typeval') then sawValue = true end
+  end
+  eq(sawValue, true, 'back to a value, not a field being typed into')
+  handle.restoreIo()
+end)
+
+test('an animated parameter is tinted, so a column can be swept', function()
+  -- Without it, finding what a camera animates means reading twenty-one
+  -- diamonds one by one.
+  --
+  -- Asked of the widget, not of the theme: what colour did the field get.
+  local function fieldColour(keyframe)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    parameter.draw('tint-' .. keyframe, {
+      label = 'FOV', text = '40.00 deg', width = 140,
+      column = theme.columns.camera, keyframe = keyframe,
+    })
+
+    local colour = nil
+    for i = 1, #handle.styles do
+      if handle.styles[i].which == ui.StyleColor.Button then
+        colour = handle.styles[i].colour
+      end
+    end
+    handle.restoreIo()
+    return colour
+  end
+
+  local plain = fieldColour('none')
+  eq(rawequal(plain, theme.columns.camera.pill), true,
+    'a parameter this camera never animates keeps the plain tint')
+
+  eq(rawequal(fieldColour('here'), theme.columns.camera.pillAnimated), true,
+    'keyframed on the selected keyframe')
+  eq(rawequal(fieldColour('elsewhere'), theme.columns.camera.pillAnimated), true,
+    'keyframed somewhere else in the camera -- still animated')
+end)

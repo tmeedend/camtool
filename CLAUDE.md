@@ -10,6 +10,7 @@ contraintes et la carte du code — ce qui ne bouge pas. Le reste vit à côté.
 | **`docs/etat.md`** | Où on en est : ce qui est porté, les chantiers restants, les décisions ouvertes, l'état des branches | **En premier**, à chaque reprise |
 | `docs/legacy.md` | Savoir accumulé sur CamTool 2 : tableau DLL et équivalents Lua, registre des bizarreries, conventions d'axes et d'angles, sémantique des données, causes des issues | Avant de toucher au portage |
 | `docs/ui-inventory.md` | Inventaire exhaustif de l'UI CamTool 2 | Avant la refonte UX |
+| **`docs/ui-interactions.md`** | **Contrat d'interaction de l'UI CamTool 3** : gestes, undo, losanges, aide. Écrit par le designer d'ATR, il prime sur l'habitude de câbler chaque champ à la main | **Avant de toucher à `apps/lua/CamTool3/ui/`** |
 
 **Règle de rangement : l'état va dans `docs/etat.md`, pas ici.** Une information
 qui périme à chaque commit n'a rien à faire dans un fichier chargé partout.

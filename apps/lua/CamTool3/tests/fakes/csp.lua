@@ -41,6 +41,9 @@ function fakes.install(opts)
     -- colour. Not enough to say it looks right -- nothing here can.
     drawn = {},
     buttons = {},
+    -- Style colours pushed, in order, so a test can ask what colour a widget
+    -- was actually drawn in rather than what the theme merely offers.
+    styles = {},
     grabbed = false,
     disposed = false,
     replayPositions = {},
@@ -201,6 +204,9 @@ function fakes.install(opts)
     -- These have to be real values rather than the catch-all below: the panel
     -- does arithmetic on the width, and indexing a function would raise.
     StyleColor = { Text = 0, Button = 21, ButtonHovered = 22, ButtonActive = 23 },
+    pushStyleColor = function(which, colour)
+      handle.styles[#handle.styles + 1] = { which = which, colour = colour }
+    end,
     Alignment = { Start = -1, Center = 0, End = 1 },
     Direction = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3 },
     arrowButton = function(label) return clicked(label) end,

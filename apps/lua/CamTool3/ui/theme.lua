@@ -22,23 +22,31 @@ theme.background = rgbm(0.20, 0.20, 0.20, 1)
 ---Saturated only in the header: over a game image, twenty-one vivid blocks
 ---tire the eye fast, and the colour only has to say which column you are in.
 ---The pills keep a light cast of the same hue, enough to group them.
+---
+---`pillAnimated` is the field of a parameter this camera animates. A step up
+---from `pill`, no more: it has to be findable when you sweep the column and
+---invisible when you are not looking for it. The diamond still says where the
+---keyframe is; the tint only says the parameter moves at all.
 theme.columns = {
   camera = {
     title = 'CAMERA',
     accent = rgbm(0.55, 0.32, 0.72, 1),
     pill = rgbm(0.28, 0.24, 0.32, 1),
+    pillAnimated = rgbm(0.35, 0.28, 0.42, 1),
     pillHover = rgbm(0.36, 0.30, 0.42, 1),
   },
   transform = {
     title = 'TRANSFORM',
     accent = rgbm(0.32, 0.66, 0.36, 1),
     pill = rgbm(0.23, 0.29, 0.24, 1),
+    pillAnimated = rgbm(0.26, 0.36, 0.28, 1),
     pillHover = rgbm(0.30, 0.38, 0.31, 1),
   },
   tracking = {
     title = 'TRACKING',
     accent = rgbm(0.80, 0.58, 0.25, 1),
     pill = rgbm(0.32, 0.28, 0.22, 1),
+    pillAnimated = rgbm(0.42, 0.33, 0.24, 1),
     pillHover = rgbm(0.42, 0.36, 0.28, 1),
   },
 }

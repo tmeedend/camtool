@@ -169,7 +169,14 @@ function parameter.draw(id, spec)
   ------------------------------------------------------------------
   -- Arrows and value
   ------------------------------------------------------------------
-  ui.pushStyleColor(ui.StyleColor.Button, column.pill)
+  -- An animated parameter has to be findable without reading every diamond in
+  -- the column: the field itself carries a slightly lifted tint. The diamond
+  -- still says WHERE the keyframe is; this only says that the camera moves
+  -- this parameter at all.
+  local animated = spec.keyframe == 'here' or spec.keyframe == 'elsewhere'
+  local pill = animated and (column.pillAnimated or column.pill) or column.pill
+
+  ui.pushStyleColor(ui.StyleColor.Button, pill)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, column.pillHover)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, column.pillHover)
   ui.pushStyleColor(ui.StyleColor.Text,
@@ -201,6 +208,11 @@ function parameter.draw(id, spec)
 
     if entered then
       action, payload = 'commit', tonumber(buffer)
+      editing, editingWasActive = nil, false
+    elseif ui.keyboardButtonPressed(ui.KeyIndex.Escape) then
+      -- The same escape hatch as the drag, and the contract asks for both:
+      -- what was typed is dropped and the value stays where it was. Nothing
+      -- to restore, since nothing was applied until Enter.
       editing, editingWasActive = nil, false
     elseif ui.itemActive() then
       editingWasActive = true

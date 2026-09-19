@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (370 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (372 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -216,6 +216,34 @@ Ce qui est en place : les trois colonnes alignées en `ui.columns`, la bande
 des caméras et celle des keyframes (avec `+` / `−` inertes), le losange de
 keyframe à trois états, les unités, les champs inactifs grisés, et un
 pense-bête en bas qui liste ce qui manque encore.
+
+**Le contrat d'interaction est écrit** : `docs/ui-interactions.md`, rédigé par
+le designer d'ATR et adopté tel quel. Il dit ce que l'UI **doit** faire ; ce
+fichier-ci dit où on en est. À lire avant de toucher à `apps/lua/CamTool3/ui/`.
+
+Écart restant avec ce contrat, dans l'ordre où il le présente :
+
+| Point du contrat | État |
+|---|---|
+| Composant paramètre unique, quatre gestes, Ctrl/Shift | ✅ |
+| Molette interdite | ✅ |
+| Glissé : horizontal, zone morte 4 px, curseur ↔, champ grisé inerte | ✅ |
+| Échap pendant un glissé **et pendant une saisie** | ✅ |
+| Un glissé = une entrée d'undo, point d'entrée unique | ✅ |
+| Losanges à trois états | ✅ |
+| **Champ teinté quand le paramètre est animé** | ✅ |
+| **Infobulle par élément, avec délai** | ❌ à faire |
+| **Ligne de statut contextuelle en bas** | ❌ à faire |
+| **Bouton `?` avec la légende complète** | ❌ à faire |
+| **Supprimer le bloc d'aide du bas** (et la liste de chantier qu'il contient) | ❌ à faire |
+| Colonnes alignées ligne à ligne, largeurs égales | ✅ (`ui.columns`) |
+| Bandeau, grisé, carte | ✅ |
+
+Les quatre manques forment un seul chantier : **la couche d'aide**. Le bloc du
+bas part, et trois choses le remplacent — l'infobulle qu'on va chercher, la
+ligne de statut toujours visible, et le `?` exhaustif. La liste
+« pas encore implémenté » qu'il contient n'a rien à faire dans la fenêtre et
+revient ici (voir « Chantiers restants »).
 
 **Décisions actées avec Théo** (ne pas re-trancher seul) :
 
