@@ -477,15 +477,41 @@ diagnostic.
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
 
-## Décisions ouvertes (ne pas trancher seul)
+## Décisions tranchées (ne pas rouvrir seul)
 
-- Déplacement éventuel du dépôt hors du dossier du jeu (jonction Windows vers `apps/python/CamTool_2`).
-- `interpolation_mode` est **par fichier** ; le passer par caméra permettrait de
-  mélanger anciennes et nouvelles caméras dans un même set.
-- Le **bug `SolveCubic`** (registre des bizarreries) : corriger dans le mode
-  `fixed`, ou le garder tel quel ?
-- **#23 : le correctif par défaut ?** Il est aujourd'hui derrière une case à
-  cocher, legacy par défaut, donc les fichiers migrés gardent le bug. À la
-  différence des bugs de courbe (#1, #4) qui *déplacent* une trajectoire, #23
-  remplace l'animation voulue par **rien** — la caméra ignore ses keyframes.
-  Difficile d'imaginer une vidéo qui en dépende.
+Ces quatre-là ont été listées comme ouvertes, puis fermées par Théo. Gardées
+ici avec leur raison, parce qu'une question fermée sans trace se repose.
+
+- **Le dépôt reste dans le dossier du jeu.** Pas de jonction Windows, pas de
+  déplacement. On laisse comme ça.
+
+- **`interpolation_mode` reste par fichier.** Le passer par caméra permettrait
+  de mélanger anciennes et nouvelles caméras dans un même set : aucun intérêt
+  pratique, et ça doublerait le nombre d'états à tenir en tête.
+
+- **#23 n'était plus une décision ouverte, juste une entrée périmée.** Le
+  correctif n'est plus derrière une case à cocher depuis que
+  `playback.applyMode` dérive les deux interrupteurs de `interpolation_mode`.
+  Le comportement actuel, qui convient :
+
+  | Fichier | Mode | #23 |
+  |---|---|---|
+  | CamTool 2 migré | `legacy` (`data.lua:96`) | garde le bug |
+  | Écrit par CamTool 3 | `fixed` (`data.lua:121`) | corrigé |
+
+  Et le panneau affiche le mode et permet d'en changer volontairement. Un
+  montage déjà fait ne bouge donc pas, un set neuf n'hérite pas du bug.
+
+- **Le bug `SolveCubic` reste tel quel, dans les deux modes.** C'est le point
+  qui demandait une vérification : il n'a jamais été corrigé nulle part.
+  `solveCubic` ne prend pas de mode, le bug est reproduit inconditionnellement,
+  et `fixed` ne le touche pas. Le comportement actuel convient, donc on n'y
+  touche pas.
+
+  ⚠️ **Conséquence à connaître : `fixed` ne veut pas dire « tout corrigé ».**
+  Il couvre exactement deux choses, `legacyLastCamera` (#23) et
+  `legacyZeroFill` (#16). Les deux bizarreries du solveur — **#1** (`SolveCubic`
+  rend `nil` sur racine double, la caméra garde sa valeur de la frame
+  précédente) et **#4** (`SolveQuadratic(0, 0, c)` rend la constante) — sont
+  reproduites dans les deux modes. Le registre de `docs/legacy.md` les décrit ;
+  ce qui suit dit simplement qu'aucune n'est branchée sur le mode.

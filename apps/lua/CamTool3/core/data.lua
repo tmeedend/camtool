@@ -30,6 +30,13 @@ data.CURRENT_VERSION = 1
 data.MODE_LEGACY = 'legacy'
 
 ---Corrected curve maths. Only for cameras authored in CamTool 3.
+---
+---A DEFINED SET, not "everything the legacy got wrong". It covers exactly
+---two: the last camera ignoring its keyframes (#23) and the tracking buffer
+---primed from the world origin (#16). The two quirks of the curve solver --
+---SolveCubic returning nothing on an exact double root, and
+---SolveQuadratic(0, 0, c) handing back the constant -- are reproduced in BOTH
+---modes, deliberately and by Théo's decision. See docs/etat.md.
 data.MODE_FIXED = 'fixed'
 
 -- The two camera lists at the top of every file, one per camera mode.
