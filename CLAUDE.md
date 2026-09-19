@@ -89,6 +89,14 @@ Claude ne peut pas lancer Assetto Corsa. La vérification repose sur trois nivea
 
 Commande de validation avant de proposer une modification : `pytest -q && vermin --no-tips -t=3.3- --violations classes files ui core adapters CamTool_2.py`.
 
+`vermin` tourne sur le Python **du poste**, jamais dans AC : c'est un analyseur
+statique, `-t=3.3-` est la cible qu'il vise, pas l'interpréteur qui l'exécute.
+Comme `luajit`, il n'est pas dans le `PATH` des sessions d'outillage, et
+`python -m vermin` ne marche pas (paquet sans `__main__`) — utiliser
+`%APPDATA%\Python\Python312\Scripts\vermin.exe`. Les dossiers `core/` et
+`adapters/` de la commande n'existent pas encore côté Python : aujourd'hui elle
+se réduit à `classes files ui CamTool_2.py`.
+
 ### 1 bis. Tests Lua hors jeu (branche `camtool-3`)
 
 Même principe côté Lua, mêmes exigences. **Outillage : un seul binaire.**
