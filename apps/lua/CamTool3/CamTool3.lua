@@ -921,6 +921,9 @@ local UNDO_KEPT = 200
 
 -- What the session line says instead of the loaded file name, after a save.
 local atrStatus = nil
+---Whether the panel is showing the map. Not saved anywhere yet: CamTool 3
+---has no settings file, so this lasts as long as the session.
+local atrShowMap = true
 ---The last reason the map had nothing to draw, so a change is said once
 ---rather than every frame.
 local atrOutlineReason = nil
@@ -1024,6 +1027,7 @@ function script.windowAtr(dt)
     trackLength = sim.trackLengthM,
     outline = outline,
     outlineReason = outlineReason,
+    showMap = atrShowMap,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     trackedCarA = sim.focusedCar,
@@ -1037,6 +1041,7 @@ function script.windowAtr(dt)
     atrKeyframe = 1
     atrParameter.cancelEditing()
   end
+  if actions.toggleMap then atrShowMap = not atrShowMap end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
     atrParameter.cancelEditing()

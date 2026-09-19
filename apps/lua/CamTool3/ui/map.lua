@@ -132,6 +132,8 @@ function map.draw(state, width, maxHeight)
   -- Reserve the room, and take the click with it. invisibleButton rather than
   -- dummy: a dummy does not answer for the mouse.
   local clicked = ui.invisibleButton('##trackMap', vec2(width, height))
+  -- Asked straight after the button, while it is still the last item.
+  local hovered = ui.itemHovered()
 
   ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
     theme.mapBackground, theme.rounding)
@@ -209,6 +211,33 @@ function map.draw(state, width, maxHeight)
   end
 
   ------------------------------------------------------------------
+  -- What the mouse is over
+  ------------------------------------------------------------------
+  -- Measured against the SAME origin the track was drawn from. The click used
+  -- to be measured from the item rectangle against ui.mousePos(), which is a
+  -- screen coordinate affected by the UI scale -- two different rulers, and
+  -- the click landed nowhere near the track.
+  --
+  -- Drawn as well as counted, and that is the point: a hit test you cannot
+  -- see is a hit test you cannot debug. If the ring follows the pointer along
+  -- the track, the coordinates agree. If it sits somewhere else, it says by
+  -- how much.
+  local hoverIndex = nil
+  if hovered then
+    local mouse = ui.mouseLocalPos()
+    if mouse ~= nil and mouse.x >= 0 and mouse.y >= 0 then
+      hoverIndex = trackmap.nearest(projected, mouse.x - origin.x,
+        mouse.y - origin.y, theme.mapClickRadius)
+    end
+  end
+
+  if hoverIndex ~= nil then
+    local point = projected[hoverIndex]
+    ui.drawCircle(vec2(origin.x + point.x, origin.y + point.y), 6,
+      theme.mapHover, 12, 2)
+  end
+
+  ------------------------------------------------------------------
   -- The start line, and the car
   ------------------------------------------------------------------
   local start = projected[nearestIndex(points, 0)]
@@ -231,17 +260,11 @@ function map.draw(state, width, maxHeight)
   ------------------------------------------------------------------
   -- Clicking a camera
   ------------------------------------------------------------------
-  -- Where the click landed is measured from the item's own rectangle rather
-  -- than from the cursor: the rectangle and the mouse are both in screen
-  -- coordinates, so the two cannot disagree about padding or scrolling.
-  -- ui/parameter reads its drag the same way.
-  if clicked then
-    local rect, mouse = ui.itemRectMin(), ui.mousePos()
-    if rect ~= nil and mouse ~= nil then
-      local index = trackmap.nearest(projected, mouse.x - rect.x,
-        mouse.y - rect.y, theme.mapClickRadius)
-      if index ~= nil and owners[index] then return owners[index] end
-    end
+  -- Whatever the pointer was over is what the click takes: one piece of
+  -- arithmetic, drawn on screen every frame, rather than a second one that
+  -- only runs on the click and can only be checked by clicking.
+  if clicked and hoverIndex ~= nil and owners[hoverIndex] then
+    return owners[hoverIndex]
   end
 
   return nil

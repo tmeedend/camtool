@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (349 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (359 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -115,7 +115,10 @@ rien.
 | 16 | Carte, cas limite | Sur un circuit sans `fast_lane.ai` (drift, gymkhana), la carte dit **laquelle des quatre raisons** s'applique, et le reste du panneau continue de marcher. |
 | 17 | Carte, rotation | Un circuit en portrait (Spa) doit apparaître **couché**, remplissant la bande. Un circuit déjà large doit rester dans son orientation habituelle : on ne tourne que si ça fait gagner 15 %. |
 | 18 | Carte, hauteur | Fenêtre par défaut : la carte ne prend pas plus d'un tiers du panneau. Fenêtre étirée : elle grandit jusqu'à 300 px et pas au-delà. Pas de bande vide sous un circuit large. |
-| 19 | **Clic sur la carte** | Cliquer un bout de tracé sélectionne la caméra qui le couvre, comme un clic dans la bande. Cliquer le vide au milieu ne doit **rien** changer. |
+| 19 | **Clic sur la carte** | Survoler le tracé dessine un **anneau blanc** qui suit le pointeur : c'est la cible du clic, rendue visible. S'il suit le tracé, les repères concordent ; s'il est décalé, il dit de combien. Puis cliquer sélectionne la caméra, et cliquer le vide au milieu ne change **rien**. |
+| 20 | Bouton `map` | Range et ressort la carte. La bande disparaît entièrement, les paramètres remontent. |
+| 21 | **Molette sur une valeur** | Un cran = un pas, Ctrl et Shift comme ailleurs. ⚠️ **À vérifier : est-ce que le panneau défile en même temps ?** Si oui il faudra consommer la molette. |
+| 22 | Glisser une valeur | Existe depuis le composant paramètre (8 px par pas) mais ne marche que sur une caméra **vivante** — un champ à `--` n'a rien à bouger. À tester avec le replay en lecture et une caméra sélectionnée. |
 
 ## ⏳ En attente de Théo
 

@@ -103,6 +103,9 @@ theme.mapShareOfWindow = 0.35
 theme.mapHeight = 150
 theme.mapPadding = 8
 theme.mapThickness = 3
+---The ring under the pointer: which camera a click would take.
+theme.mapHover = rgbm(1, 1, 1, 0.75)
+
 ---How close a click has to land to count as hitting the track, in pixels.
 ---Generous on purpose: the line is three pixels wide and nobody hits three
 ---pixels.

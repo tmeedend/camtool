@@ -446,6 +446,14 @@ function atr.draw(state)
     actions.reset = true
   end
 
+  -- Square brackets mean "on" throughout this row, as they do for the list
+  -- and the maths beside it.
+  ui.sameLine(0, 3)
+  if ui.button((state.showMap and '[map]' or ' map ') .. '##showMap',
+      vec2(52, theme.stripHeight)) then
+    actions.toggleMap = true
+  end
+
   -- Position or time, and which curve maths the file gets. The second is not
   -- a preference: a CamTool 2 file is loaded as legacy and has to behave as
   -- CamTool 2 did, or footage already cut would change. Shown so it is never
@@ -488,11 +496,13 @@ function atr.draw(state)
   -- this window. Without the second, the default 460 px panel would hand two
   -- thirds of itself to the map and push the parameters off the bottom, while
   -- a window dragged out wide gets a map worth having.
-  local ceiling = math.min(theme.mapHeightMax,
-    math.max(theme.mapHeightMin,
-      math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
-  local picked = trackMap.draw(state, width, ceiling)
-  if picked ~= nil then actions.selectCamera = picked end
+  if state.showMap ~= false then
+    local ceiling = math.min(theme.mapHeightMax,
+      math.max(theme.mapHeightMin,
+        math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
+    local picked = trackMap.draw(state, width, ceiling)
+    if picked ~= nil then actions.selectCamera = picked end
+  end
   ui.newLine(2)
 
   -- Where the selected keyframe sits on the track.

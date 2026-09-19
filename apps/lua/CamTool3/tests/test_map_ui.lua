@@ -434,10 +434,12 @@ end)
 
 ---Draw once with the mouse somewhere, and say whether it was clicked.
 local function clickAt(state, x, y, clickedIt)
+  -- The pointer has to be over the map for either the ring or the click to
+  -- mean anything, which is how the real thing works too.
   local handle = fakes.install({
     clicks = clickedIt ~= false and { ['##trackMap'] = true } or {},
-    itemX = 17, itemY = 23,
-    mouseX = 17 + x, mouseY = 23 + y,
+    itemHovered = true,
+    mouseX = ORIGIN_X + x, mouseY = ORIGIN_Y + y,
   })
   trackMap.reset()
   local picked = trackMap.draw(state, WIDTH, HEIGHT)
@@ -460,7 +462,7 @@ test('clicking a stretch of track selects the camera that covers it', function()
   end
 
   -- That last point is the end of the lap, so the last camera owns it.
-  local picked = clickAt(state, target.x - 17, target.y - 23)
+  local picked = clickAt(state, target.x - ORIGIN_X, target.y - ORIGIN_Y)
   eq(picked, 4)
 end)
 
@@ -487,10 +489,87 @@ test('hovering without clicking selects nothing', function()
     if drawn[i].op == 'pathLineTo' then target = drawn[i] break end
   end
 
-  eq(clickAt(state, target.x - 17, target.y - 23, false), nil,
+  eq(clickAt(state, target.x - ORIGIN_X, target.y - ORIGIN_Y, false), nil,
     'the mouse was over the track, but nobody pressed anything')
 end)
 
 test('clicking a track with no outline does not raise', function()
   eq(clickAt({ outline = nil, cameras = cameras({ 0.2 }) }, 10, 10), nil)
+end)
+
+test('the ring shows which camera a click would take, before clicking', function()
+  -- A hit test you cannot see is a hit test you cannot debug. This is what
+  -- was missing when the click silently did nothing: no way, in game, to tell
+  -- a click that was never reported from coordinates measured on the wrong
+  -- ruler.
+  local state = {
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.5 }),
+    cameraIndex = 1,
+  }
+
+  local _, drawn = clickAt(state, -999, -999, false)
+  local target
+  for i = 1, #drawn do
+    if drawn[i].op == 'pathLineTo' then target = drawn[i] break end
+  end
+
+  -- Hovering the track, without pressing anything.
+  local _, hoverDrawn =
+    clickAt(state, target.x - ORIGIN_X, target.y - ORIGIN_Y, false)
+
+  local ring = nil
+  for i = 1, #hoverDrawn do
+    local call = hoverDrawn[i]
+    if call.op == 'drawCircle' and call.colour == theme.mapHover then
+      ring = call
+    end
+  end
+
+  eq(ring ~= nil, true, 'the pointer is over the track, so the ring is drawn')
+  eq(math.abs(ring.x - target.x) < 2 and math.abs(ring.y - target.y) < 2, true,
+    'and it sits on the point the click would take')
+end)
+
+test('no ring over the empty middle of the map', function()
+  local _, drawn = clickAt({
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.5 }),
+    cameraIndex = 1,
+  }, WIDTH / 2, HEIGHT / 2, false)
+
+  for i = 1, #drawn do
+    eq(drawn[i].colour ~= theme.mapHover, true, 'nothing to select there')
+  end
+end)
+
+test('the click and the ring cannot disagree', function()
+  -- They are one calculation now. Two would be two chances to get the ruler
+  -- wrong, and only one of them visible.
+  local state = {
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.33, 0.66 }),
+    cameraIndex = 1,
+  }
+
+  local _, drawn = clickAt(state, -999, -999, false)
+  local points = {}
+  for i = 1, #drawn do
+    if drawn[i].op == 'pathLineTo' then points[#points + 1] = drawn[i] end
+  end
+
+  for _, at in ipairs({ 1, 20, 50, 90 }) do
+    local point = points[at]
+    local picked, hoverDrawn =
+      clickAt(state, point.x - ORIGIN_X, point.y - ORIGIN_Y)
+
+    local ring = nil
+    for i = 1, #hoverDrawn do
+      if hoverDrawn[i].op == 'drawCircle'
+        and hoverDrawn[i].colour == theme.mapHover then ring = hoverDrawn[i] end
+    end
+
+    eq(ring ~= nil, true, 'a ring at point ' .. at)
+    eq(picked ~= nil, true, 'and a camera taken at point ' .. at)
+  end
 end)

@@ -878,3 +878,137 @@ test('a window dragged out tall gets a bigger map, up to the ceiling', function(
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- The wheel
+--------------------------------------------------------------------------
+
+test('rolling the wheel over a value moves it one step a notch', function()
+  -- The gesture that needs no aim: hover and roll, no value running away
+  -- under the pointer. It goes through the same entry point as the arrows and
+  -- the drag, so Ctrl and Shift still divide and multiply it.
+  local handle = fakes.install({ itemHovered = true, mouseWheel = 1 })
+  parameter.cancelEditing()
+
+  local action, amount = parameter.draw('wheel1', {
+    label = 'MIX', text = '50%', width = 140,
+  })
+  eq(action, 'drag')
+  runner.near(amount, 1, 1e-12)
+
+  handle.restoreIo()
+end)
+
+test('rolling the other way moves the other way', function()
+  local handle = fakes.install({ itemHovered = true, mouseWheel = -2 })
+  parameter.cancelEditing()
+
+  local _, amount = parameter.draw('wheel2', {
+    label = 'MIX', text = '50%', width = 140,
+  })
+  runner.near(amount, -2, 1e-12)
+
+  handle.restoreIo()
+end)
+
+test('the wheel does nothing unless the pointer is on the value', function()
+  local handle = fakes.install({ itemHovered = false, mouseWheel = 3 })
+  parameter.cancelEditing()
+
+  local action = parameter.draw('wheel3', {
+    label = 'MIX', text = '50%', width = 140,
+  })
+  eq(action, nil)
+
+  handle.restoreIo()
+end)
+
+test('a value with nothing behind it cannot be wheeled either', function()
+  local handle = fakes.install({ itemHovered = true, mouseWheel = 3 })
+  parameter.cancelEditing()
+
+  local action = parameter.draw('wheel4', {
+    label = 'FOCUS POINT', text = nil, present = false, width = 140,
+  })
+  eq(action, nil)
+
+  handle.restoreIo()
+end)
+
+test('a wheel nudged mid-drag does not fight the hand already moving it', function()
+  -- Both would be reported in the same frame, and the two would disagree
+  -- about how far the value should go.
+  local handle = fakes.install({
+    itemActive = true, itemHovered = true,
+    mouseDragDelta = { x = 16, y = 0 }, mouseWheel = 5,
+  })
+  parameter.cancelEditing()
+
+  local _, amount = parameter.draw('wheel5', {
+    label = 'MIX', text = '50%', width = 140,
+  })
+  runner.near(amount, 2, 1e-12, 'the drag, not the wheel')
+
+  handle.restoreIo()
+end)
+
+test('a readout cannot be wheeled -- there is nothing to set', function()
+  local handle = fakes.install({ itemHovered = true, mouseWheel = 1 })
+  parameter.cancelEditing()
+
+  local action = parameter.draw('wheel6', {
+    label = 'ACTIVE CAR', text = 'car 0', runtime = true,
+    noTyping = true, width = 140,
+  })
+  eq(action, nil)
+
+  handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- Hiding the map
+--------------------------------------------------------------------------
+
+test('the map can be put away, and the panel still works without it', function()
+  local handle = fakes.install({ cameraFile = rawFile })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  local function strokes()
+    local n = 0
+    for i = 1, #handle.drawn do
+      if handle.drawn[i].op == 'pathStroke' then n = n + 1 end
+    end
+    return n
+  end
+
+  pcall(_G.script.windowAtr, 0.016)
+  eq(strokes() > 0, true, 'shown to begin with')
+
+  -- Now a session where the toggle is being clicked.
+  handle.restoreIo()
+
+  handle = fakes.install({
+    cameraFile = rawFile,
+    clicks = { [' map ##showMap'] = true, ['[map]##showMap'] = true },
+  })
+  trackAdapter.clearCache()
+  trackMap.reset()
+  chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  pcall(_G.script.windowAtr, 0.016)
+  local before = #handle.drawn
+  pcall(_G.script.windowAtr, 0.016)
+
+  local after = 0
+  for i = before + 1, #handle.drawn do
+    if handle.drawn[i].op == 'pathStroke' then after = after + 1 end
+  end
+  eq(after, 0, 'the second draw has no map in it')
+
+  handle.restoreIo()
+end)

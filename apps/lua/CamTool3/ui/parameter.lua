@@ -49,6 +49,14 @@ local DIAMOND_SIZE = 9
 ---point as the arrows.
 local PIXELS_PER_STEP = 8
 
+---One notch of the wheel is one step, the same step the arrows take.
+---
+---Video tools have trained this: in Fusion, Nuke and Premiere the wheel over
+---a number changes it. It costs nothing to offer next to the drag, and it is
+---the one gesture that needs no aim -- hover and roll, without the value
+---running away under the pointer.
+local STEPS_PER_NOTCH = 1
+
 -- Which row is being typed into, and what is in the field. One at a time,
 -- so this is a plain pair rather than a table: opening a second field closes
 -- the first, which is what anyone would expect.
@@ -195,13 +203,22 @@ function parameter.draw(id, spec)
     ui.button((spec.text or '--') .. '##' .. id .. 'val',
       vec2(valueWidth, theme.rowHeight))
 
-    if spec.present ~= false and not spec.noTyping and ui.itemActive() then
+    local live = spec.present ~= false and not spec.noTyping
+
+    if live and ui.itemActive() then
       local delta = ui.mouseDragDelta(0)
       if delta ~= nil and delta.x ~= 0 then
         action, payload = 'drag', delta.x / PIXELS_PER_STEP
         -- Reset so the next frame reports the movement since this one; the
         -- drag is then a stream of small steps rather than one growing jump.
         ui.resetMouseDragDelta(0)
+      end
+    elseif live and ui.itemHovered() then
+      -- Only when nothing is being dragged, so a wheel nudged mid-drag cannot
+      -- fight the hand already moving the value.
+      local wheel = ui.mouseWheel()
+      if type(wheel) == 'number' and wheel ~= 0 then
+        action, payload = 'drag', wheel * STEPS_PER_NOTCH
       end
     end
 

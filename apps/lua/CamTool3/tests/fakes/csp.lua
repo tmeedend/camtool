@@ -204,6 +204,7 @@ function fakes.install(opts)
     itemHovered = function() return opts.itemHovered == true end,
     mouseDoubleClicked = function() return opts.mouseDoubleClicked == true end,
     mouseDragDelta = function() return opts.mouseDragDelta end,
+    mouseWheel = function() return opts.mouseWheel or 0 end,
     resetMouseDragDelta = function() end,
     setNextItemWidth = function() end,
 
@@ -224,6 +225,12 @@ function fakes.install(opts)
     -- Where the click landed. The map measures from itemRectMin, so these two
     -- are read together and a test sets both.
     mousePos = function()
+      return { x = opts.mouseX or -1, y = opts.mouseY or -1 }
+    end,
+    -- The pointer in the window's own coordinates, which is the ruler
+    -- ui.getCursor uses and therefore the one anything drawn has to be
+    -- measured against.
+    mouseLocalPos = function()
       return { x = opts.mouseX or -1, y = opts.mouseY or -1 }
     end,
     itemRectMax = function() return { x = 10, y = 10 } end,
