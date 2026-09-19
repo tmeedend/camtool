@@ -43,7 +43,8 @@ interpolateurs confrontés point par point au vrai code Python.
 
 Migration des fichiers, sélection de la caméra par position piste, les trois
 interpolateurs, conventions d'angles, tracking avec anticipation (lead/lag),
-splines enregistrées, fonctionnement fenêtre fermée.
+splines enregistrées, shake (rotation et offset), profondeur de champ avec
+autofocus, fonctionnement fenêtre fermée.
 
 **Issues traitées** : **#16** (glissement à l'activation) et **#23** (dernière
 caméra figée) ont leur cause identifiée, confirmée en jeu, et un correctif
@@ -59,16 +60,14 @@ en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
    ouverts en fin de document, **tous relevant désormais de la lecture de code**.
    Deux méritent d'être traités avant la refonte : la portée du bouton `Reset`
    (potentiellement destructif) et le déroulé de `Record`.
-2. **Shake** (`camera_shake_strength`, `camera_offset_shake_strength`) et
-   **focus point DOF** (`camera_focus_point`).
-3. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
+2. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
    sait pas encore les *sélectionner* quand la voiture est aux stands (le legacy
    le fait via `car_is_in_pitline`, avec une seconde passe de sélection).
    `evaluate.activeCameraIndex` accepte déjà un argument `wantPit`, rien ne
    l'appelle avec.
-4. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
-5. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
-6. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
+3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
+4. **L'UI** (maquette ATR) — le gros du travail, sans risque technique connu.
+5. **L'écriture de fichiers** — jusqu'ici volontairement hors périmètre. Voir la
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 
 ### Réserves connues, non bloquantes
