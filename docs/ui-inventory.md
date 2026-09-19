@@ -70,12 +70,22 @@ La conversion est faite à l'affichage (`set_text(valeur, …, "m"/"degrees")`).
 | Élément | Comportement |
 |---|---|
 | 📹 icône caméra | **Activate Free Camera** (libellé confirmé par l'infobulle) |
-| ◆ losange orange | ⚠️ rôle inconnu |
+| ◆ losange orange | **Pas un widget CamTool** — voir ci-dessous |
 | `CamTool v2.2.0` | Titre et version |
 | `(1448 m)` | **Position courante de la voiture**, en mètres. En mode temps : secondes. Vide si indisponible. ⚠️ Ce n'est *pas* la longueur du circuit. |
 | 📍 épingle | Mode **position** (`pos.png` / `pos_active.png`) |
 | ⏱ chronomètre | Mode **temps** (`time.png` / `time_active.png`) |
 | ⏻ power | **Activer / désactiver** CamTool (`on.png` / `off.png`). Aussi **F10**. |
+
+### Le losange orange n'appartient pas à CamTool
+
+`__create_header` construit exactement six éléments : `free_camera`, `title`,
+`the_x`, `activate`, `mode-pos`, `mode-time`. Aucun losange, et aucun autre
+endroit du code ne dessine dans l'en-tête. L'icône de l'app
+(`content/gui/icons/CamTool_2_ON.png`) est une caméra rouge, pas un losange.
+
+C'est donc un élément du **cadre de fenêtre d'Assetto Corsa**, pas de
+l'application. Rien à reproduire dans la refonte.
 
 ### Barre de position
 
@@ -143,15 +153,39 @@ précédent à reprendre pour la saisie rapide voulue par ATR.
 
 **Camera**
 
-| Libellé | Valeur exemple | Pas | Borné |
-|---|---|---|---|
-| `Focus point:` | `500.00 m` | ⚠️ | ⚠️ |
-| `Autofocus:` | `True` | bascule | — |
-| `FOV:` | `8.70°` | ⚠️ | ⚠️ |
-| `Specific cam:` | `Camtool` | flèches seules | — |
+| Libellé | Valeur exemple | Pas (non keyframé) | Pas (keyframé) | Borné |
+|---|---|---|---|---|
+| `Focus point:` | `500.00 m` | **× 0.9 / × 1.1** | ± 0.5 m | ≥ 0 |
+| `Autofocus:` | `True` | bascule | — | — |
+| `FOV:` | `8.70°` | ± 5° | ± 0.5° | ≥ 0 |
+| `Specific cam:` | `Camtool` | −1 → 13, cyclique | — | — |
 
 `Focus point` est **grisé quand `Autofocus` est à True** — une dépendance entre
-champs à conserver.
+champs à conserver. C'est la **seule** de toute l'application : `disable()`
+n'est appelé qu'une fois dans les 2600 lignes de `CamTool_2.py`.
+
+#### Ces deux-là ne suivent pas la règle générale
+
+`Focus point` et `FOV` ne passent pas par `set_data` mais par des branches
+écrites à la main dans `on_click__camera`. Trois conséquences, toutes à
+trancher avant de les reproduire :
+
+- **Le pas du focus est multiplicatif** hors keyframe : `max(0, f − f × 0.1)`
+  et `f + f × 0.1`. Donc **un focus à 0 y reste pour toujours** — les flèches
+  ne peuvent plus le faire remonter. Piège réel.
+- **Ni Ctrl ni Shift n'agissent** sur ces deux champs : les modificateurs
+  ÷ 4 / × 4 sont lus dans `set_data` et `set_camera_data`, pas ici.
+- **Le facteur de réglage fin n'est pas le même** : ailleurs c'est le pas
+  divisé par 5 ou par 10 (voir §8) ; ici c'est un second pas écrit en dur.
+
+Sur `FOV` keyframé, la valeur est décodée en degrés, modifiée de ± 0.5, puis
+ré-encodée. Descendre à 0 par ce chemin stocke la sentinelle `0.00001` de
+`convert_fov_2_focal_length`, qui se relit en `0.00001` et non en `0` — la
+seule façon connue d'atteindre cette asymétrie depuis l'UI.
+
+`Specific cam` parcourt **−1 à 13** en boucle, `−1` étant `Camtool`. Les
+valeurs 0 à 13 désignent une caméra d'Assetto Corsa à laquelle CamTool 2 passe
+la main sans rien interpoler ; onze caméras de référence sont dans ce cas.
 
 **Shake**
 
@@ -428,7 +462,7 @@ frappe est dans le code) :
 | État | Effet du clic |
 |---|---|
 | keyframé (rouge) | valeur mise à `None` → **keyframe supprimé** |
-| non keyframé (gris) | **keyframe créé**, avec la valeur au niveau caméra |
+| non keyframé (gris) | **keyframe créé**, avec la valeur au niveau caméra *ou* la valeur vivante de la caméra selon le paramètre — voir le tableau plus bas |
 
 C'est la contrainte que `CLAUDE.md` signale : le geste de saisie rapide voulu par
 ATR **ne peut pas être le clic**, déjà pris.
@@ -437,25 +471,93 @@ ATR **ne peut pas être le clic**, déjà pris.
 
 | État | Cible de ◀ ▶ | Pas |
 |---|---|---|
-| **keyframé** | la valeur du **keyframe** | `pas / 5` |
+| **keyframé** | la valeur du **keyframe** | `pas / 5` (`set_data`) ou `pas / 10` (`set_camera_data`) |
 | **non keyframé** | la valeur au niveau **caméra** | `pas` entier |
 
-Le facteur 5 est dans le code sans commentaire.
-⚠️ Intentionnel (réglage fin sur un keyframe) ou accident ?
+**Il y a deux diviseurs, pas un.** `set_data` divise par 5, `set_camera_data`
+— utilisé par tout l'onglet Spline — divise par 10. Deux chiffres différents
+dans deux fonctions qui font la même chose : la question « intentionnel ou
+accident ? » penche nettement du côté de l'accident. **À unifier dans la
+refonte, avec l'accord de Théo** : ça change la sensation de réglage sur des
+caméras existantes.
+
+Ctrl (÷ 4) et Shift (× 4) s'appliquent dans les deux fonctions, aux deux
+niveaux — mais **pas** à `Focus point` ni à `FOV`, qui ont leur propre code.
+
+#### Le pas de chaque paramètre
+
+Relevé exhaustif des appels. « Borné » signifie ramené dans 0..1.
+
+| Paramètre | Pas | Borné | Valeur à la création du keyframe |
+|---|---|---|---|
+| `loc_x` `loc_y` `loc_z` | 0.5 m | non | **position vivante de la caméra** |
+| `rot_x` `rot_y` `rot_z` | 2.5° | non | **orientation vivante de la caméra** |
+| `transform_rot_strength` | 0.25 | oui | niveau caméra |
+| `transform_loc_strength` | 0.25 | oui | niveau caméra |
+| `tracking_strength_pitch` | 0.25 | oui | niveau caméra |
+| `tracking_strength_heading` | 0.25 | oui | niveau caméra |
+| `tracking_offset` | 0.1 | non | niveau caméra |
+| `tracking_offset_pitch` | 0.5° | non | niveau caméra |
+| `tracking_offset_heading` | 1° | non | niveau caméra |
+| `tracking_mix` | 0.25 | oui | niveau caméra |
+| `camera_shake_strength` | 0.1 | non | niveau caméra |
+| `camera_offset_shake_strength` | 0.1 | non | niveau caméra |
+| `spline_speed` | 0.05 | non | niveau caméra |
+| `spline_affect_loc_xy` `_loc_z` | 0.1 | oui | niveau caméra |
+| `spline_affect_pitch` `_roll` `_heading` | 0.1 | oui | niveau caméra |
+| `spline_offset_pitch` | 1° | non | niveau caméra |
+| `spline_offset_heading` | 5° | non | niveau caméra |
+| `spline_offset_loc_x` `_loc_z` | 0.25 m | non | niveau caméra |
+| `camera_focus_point` | voir onglet Camera | ≥ 0 | **focus vivant de la caméra** |
+| `camera_fov` | voir onglet Camera | ≥ 0 | **FOV vivant de la caméra** |
+
+⚠️ Créer un keyframe ne prend donc pas toujours « la valeur au niveau
+caméra ». Pour la position, la rotation, le focus et le FOV, il prend **la
+valeur vivante de la caméra** lue à l'instant du clic (`ctt.get_position`, `get_pitch`, `get_roll`,
+`get_heading`, `get_focus_point`, `get_fov`). C'est ce qui rend le geste
+utile : on place la caméra, puis on clique pour la figer.
 
 ---
 
 ## 9. Ce qui manque encore
 
-Il ne reste que des points mineurs :
+Un seul point, et il demande le jeu.
 
-1. **Pas et bornage** de `Focus point` et `FOV` (onglet Camera).
-2. **Le losange orange ◆** de l'en-tête : rôle toujours inconnu.
-3. **Cadence d'échantillonnage des splines** : la règle lue dans le code (un
-   échantillon par seconde de temps de replay) donne moins de points que n'en
-   contiennent les fichiers de référence. Un enregistrement d'essai trancherait.
-4. **États désactivés** : seul `Focus point` / `Autofocus` est confirmé ;
-   d'autres dépendances existent peut-être.
+### Cadence d'échantillonnage des splines
+
+La règle du code est nette et n'a **jamais changé** : `record_spline` est
+appelé une fois par frame depuis `Camera.refresh` avec `dt × replayTimeMultiplier`,
+accumule, et prend un échantillon quand le total dépasse 1 — soit **un
+échantillon par seconde de temps de replay**. La ligne est celle de kasperski,
+importée le 7 août 2021 et jamais retouchée depuis (`git log -S`).
+
+Les fichiers de référence en contiennent 6 à 8 fois plus. Mesuré en croisant
+les splines de `ks_silverstone_gp-seb.json` avec le temps que la voiture met
+réellement à parcourir chaque portion, relevé dans une trace enregistrée :
+
+| caméra | points | portion de tour | temps de replay | attendu à 1/s |
+|---|---|---|---|---|
+| 2 | 31 | 0.0031 → 0.0512 | 3.7 s | ~4 |
+| 3 | 35 | 0.0527 → 0.1114 | 5.3 s | ~5 |
+| 4 | 47 | 0.1132 → 0.1930 | 12.3 s | ~12 |
+| 5 | 39 | 0.1947 → 0.2622 | 5.5 s | ~6 |
+| 13 | 44 | 0.8467 → 0.9326 | 11.4 s | ~11 |
+
+Deux hypothèses sont **éliminées** : le code n'a pas changé depuis que ces
+fichiers ont été créés, et `record_spline` n'est pas appelé plusieurs fois par
+frame.
+
+Il en reste une seule, et elle est vérifiable en quinze secondes de jeu : **que
+vaut `replayTimeMultiplier` en ralenti ?** Si Assetto Corsa y répond par un
+nombre **supérieur** à 1 — un facteur d'étirement du temps plutôt qu'une
+vitesse — alors filmer au ralenti accumule plus vite pendant que la voiture
+avance moins, et la densité observée s'explique exactement. Si la valeur est
+inférieure à 1, la densité est invariante à la vitesse de replay et il faudra
+chercher ailleurs.
+
+**Le test** : enregistrer une trace (`dev_record_trace`) en mettant le replay
+au ralenti pendant quelques secondes. Le champ `rtm` de chaque frame donne la
+réponse directement, sans rien instrumenter de plus.
 
 ### Pièges relevés, à ne pas reproduire
 
@@ -468,3 +570,8 @@ Il ne reste que des points mineurs :
   fausse la lecture des couleurs.
 - **Shift / Ctrl ont deux sens** selon qu'on est dans les panneaux (× 4 / ÷ 4) ou
   en mouse look (zoom avant / arrière).
+- **Un `Focus point` tombé à 0 ne remonte plus** : son pas est multiplicatif
+  (× 0.9 / × 1.1), donc les flèches ne peuvent plus rien en faire.
+- **`Focus point` et `FOV` ignorent Ctrl et Shift**, seuls de toute l'UI.
+- **Deux diviseurs de réglage fin** coexistent, `/ 5` et `/ 10`, selon la
+  fonction qui traite le paramètre.

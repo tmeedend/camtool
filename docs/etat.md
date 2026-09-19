@@ -172,12 +172,13 @@ part à 1,56 rad sur les premières frames puis colle ; activé, l'écart tombe 
 
 ## Chantiers restants, par taille croissante
 
-1. **Compléter `docs/ui-inventory.md`** — l'essentiel est fait, recoupé avec
-   cinq captures fournies par Théo : libellés réels, unités, code couleur,
-   disposition, les cinq onglets, le formulaire de fichiers. Huit points restent
-   ouverts en fin de document, **tous relevant désormais de la lecture de code**.
-   Deux méritent d'être traités avant la refonte : la portée du bouton `Reset`
-   (potentiellement destructif) et le déroulé de `Record`.
+1. ~~**Compléter `docs/ui-inventory.md`**~~ — **fait.** Il ne reste qu'un point,
+   la cadence d'échantillonnage des splines, et il demande le jeu : quinze
+   secondes de replay au ralenti avec `dev_record_trace`, le champ `rtm` de la
+   trace donne la réponse. Tout le reste est tranché, y compris le pas de
+   chaque paramètre, les deux diviseurs de réglage fin (`/5` et `/10`, sans
+   doute un accident), et le fait que `Focus point` et `FOV` échappent à la
+   règle générale.
 2. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
    sait pas encore les *sélectionner* quand la voiture est aux stands (le legacy
    le fait via `car_is_in_pitline`, avec une seconde passe de sélection).
