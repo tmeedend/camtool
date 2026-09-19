@@ -54,6 +54,15 @@ function fakes.install(opts)
     frame = 0,
   }
 
+  -- The focused car, mutable so a test can drive it frame by frame. getCar
+  -- hands this very table back, so writing to it is what moving the car means.
+  handle.car = {
+    splinePosition = opts.splinePosition or 0.5,
+    index = 0,
+    -- AC world position, Y-up. Needed for the tracking path.
+    position = opts.carPosition or vec3fake(-170, 5, 450),
+  }
+
   local grabbedCamera = {
     transform = handle.transform,
     transformOriginal = {
@@ -91,12 +100,7 @@ function fakes.install(opts)
 
     getCar = function(i)
       if i ~= 0 then return nil end
-      return {
-        splinePosition = opts.splinePosition or 0.5,
-        index = 0,
-        -- AC world position, Y-up. Needed for the tracking path.
-        position = opts.carPosition or vec3fake(-170, 5, 450),
-      }
+      return handle.car
     end,
 
     setReplayPosition = function(frame, counter)

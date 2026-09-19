@@ -25,5 +25,6 @@ require('tests/test_spline')
 require('tests/test_shake')
 require('tests/test_focus')
 require('tests/test_app_smoke')
+require('tests/test_playback_golden')
 
 os.exit(runner.run() and 0 or 1)
