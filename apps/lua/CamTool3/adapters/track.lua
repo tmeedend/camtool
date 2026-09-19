@@ -47,6 +47,29 @@ local function isFinite(v)
   return type(v) == 'number' and v == v and v - v == 0
 end
 
+---Why an outline could not be built, in words the panel can show.
+---
+---Four reasons rather than one, and the split is the point: "no outline" on a
+---circuit that plainly has one sends whoever reads it to the source. These
+---say which of the four it was, and the log says it with the numbers.
+track.NO_SPLINE_API = 'this CSP build has no ac.hasTrackSpline'
+track.NO_SPLINE = 'the game reports no AI spline here'
+track.NO_LENGTH = 'the game reports no track length'
+track.NO_POINTS = 'the AI spline returned nothing usable'
+
+---Can this be called?
+---
+---NOT `type(v) == 'function'`. CSP binds a good part of the `ac` namespace
+---through LuaJIT's FFI, and a C function pointer is `cdata`: perfectly
+---callable, but `type` says otherwise. Checking for 'function' declared every
+---such call missing and turned a normal circuit into "no track outline for
+---this circuit" -- which is exactly what it did on Spa.
+---
+---So: anything that is there might be callable, and pcall settles it.
+local function callable(v)
+  return v ~= nil
+end
+
 ---Clamp one side of the track to something that can be drawn.
 ---
 ---Lua does not raise on a bad division, it returns inf, and an inf half-width
@@ -58,12 +81,22 @@ local function usableHalfWidth(v)
   return v
 end
 
+---What stands between us and an AI spline, if anything.
+---@return string|nil @nil when there is one to draw
+local function splineTrouble()
+  local probe = ac.hasTrackSpline
+  if not callable(probe) then return track.NO_SPLINE_API end
+
+  local ok, answer = pcall(probe)
+  if not ok then return track.NO_SPLINE_API end
+  if answer ~= true then return track.NO_SPLINE end
+  return nil
+end
+
 ---Does this track have an AI spline to draw?
 ---@return boolean
 function track.hasOutline()
-  if type(ac.hasTrackSpline) ~= 'function' then return false end
-  local ok, answer = pcall(ac.hasTrackSpline)
-  return ok and answer == true
+  return splineTrouble() == nil
 end
 
 ---Sample the AI spline into an outline.
@@ -72,14 +105,20 @@ end
 ---horizontal pair: the same space the cameras store their own positions in,
 ---and the same mapping the app already uses for the car
 ---(`position.x, position.z, position.y`).
+---
+---Each way of failing says which one it was. A map that only knows how to say
+---"no track" sends whoever reads it to the source instead, which is what
+---happened the first time this ran on a normal circuit.
 ---@param spacingM number|nil @metres between samples, default DEFAULT_SPACING_M
 ---@return table|nil @{ points = { { x, y, p, halfLeft, halfRight } }, closed, lengthM, source }
+---@return string|nil @why, when there is no outline
 function track.outline(spacingM)
-  if not track.hasOutline() then return nil end
+  local trouble = splineTrouble()
+  if trouble ~= nil then return nil, trouble end
 
   local sim = ac.getSim()
   local lengthM = sim ~= nil and sim.trackLengthM or nil
-  if not isFinite(lengthM) or lengthM <= 0 then return nil end
+  if not isFinite(lengthM) or lengthM <= 0 then return nil, track.NO_LENGTH end
 
   spacingM = isFinite(spacingM) and spacingM or track.DEFAULT_SPACING_M
   if spacingM <= 0 then spacingM = track.DEFAULT_SPACING_M end
@@ -88,7 +127,7 @@ function track.outline(spacingM)
   if count < MIN_SAMPLES then count = MIN_SAMPLES end
   if count > MAX_SAMPLES then count = MAX_SAMPLES end
 
-  local hasSides = type(ac.getTrackAISplineSides) == 'function'
+  local hasSides = callable(ac.getTrackAISplineSides)
 
   local points = {}
   for i = 0, count - 1 do
@@ -115,7 +154,7 @@ function track.outline(spacingM)
     end
   end
 
-  if #points < 2 then return nil end
+  if #points < 2 then return nil, track.NO_POINTS end
 
   return {
     points = points,
@@ -126,22 +165,55 @@ function track.outline(spacingM)
   }
 end
 
+---How many calls to wait before trying a failed track again. At one draw a
+---frame that is about a second.
+local RETRY_EVERY = 60
+
 ---The outline of the track being driven, sampled once and kept.
 ---
 ---Keyed by track and layout, so the cache survives a session and reloads if
 ---the track ever changes underneath us.
+---
+---A SUCCESS is kept for good: sampling is far too slow for a frame and the
+---track does not change shape while a session runs.
+---
+---A FAILURE is kept only for a second. The app loads when its window is first
+---opened, which can be while the session is still coming up, and the first
+---answer out of the game is not always the settled one. Caching that first
+---"no" for good would leave the map empty for a whole session over a question
+---that would have answered itself a second later. Retrying every frame is the
+---other mistake -- that is the expensive case -- so it retries on a count.
 ---@param spacingM number|nil
----@return table|nil
+---@return table|nil outline
+---@return string|nil reason @why there is none
 function track.currentOutline(spacingM)
   local key = ac.getTrackID() .. '/' .. ac.getTrackLayout()
     .. '/' .. tostring(spacingM or track.DEFAULT_SPACING_M)
 
-  if cache ~= nil and cache.key == key then return cache.outline end
+  if cache ~= nil and cache.key == key then
+    if cache.outline ~= nil then return cache.outline, nil end
 
-  -- Cached even when it comes back nil: a track without a spline would
-  -- otherwise be re-sampled on every draw, which is the expensive case.
-  cache = { key = key, outline = track.outline(spacingM) }
-  return cache.outline
+    cache.waited = cache.waited + 1
+    if cache.waited < RETRY_EVERY then return nil, cache.reason end
+  end
+
+  local outline, reason = track.outline(spacingM)
+  local firstTry = cache == nil or cache.key ~= key
+  cache = { key = key, outline = outline, reason = reason, waited = 0 }
+
+  -- Once per track, and once more only if the reason changes. Never per
+  -- frame. These are the numbers that would have said what was wrong the
+  -- first time this ran on a circuit that plainly has an AI spline.
+  if outline == nil and firstTry then
+    local sim = ac.getSim()
+    ac.log(string.format(
+      'CamTool3: no track outline for %s -- %s ' ..
+      '(hasTrackSpline is %s, trackLengthM is %s)',
+      key, tostring(reason), type(ac.hasTrackSpline),
+      tostring(sim ~= nil and sim.trackLengthM or nil)))
+  end
+
+  return outline, reason
 end
 
 ---Forget what was sampled. For tests, and for a reload during development.

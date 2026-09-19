@@ -805,3 +805,25 @@ test('a track with no AI spline does not stop the panel drawing', function()
 
   handle.restoreIo()
 end)
+
+test('a track with no map says why, in the log the panel shows', function()
+  -- The first run on Spa said "no track outline for this circuit" and nothing
+  -- else, so the only way to find out what the adapter had actually decided
+  -- was to read the source. The reason now goes through the app's own log,
+  -- which the probe panel lists.
+  local handle = fakes.install({ cameraFile = rawFile, noTrackSpline = true })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+  pcall(_G.script.windowAtr, 0.016)
+
+  local said = nil
+  for i = 1, #handle.logs do
+    if handle.logs[i]:find('no track map', 1, true) then said = handle.logs[i] end
+  end
+  eq(said ~= nil, true, 'the panel explained itself in the log')
+
+  handle.restoreIo()
+end)

@@ -921,6 +921,9 @@ local UNDO_KEPT = 200
 
 -- What the session line says instead of the loaded file name, after a save.
 local atrStatus = nil
+---The last reason the map had nothing to draw, so a change is said once
+---rather than every frame.
+local atrOutlineReason = nil
 
 -- Reset asks once. CamTool 2 does not, and it is the one button that can
 -- throw away an afternoon in a single click.
@@ -986,6 +989,17 @@ function script.windowAtr(dt)
   if atrKeyframe > keyframeCount then atrKeyframe = keyframeCount end
   if atrKeyframe < 1 and keyframeCount > 0 then atrKeyframe = 1 end
 
+  -- Sampled once per track and cached by the adapter, so asking for it on
+  -- every draw costs one table comparison. The reason comes with it: a map
+  -- that can only say "no track" is a map that sends you to read the source.
+  local outline, outlineReason = trackAdapter.currentOutline()
+  if outlineReason ~= atrOutlineReason then
+    atrOutlineReason = outlineReason
+    -- Into the app's own log, which the probe panel shows: a reason nobody
+    -- can read without going to find a file is half a reason.
+    if outlineReason ~= nil then log('no track map -- ' .. outlineReason) end
+  end
+
   local actions = atrPanel.draw({
     doc = doc,
     fileName = fileIndex >= 1 and files[fileIndex] ~= nil
@@ -1008,9 +1022,8 @@ function script.windowAtr(dt)
       and keyframes[atrKeyframe].keyframe or nil,
     trackPos = pbOut.trackPos,
     trackLength = sim.trackLengthM,
-    -- Sampled once per track and cached by the adapter, so asking for it on
-    -- every draw costs one table comparison.
-    outline = trackAdapter.currentOutline(),
+    outline = outline,
+    outlineReason = outlineReason,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     trackedCarA = sim.focusedCar,

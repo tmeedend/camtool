@@ -83,6 +83,7 @@ end
 ---
 ---@param state table
 ---  outline      from adapters/track, or nil when the track has no spline
+---  outlineReason  why there is none, shown in its place
 ---  cameras      the camera list being edited, for the segments
 ---  cameraIndex  the camera being edited
 ---  liveCameraIndex  the camera the car has made live
@@ -106,8 +107,9 @@ function map.draw(state, width, height)
     -- Saying so is the honest answer; drawing a guess is not.
     ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
     ui.setCursor(vec2(origin.x, origin.y + height / 2 - 8))
-    ui.textAligned('no track outline for this circuit', vec2(0.5, 0.5),
-      vec2(width, 16))
+    ui.textAligned('no track map -- '
+      .. (state.outlineReason or 'the game gave no outline'),
+      vec2(0.5, 0.5), vec2(width, 16))
     ui.popStyleColor()
     ui.setCursor(vec2(origin.x, origin.y + height))
     return
