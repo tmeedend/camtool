@@ -190,6 +190,14 @@ local ignoreLead = false
 local applySpline = true
 local splineQuery = 0
 
+-- The last camera spans the start line, so its keyframes are read a lap back.
+-- Legacy does that whenever the camera is last, whether or not the keyframes
+-- are stored wrapped, which freezes cameras like le_lancone's last one on their
+-- first keyframe. That is issue #23; leave this on to reproduce it.
+local legacyLastCamera = true
+local keyframeQuery = 0
+local isLastCamera = false
+
 -- CamTool 2 only offers the current track's files; do the same, with an escape
 -- hatch for loading another track's file while testing.
 local showAllTracks = false
@@ -353,7 +361,13 @@ local function runPlayback(transform)
 
     if activeCam ~= nil then
       local camera = cameras[activeCam]
-      evaluated = evaluate.all(camera, pos)
+
+      -- Keyframes are read at a position of their own for the camera that spans
+      -- the start line. See #23.
+      isLastCamera = evaluate.isLastCamera(cameras, activeCam)
+      keyframeQuery = evaluate.queryPosition(pos, camera, isLastCamera, #cameras, legacyLastCamera)
+
+      evaluated = evaluate.all(camera, keyframeQuery)
       local v = evaluated
 
       -- Where the legacy reads the camera's live angles: the previous frame's
@@ -860,6 +874,14 @@ local function drawPlayback()
 
     if ui.checkbox('aim straight at the car (no lead)', ignoreLead) then
       ignoreLead = not ignoreLead
+    end
+    if isLastCamera then
+      ui.textColored(string.format('last camera: keyframes read at %.4f%s',
+        keyframeQuery, keyframeQuery ~= trackPos and ' (wrapped a lap back)' or ''),
+        COLOR_OK)
+    end
+    if ui.checkbox('legacy last-camera wrap (#23)', legacyLastCamera) then
+      legacyLastCamera = not legacyLastCamera
     end
     if ui.checkbox('legacy startup transient (#16)', legacyZeroFill) then
       legacyZeroFill = not legacyZeroFill

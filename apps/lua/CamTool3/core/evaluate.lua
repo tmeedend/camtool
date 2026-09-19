@@ -132,6 +132,71 @@ function evaluate.all(camera, position)
   return out
 end
 
+---Is this camera the last one of its kind in the list?
+---The last camera spans the end of the lap and continues across the start line
+---until the first camera takes over, which is why it needs the wrap below.
+---@return boolean
+function evaluate.isLastCamera(cameras, index, wantPit)
+  if type(cameras) ~= 'table' or index == nil then return false end
+  wantPit = wantPit and true or false
+
+  local last = nil
+  for i = 1, #cameras do
+    local isPit = cameras[i].camera_pit and true or false
+    if isPit == wantPit then last = i end
+  end
+
+  return last == index
+end
+
+---Does this camera store its keyframes already wrapped past the start line?
+---CamTool writes them as negative positions in that case, so the camera at the
+---end of the lap reads continuously through 0.
+---@return boolean
+function evaluate.hasWrappedKeyframes(camera)
+  local keyframes = camera and camera.keyframes
+  if type(keyframes) ~= 'table' then return false end
+  for i = 1, #keyframes do
+    local at = keyframes[i].keyframe
+    if type(at) == 'number' and at < 0 then return true end
+  end
+  return false
+end
+
+---Where to read the keyframes, for the camera that spans the start line.
+---
+---The last camera is live from its camera_in to the end of the lap, then across
+---the line until the first camera starts. To interpolate through that jump the
+---query is moved a lap back, so positions near 1 become small negatives and line
+---up with keyframes stored the same way.
+---
+---LEGACY MODE reproduces the bug behind issue #23. It shifts whenever the
+---camera is last and the position is past 0.5, whether or not the keyframes are
+---stored wrapped. For a last camera whose keyframes sit at, say, 0.947 to 0.964,
+---the query becomes negative, lands before every keyframe, and interpolate
+---returns the first one -- the camera freezes for its whole span. Two of the
+---three multi-keyframe last cameras in the reference files store wrapped
+---keyframes and work; the third does not and would freeze.
+---
+---FIXED MODE shifts only when the keyframes really are stored wrapped, which is
+---the condition the legacy meant to test.
+---@param theX number @car track position, 0..1
+---@param camera table
+---@param isLast boolean
+---@param cameraCount number
+---@param legacy boolean|nil @true reproduces the #23 behaviour
+---@return number
+function evaluate.queryPosition(theX, camera, isLast, cameraCount, legacy)
+  if not isLast or (cameraCount or 0) <= 1 then return theX end
+  if theX <= 0.5 then return theX end
+
+  if legacy or evaluate.hasWrappedKeyframes(camera) then
+    return theX - 1
+  end
+
+  return theX
+end
+
 ---Index of the camera active at a track position.
 ---
 ---Ported from Data.refresh plus get_prev_camera and get_last_camera. The legacy

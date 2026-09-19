@@ -194,3 +194,96 @@ test('selection works on the real file', function()
     error('index ' .. index .. ' is out of range', 2)
   end
 end)
+
+--------------------------------------------------------------------------------
+-- The camera that spans the start line -- issue #23
+--------------------------------------------------------------------------------
+
+test('isLastCamera finds the last of its kind', function()
+  local cams = { { camera_in = 0 }, { camera_in = 0.5 }, { camera_in = 0.9 } }
+  eq(evaluate.isLastCamera(cams, 3), true)
+  eq(evaluate.isLastCamera(cams, 2), false)
+  eq(evaluate.isLastCamera(cams, nil), false)
+
+  -- A trailing pit camera must not steal the title from the last on-track one.
+  local mixed = { { camera_in = 0 }, { camera_in = 0.9 }, { camera_in = 0.95, camera_pit = true } }
+  eq(evaluate.isLastCamera(mixed, 2), true, 'last on track')
+  eq(evaluate.isLastCamera(mixed, 3), false)
+  eq(evaluate.isLastCamera(mixed, 3, true), true, 'last pit camera')
+end)
+
+test('wrapped keyframes are detected by their negative positions', function()
+  -- Red Bull Ring's last camera, stored across the line.
+  eq(evaluate.hasWrappedKeyframes({ keyframes = {
+    { keyframe = -0.096 }, { keyframe = 0.002 }, { keyframe = 0.08 },
+  } }), true)
+
+  -- le_lancone's last camera, which does not cross it.
+  eq(evaluate.hasWrappedKeyframes({ keyframes = {
+    { keyframe = 0.947 }, { keyframe = 0.962 }, { keyframe = 0.964 },
+  } }), false)
+
+  eq(evaluate.hasWrappedKeyframes({}), false)
+  eq(evaluate.hasWrappedKeyframes(nil), false)
+end)
+
+test('only the last camera is ever wrapped', function()
+  local wrapped = { keyframes = { { keyframe = -0.1 }, { keyframe = 0.05 } } }
+  eq(evaluate.queryPosition(0.9, wrapped, false, 5, false), 0.9, 'not the last camera')
+  eq(evaluate.queryPosition(0.9, wrapped, true, 1, false), 0.9, 'a lone camera never wraps')
+  eq(evaluate.queryPosition(0.3, wrapped, true, 5, false), 0.3, 'below 0.5 stays put')
+end)
+
+test('a last camera with wrapped keyframes reads a lap back', function()
+  local wrapped = { keyframes = { { keyframe = -0.096 }, { keyframe = 0.08 } } }
+  near(evaluate.queryPosition(0.9, wrapped, true, 5, false), -0.1, 1e-12)
+  near(evaluate.queryPosition(0.9, wrapped, true, 5, true), -0.1, 1e-12,
+    'legacy agrees when the keyframes really are wrapped')
+end)
+
+test('#23: legacy wraps a last camera whose keyframes are not stored wrapped', function()
+  -- le_lancone's last camera. The legacy shifts regardless, so the query lands
+  -- before every keyframe and interpolate returns the first one: the camera
+  -- freezes for its whole span. Fixed mode leaves it alone.
+  local plain = { keyframes = {
+    { keyframe = 0.947 }, { keyframe = 0.962 }, { keyframe = 0.964 },
+  } }
+
+  near(evaluate.queryPosition(0.95, plain, true, 5, true), -0.05, 1e-12,
+    'legacy shifts it out of range')
+  near(evaluate.queryPosition(0.95, plain, true, 5, false), 0.95, 1e-12,
+    'fixed mode keeps it where the keyframes are')
+end)
+
+test('#23: the frozen camera is visible end to end', function()
+  -- Not just the query: what the camera actually does. In legacy mode every
+  -- position across the span evaluates to the same value, which is the bug as
+  -- it looks on screen.
+  local camera = {
+    camera_in = 0.9466,
+    keyframes = {
+      { keyframe = 0.947, interpolation = { loc_x = 100 } },
+      { keyframe = 0.962, interpolation = { loc_x = 200 } },
+      { keyframe = 0.964, interpolation = { loc_x = 300 } },
+    },
+  }
+
+  local legacyValues, fixedValues = {}, {}
+  for _, at in ipairs({ 0.948, 0.955, 0.960, 0.963 }) do
+    legacyValues[#legacyValues + 1] =
+      evaluate.parameter(camera, 'loc_x', evaluate.queryPosition(at, camera, true, 5, true))
+    fixedValues[#fixedValues + 1] =
+      evaluate.parameter(camera, 'loc_x', evaluate.queryPosition(at, camera, true, 5, false))
+  end
+
+  for i = 2, #legacyValues do
+    eq(legacyValues[i], legacyValues[1], 'legacy is stuck on one value')
+  end
+  eq(legacyValues[1], 100, 'and that value is the first keyframe')
+
+  local moved = false
+  for i = 2, #fixedValues do
+    if math.abs(fixedValues[i] - fixedValues[1]) > 1e-9 then moved = true end
+  end
+  eq(moved, true, 'fixed mode actually moves the camera')
+end)
