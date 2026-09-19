@@ -52,6 +52,54 @@ disponible derrière une case à cocher. **#20** (stuttering) ne se reproduit pa
 en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 **#38** n'a pas pu être reproduit.
 
+## ⏳ En attente de Théo
+
+Ce que la session précédente a laissé en suspens. **À lire avant de proposer la
+suite.**
+
+### 1. Test en jeu non fait : shake et profondeur de champ
+
+Le portage est commité et testé hors jeu, mais **personne ne l'a vu tourner**.
+
+- Charger un fichier, `Grab camera` (le mode lecture se sélectionne seul).
+- **Shake** : décocher/recocher `apply shake`. Puis **rejouer deux fois le même
+  passage** — le tremblement doit être *identique*, c'est le test qui compte
+  (l'horloge dérive de la position de replay, pas du temps réel).
+- **Profondeur de champ** : une caméra avec `Autofocus`, vérifier que la
+  distance affichée suit la voiture. Décocher `apply depth of field` pour
+  comparer.
+- Réserve : le DOF exige **YEBIS** actif dans CSP. Distance qui bouge mais rien à
+  l'écran = probablement ça, pas un bug du portage.
+
+### 2. Décision non prise : enregistreur de traces
+
+Proposé, pas encore tranché. L'idée vient de la section Tests de `CLAUDE.md`.
+
+**Principe** : CamTool 2 enregistre par frame ses entrées (dt, position piste,
+frame de replay, positions des voitures) et ses sorties (position caméra, cap,
+tangage, roulis, FOV, focus) dans un JSONL. Je rejoue ces entrées dans le core
+Lua hors jeu et je compare les sorties.
+
+**Ce que ça apporte** : un golden master de la **chaîne entière**, là où les
+tests actuels vérifient les fonctions isolément. C'est précisément là que les
+bugs se sont logés (repli du cap non keyframé, DOF écrasé par la sonde). Une
+seule session d'enregistrement achète une couverture de non-régression
+permanente, rejouable sans Théo.
+
+**Ce que ça n'apporte pas** : rien sur l'image (flou, artefacts, UI), et la
+comparaison se fait contre CamTool 2 **bugs compris** — ce qui est voulu pour le
+mode `legacy`, et muet sur la qualité d'une correction.
+
+**Coût** : ~100 lignes Python côté CamTool 2 (désactivé par défaut, hors chemin
+chaud, aucune modification du calcul) + ~100 lignes Lua de chargeur et
+comparateur + 2-3 traces courtes en fixtures.
+
+⚠️ **Piège repéré** : `Settings.load_settings()` *remplace* tout le dictionnaire
+par le contenu du fichier. Un nouveau défaut ne prendrait donc pas effet sur un
+`settings.json` existant — lire le drapeau avec un repli explicite.
+
+Scénarios proposés : Silverstone `seb` (splines), `le_lancone` (dernière caméra).
+
 ## Chantiers restants, par taille croissante
 
 1. **Compléter `docs/ui-inventory.md`** — l'essentiel est fait, recoupé avec
