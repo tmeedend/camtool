@@ -744,3 +744,23 @@ test('cycling walks the whole list and wraps', function()
   eq(cameramode.cycle(-1, -1), 13, 'and at the bottom')
   eq(cameramode.cycle(nil, 1), 0, 'a camera that never set it starts here')
 end)
+
+test('the panel draws at the narrowest size the manifest allows', function()
+  -- MIN_SIZE is 420 wide. The session bar used to reserve a fixed 160 for
+  -- everything beside the file name, the row grew past it, and four buttons
+  -- ended up off the edge where nothing could click them -- which is how
+  -- Theo came to ask for undo buttons that were already there.
+  local doc = dataModule.load(rawFile)
+
+  for _, panelWidth in ipairs({ 420, 560, 1200 }) do
+    local handle = fakes.install({ panelWidth = panelWidth })
+    local ok, err = pcall(atr.draw, {
+      camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+      keyframeIndex = 1, keyframeCount = 2,
+      keyframePosition = 0.25, trackPos = 0.02, trackLength = 5802,
+      loadedName = 'something.json', undoDepth = 2, redoDepth = 1,
+    })
+    eq(ok, true, ok and '' or (panelWidth .. ' wide: ' .. tostring(err)))
+    handle.restoreIo()
+  end
+end)

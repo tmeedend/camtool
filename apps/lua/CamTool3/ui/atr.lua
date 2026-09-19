@@ -223,6 +223,8 @@ end
 ---The left side of CamTool 2 is two such columns, cameras and keyframes. ATR's
 ---mockup turns the camera one on its side and drops the other; both are here,
 ---because losing the keyframe list would leave no way to make a camera move.
+---Leaves the cursor on the same line, so the caller can put something to the
+---right of it -- which is where the action buttons live.
 ---@return number|nil picked, boolean added, boolean removed
 local function strip(id, count, active, width, colour, live)
   local picked, added, removed = nil, false, false
@@ -240,7 +242,8 @@ local function strip(id, count, active, width, colour, live)
     ui.pushStyleColor(ui.StyleColor.Button, fill)
     ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
     ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-    if ui.button(tostring(i) .. '##' .. id .. i, vec2(cell, 16)) then
+    if ui.button(tostring(i) .. '##' .. id .. i,
+        vec2(cell, theme.stripHeight)) then
       picked = i
     end
     ui.popStyleColor(3)
@@ -250,11 +253,14 @@ local function strip(id, count, active, width, colour, live)
   ui.pushStyleColor(ui.StyleColor.Button, colour)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-  if ui.button('+##' .. id .. 'add', vec2(cell, 16)) then added = true end
+  if ui.button('+##' .. id .. 'add', vec2(cell, theme.stripHeight)) then
+    added = true
+  end
   ui.sameLine(0, 1)
-  if ui.button('-##' .. id .. 'del', vec2(cell, 16)) then removed = true end
+  if ui.button('-##' .. id .. 'del', vec2(cell, theme.stripHeight)) then
+    removed = true
+  end
   ui.popStyleColor(3)
-  ui.newLine(2)
 
   return picked, added, removed
 end
@@ -344,74 +350,33 @@ function atr.draw(state)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
 
-  if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(theme.barHeight, theme.barHeight)) then
+  -- The name takes what the others leave, worked out from their own widths
+  -- rather than from a number that has to be kept in step with them. It was
+  -- a fixed 160, the row grew past it, and four buttons ended up off the
+  -- edge of the window where nothing could click them.
+  local HOLD_WIDTH = 110
+  local arrow = theme.barHeight
+  local nameWidth = math.max(60,
+    width - arrow - 2 - 2 - arrow - 6 - HOLD_WIDTH)
+
+  if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(arrow, arrow)) then
     actions.prevFile = true
   end
   ui.sameLine(0, 2)
   if ui.button((state.fileName or 'no file') .. '##fileName',
-      vec2(width - 160, theme.barHeight)) then
+      vec2(nameWidth, theme.barHeight)) then
     actions.loadFile = true
   end
   ui.sameLine(0, 2)
-  if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(theme.barHeight, theme.barHeight)) then
+  if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(arrow, arrow)) then
     actions.nextFile = true
   end
   ui.sameLine(0, 6)
   if ui.button((state.held and 'Release camera' or 'Take camera') .. '##hold',
-      vec2(110, theme.barHeight)) then
+      vec2(HOLD_WIDTH, theme.barHeight)) then
     if state.held then actions.release = true else actions.grab = true end
   end
-  ui.sameLine(0, 4)
-  local depth = state.undoDepth or 0
-  if ui.button(string.format('Undo (%d)##undo', depth), vec2(74, theme.barHeight)) then
-    actions.undo = true
-  end
-  ui.sameLine(0, 4)
-  if ui.button(string.format('Redo (%d)##redo', state.redoDepth or 0),
-      vec2(70, theme.barHeight)) then
-    actions.redo = true
-  end
-  ui.sameLine(0, 4)
-  -- The star is the only thing saying there is work not on disk yet.
-  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save', vec2(60, theme.barHeight)) then
-    actions.save = true
-  end
-  ui.sameLine(0, 4)
-  if ui.button('Reset##reset', vec2(56, theme.barHeight)) then
-    actions.reset = true
-  end
-
-  -- Which curve maths this file gets. Not a preference: a CamTool 2 file is
-  -- loaded as legacy and has to behave as CamTool 2 did, or footage already
-  -- cut would change. Shown so it is never a surprise, and switchable
-  -- because a file can be moved to the corrected curves on purpose.
-  if state.loadedName ~= nil then
-    ui.sameLine(0, 8)
-    local legacy = state.mode ~= 'fixed'
-    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '##mode',
-        vec2(96, theme.barHeight)) then
-      actions.mode = legacy and 'fixed' or 'legacy'
-    end
-  end
   ui.popStyleColor(3)
-
-  -- Position or time. CamTool 2 puts this in the header as two icons; the
-  -- two camera lists it switches between are a property of the file, and a
-  -- file made in one mode is meaningless in the other.
-  ui.pushStyleColor(ui.StyleColor.Button, theme.strip)
-  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
-  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-  if ui.button((state.listName == 'pos' and '[position]' or ' position ')
-      .. '##modePos', vec2(78, theme.barHeight)) then
-    actions.listName = 'pos'
-  end
-  ui.sameLine(0, 2)
-  if ui.button((state.listName == 'time' and '[time]' or ' time ')
-      .. '##modeTime', vec2(64, theme.barHeight)) then
-    actions.listName = 'time'
-  end
-  ui.popStyleColor(3)
-  ui.sameLine(0, 8)
 
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
   ui.text(state.status
@@ -423,12 +388,12 @@ function atr.draw(state)
   ------------------------------------------------------------------
   -- Header
   ------------------------------------------------------------------
+  -- Only the car's position. The name of the app is already on the window
+  -- title bar, and saying it twice used a line that the panel would rather
+  -- give to the cameras.
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
-  ui.textAligned('CAMTOOL 3', vec2(0, 0.5), vec2(width * 0.5, 20))
-  ui.sameLine(0, 0)
   local metres = (state.trackPos or 0) * (state.trackLength or 0)
-  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5),
-    vec2(width * 0.5, 20))
+  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5), vec2(width, 20))
   ui.popStyleColor()
 
   ------------------------------------------------------------------
@@ -445,9 +410,66 @@ function atr.draw(state)
   -- And the keyframes of that camera. This is the second column of CamTool 2's
   -- left side, which the mockup has no place for -- without it a camera can
   -- hold a pose but never move.
+  ui.newLine(2)
   actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe =
     strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
       theme.stripKeyframe)
+
+  -- The actions sit to the right of the keyframe strip, which is where the
+  -- room is: a camera rarely has twenty keyframes, and these were previously
+  -- on the file line, where they ran off the end of the window and could not
+  -- be clicked at all.
+  ui.sameLine(0, 12)
+  ui.pushStyleColor(ui.StyleColor.Button, theme.strip)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
+
+  local depth = state.undoDepth or 0
+  if ui.button(string.format('Undo (%d)##undo', depth),
+      vec2(74, theme.stripHeight)) then
+    actions.undo = true
+  end
+  ui.sameLine(0, 3)
+  if ui.button(string.format('Redo (%d)##redo', state.redoDepth or 0),
+      vec2(70, theme.stripHeight)) then
+    actions.redo = true
+  end
+  ui.sameLine(0, 3)
+  -- The star is the only thing saying there is work not on disk yet.
+  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save',
+      vec2(60, theme.stripHeight)) then
+    actions.save = true
+  end
+  ui.sameLine(0, 3)
+  if ui.button('Reset##reset', vec2(56, theme.stripHeight)) then
+    actions.reset = true
+  end
+
+  -- Position or time, and which curve maths the file gets. The second is not
+  -- a preference: a CamTool 2 file is loaded as legacy and has to behave as
+  -- CamTool 2 did, or footage already cut would change. Shown so it is never
+  -- a surprise, switchable because a file can be moved across on purpose.
+  ui.sameLine(0, 10)
+  if ui.button((state.listName == 'pos' and '[position]' or ' position ')
+      .. '##modePos', vec2(74, theme.stripHeight)) then
+    actions.listName = 'pos'
+  end
+  ui.sameLine(0, 3)
+  if ui.button((state.listName == 'time' and '[time]' or ' time ')
+      .. '##modeTime', vec2(58, theme.stripHeight)) then
+    actions.listName = 'time'
+  end
+  if state.loadedName ~= nil then
+    ui.sameLine(0, 10)
+    local legacy = state.mode ~= 'fixed'
+    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '##mode',
+        vec2(96, theme.stripHeight)) then
+      actions.mode = legacy and 'fixed' or 'legacy'
+    end
+  end
+
+  ui.popStyleColor(3)
+  ui.newLine(2)
 
   -- Where the selected keyframe sits on the track.
   --

@@ -81,6 +81,9 @@ theme.labelHeight = 17
 ---rode high in them, which is the one thing that still looked untidy once the
 ---rows below were fixed.
 theme.barHeight = 22
+---The numbered cells of the two strips. They were 16, which is shorter than
+---a line of text needs and left the digits sitting high in their boxes.
+theme.stripHeight = 20
 theme.arrowWidth = 16
 theme.gap = 4
 theme.padding = 6
