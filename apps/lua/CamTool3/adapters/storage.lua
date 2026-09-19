@@ -15,9 +15,20 @@ local serialise = require('core/serialise')
 
 local storage = {}
 
--- The current directory for an AC script is the AC root, so this is where
--- CamTool 2 keeps its camera files. Read only: these are users' own files.
+-- The current directory for an AC script is the AC root.
+--
+-- Two folders, and the split is the whole point. CamTool 2's is READ ONLY:
+-- those are the user's own files, they are not in git, and some are years
+-- old. CamTool 3 writes only into its own, so a save can never damage one of
+-- them and CamTool 2 never sees a file it cannot read -- it lists *.json in
+-- its own folder, and a version 1 document would make its loader throw,
+-- which it swallows and shows as nothing at all.
+--
+-- Opening a CamTool 2 file and saving it therefore makes a copy here rather
+-- than changing the original. That is the intended path from one to the
+-- other, and it is one way, as docs/legacy.md already says of the format.
 storage.CAMTOOL2_DATA_DIR = 'apps/python/CamTool_2/data'
+storage.CAMTOOL3_DATA_DIR = 'apps/lua/CamTool3/data'
 
 ---File name prefix for the track being driven, the same one CamTool 2 builds:
 ---`<track folder>_<layout folder>-`. Tracks with no layout give a trailing
@@ -27,38 +38,58 @@ function storage.trackPrefix()
   return ac.getTrackID() .. '_' .. ac.getTrackLayout() .. '-'
 end
 
----List the CamTool 2 camera files, sorted by name.
----@param allTracks boolean|nil @true lists every track's files, not just this one
----@return string[] files, string prefix @file names without the directory
-function storage.listCameraFiles(allTracks)
-  local found = io.scanDir(storage.CAMTOOL2_DATA_DIR, '*.json')
-  local prefix = storage.trackPrefix()
-  if type(found) ~= 'table' then return {}, prefix end
+---@class CameraFileEntry
+---@field name string @the file name, no directory
+---@field dir string @which folder it is in
+---@field own boolean @true for CamTool 3's own, false for a CamTool 2 file
 
+---List the camera files of both folders, CamTool 3's first.
+---@param allTracks boolean|nil @true lists every track's files, not just this one
+---@return CameraFileEntry[] files, string prefix
+function storage.listCameraFiles(allTracks)
+  local prefix = storage.trackPrefix()
   local files = {}
-  for i = 1, #found do
-    local name = found[i]
-    -- CamTool 2 keeps its settings next to the camera files; it is not one.
-    if name ~= 'settings.json' then
-      -- Match CamTool 2, which only offers the current track's files. With 32
-      -- files across a dozen tracks, listing them all is just scrolling.
-      if allTracks or name:sub(1, #prefix) == prefix then
-        files[#files + 1] = name
+
+  local function gather(dir, own)
+    local found = io.scanDir(dir, '*.json')
+    if type(found) ~= 'table' then return end
+
+    local names = {}
+    for i = 1, #found do
+      local name = found[i]
+      -- CamTool 2 keeps its settings next to the camera files; not one.
+      if name ~= 'settings.json' then
+        -- Match CamTool 2, which only offers the current track's files. With
+        -- 32 files across a dozen tracks, listing them all is just scrolling.
+        if allTracks or name:sub(1, #prefix) == prefix then
+          names[#names + 1] = name
+        end
       end
+    end
+
+    table.sort(names)
+    for i = 1, #names do
+      files[#files + 1] = { name = names[i], dir = dir, own = own }
     end
   end
 
-  table.sort(files)
+  -- Ours first: once a file has been saved here, that copy is the one being
+  -- worked on and the CamTool 2 original is only history.
+  gather(storage.CAMTOOL3_DATA_DIR, true)
+  gather(storage.CAMTOOL2_DATA_DIR, false)
+
   return files, prefix
 end
 
 ---Read and migrate one camera file.
 ---Returns nil plus a message rather than raising, so the UI can show the
 ---problem instead of the app falling over mid-frame.
----@param fileName string
+---@param entry CameraFileEntry|string @an entry, or a CamTool 2 file name
 ---@return table|nil document, string|nil error
-function storage.loadCameraFile(fileName)
-  local path = storage.CAMTOOL2_DATA_DIR .. '/' .. fileName
+function storage.loadCameraFile(entry)
+  local fileName = type(entry) == 'table' and entry.name or entry
+  local dir = type(entry) == 'table' and entry.dir or storage.CAMTOOL2_DATA_DIR
+  local path = dir .. '/' .. fileName
 
   local text = io.load(path)
   if text == nil then
@@ -99,9 +130,13 @@ storage.BACKUP_SUFFIX = '.camtool3-backup'
 ---io.save with ensure writes to a temporary file and moves it into place, so
 ---a crash halfway cannot leave a half-written camera set behind.
 ---
----And the first time a file is overwritten, the original is copied aside.
----Once only: the point is to keep what was there before CamTool 3 touched
----it, not the state before the last save.
+---And the first time one of our own files is overwritten, it is copied
+---aside. Once only: the point is to keep what was there before, not the
+---state before the last save.
+---
+---Always into CamTool 3's folder, whichever folder the document came from. A
+---CamTool 2 file opened here is never written back to: saving copies it
+---across instead, so the original stays exactly as CamTool 2 left it.
 ---@param fileName string @as listCameraFiles gives it
 ---@param document table
 ---@return boolean ok, string|nil error
@@ -113,7 +148,11 @@ function storage.saveCameraFile(fileName, document)
     return false, 'nothing to save'
   end
 
-  local path = storage.CAMTOOL2_DATA_DIR .. '/' .. fileName
+  if not io.exists(storage.CAMTOOL3_DATA_DIR) then
+    io.createDir(storage.CAMTOOL3_DATA_DIR)
+  end
+
+  local path = storage.CAMTOOL3_DATA_DIR .. '/' .. fileName
 
   local ok, text = pcall(serialise.toJson, document)
   if not ok then

@@ -213,8 +213,9 @@ end
 
 local function loadSelectedFile()
   if fileIndex < 1 or fileIndex > #files then return end
-  local name = files[fileIndex]
-  local loaded, err = storage.loadCameraFile(name)
+  local entry = files[fileIndex]
+  local name = entry.name
+  local loaded, err = storage.loadCameraFile(entry)
 
   if loaded == nil then
     doc, docError, docName = nil, err, name
@@ -941,7 +942,9 @@ function script.windowAtr(dt)
 
   local actions = atrPanel.draw({
     doc = doc,
-    fileName = fileIndex >= 1 and files[fileIndex] or nil,
+    fileName = fileIndex >= 1 and files[fileIndex] ~= nil
+      and (files[fileIndex].name
+        .. (files[fileIndex].own and '' or '   [CamTool 2]')) or nil,
     undoDepth = #undoStack,
     redoDepth = #redoStack,
     status = atrStatus,

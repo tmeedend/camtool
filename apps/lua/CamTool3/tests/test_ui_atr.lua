@@ -261,7 +261,8 @@ test('the session bar can load a file and take the camera', function()
     splinePosition = 0.02,
     clicks = {
       ['no file##fileName'] = true,
-      ['fake_track_-cameras.json##fileName'] = true,
+      -- The list marks where a file came from, so the label carries it.
+      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
       ['Take camera##hold'] = true,
     },
   })
@@ -471,7 +472,8 @@ test('the panel can save the file it loaded, and says so', function()
     splinePosition = 0.02,
     clicks = {
       ['no file##fileName'] = true,
-      ['fake_track_-cameras.json##fileName'] = true,
+      -- The list marks where a file came from, so the label carries it.
+      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
       ['Save##save'] = true,
       ['Save *##save'] = true,
     },
@@ -485,8 +487,11 @@ test('the panel can save the file it loaded, and says so', function()
     if not ok then error('windowAtr raised: ' .. tostring(err), 2) end
   end
 
-  local path = storage.CAMTOOL2_DATA_DIR .. '/fake_track_-cameras.json'
+  -- Written into CamTool 3's folder, never over the CamTool 2 original.
+  local path = storage.CAMTOOL3_DATA_DIR .. '/fake_track_-cameras.json'
   eq(type(handle.written[path]), 'string', 'the panel never wrote the file')
+  eq(handle.written[storage.CAMTOOL2_DATA_DIR .. '/fake_track_-cameras.json'],
+    nil, 'the CamTool 2 file must not be touched')
   eq(handle.written[path]:find('"version": 1', 1, true) ~= nil, true)
 
   handle.restoreIo()
@@ -512,7 +517,8 @@ test('Reset asks before it clears anything', function()
     cameraFile = rawFile,
     clicks = {
       ['no file##fileName'] = true,
-      ['fake_track_-cameras.json##fileName'] = true,
+      -- The list marks where a file came from, so the label carries it.
+      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
       ['Reset##reset'] = true,
     },
   })

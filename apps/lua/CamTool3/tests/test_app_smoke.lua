@@ -99,7 +99,9 @@ test('the storage adapter filters settings.json out of the file list', function(
   local list, prefix = storage.listCameraFiles()
   eq(prefix, 'fake_track_-', 'track id, underscore, layout, dash')
   eq(#list, 1, 'settings.json is not a camera file, and the other track is filtered out')
-  eq(list[1], 'fake_track_-cameras.json')
+  eq(list[1].name, 'fake_track_-cameras.json')
+  eq(list[1].own, false, 'it came from CamTool 2, which is read only')
+  eq(list[1].dir, storage.CAMTOOL2_DATA_DIR)
 
   -- The escape hatch still shows everything except settings.json.
   local all = storage.listCameraFiles(true)
@@ -312,7 +314,9 @@ test('the scan is not repeated every frame', function()
   chunk()
   for _ = 1, 30 do _G.script.windowMain(0.016) end
 
-  eq(scans, 1, 'one scan for thirty frames')
+  -- Two folders now, CamTool 3's own and CamTool 2's, so one refresh is two
+  -- calls. What matters is that thirty frames cause one refresh.
+  eq(scans, 2, 'one refresh for thirty frames, across two folders')
 
   io.scanDir = realScanDir
   handle.restoreIo()

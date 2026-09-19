@@ -216,9 +216,13 @@ function fakes.install(opts)
     return true
   end
 
-  io.scanDir = function()
+  io.scanDir = function(dir)
+    -- CamTool 3's own folder is empty unless a test says otherwise, so the
+    -- default listing is the CamTool 2 one it always was.
+    if dir == 'apps/lua/CamTool3/data' then return opts.ownFiles or {} end
     return opts.files or { 'fake_track_-cameras.json', 'settings.json', 'other_track_-x.json' }
   end
+  io.createDir = function() return true end
   io.load = function() return '{"fake":true}' end
   _G.JSON = { parse = function() return opts.cameraFile end, stringify = function() return '{}' end }
 
