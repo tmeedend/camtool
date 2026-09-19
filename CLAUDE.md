@@ -120,6 +120,10 @@ Ce que la suite couvre, au-delà des tests unitaires :
 - `tests/sweep.lua` cherche dans un tour ce qu'on cherchait à l'œil en jeu :
   `inf`/`nan`, vecteur look non unitaire, FOV absurde, caméra qui se téléporte
   au milieu de son plan, caméra inatteignable.
+- `tests/trace.lua` rejoue une **trace CamTool 2** (enregistrée en jeu par
+  `apps/python/CamTool_2/classes/trace.py`, convertie par
+  `tools/trace_to_lua.py`) dans `core/playback` et mesure l'écart. C'est le
+  seul oracle : les autres couches comparent le portage à lui-même.
 
 Piège de portage déjà identifié et couvert par un test : **Lua ne lève pas sur
 une division par zéro**, il renvoie `inf`. Là où Python lève une exception

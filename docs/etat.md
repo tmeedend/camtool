@@ -17,7 +17,7 @@
 local.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (150 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (158 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -57,6 +57,10 @@ Ce que ça ouvre, et qui demandait un lancement d'AC jusqu'ici :
   figés frame par frame. Sensibilité vérifiée : 1e-6 rad sur la visée fait
   tomber les quatre. À regénérer **seulement** pour un changement de
   comportement voulu, et à dire dans le commit.
+- **Rejeu de traces CamTool 2** (`tests/trace.lua`) : l'oracle. CamTool 2
+  enregistre en jeu ce qu'on lui donne et ce qu'il demande à la caméra ; le
+  rejeu redonne ces entrées à `core/playback` et mesure l'écart, paramètre par
+  paramètre. **Il manque l'enregistrement** — voir « En attente de Théo ».
 - **Balayage d'invariants** (`tests/sweep.lua`) : `inf`/`nan`, vecteur look non
   unitaire, FOV hors bornes, distance de focus négative, caméra qui se
   téléporte au milieu de son plan, caméra inatteignable. Les seuils sont des
@@ -68,8 +72,7 @@ Rien de neuf trouvé dans les quatre fichiers de référence. **#23 est maintena
 mesuré et plus seulement décrit** : la dernière caméra de `le_lancone` tient 54°
 de FOV là où elle devrait zoomer à 12°, et le correctif ne change que ça.
 
-Ce que ça ne couvre toujours pas : l'image (flou, artefacts, UI), et la
-justesse vis-à-vis de CamTool 2 — pour ça il faut l'enregistreur ci-dessous.
+Ce que ça ne couvre toujours pas : l'image (flou, artefacts, UI).
 
 ### Déjà porté et validé en jeu
 
@@ -103,40 +106,43 @@ Le portage est commité et testé hors jeu, mais **personne ne l'a vu tourner**.
 - Réserve : le DOF exige **YEBIS** actif dans CSP. Distance qui bouge mais rien à
   l'écran = probablement ça, pas un bug du portage.
 
-### 2. Décision non prise : enregistreur de traces
+### 2. Enregistrer une trace (15 minutes en jeu, une fois)
 
-Proposé, pas encore tranché. L'idée vient de la section Tests de `CLAUDE.md`.
+L'enregistreur **est écrit et commité**, des deux côtés. Ce qui manque est
+l'enregistrement lui-même, que seul un lancement d'AC peut produire.
 
-**Principe** : CamTool 2 enregistre par frame ses entrées (dt, position piste,
-frame de replay, positions des voitures) et ses sorties (position caméra, cap,
-tangage, roulis, FOV, focus) dans un JSONL. Je rejoue ces entrées dans le core
-Lua hors jeu et je compare les sorties.
+Ce que ça donne : l'**oracle**. Le golden master dit « ça n'a pas changé », le
+balayage dit « ce n'est pas cassé » ; seul CamTool 2 peut dire « c'est ce que
+CamTool 2 fait ». Une session achète la réponse pour de bon, rejouable sans
+toi.
 
-**Moins cher qu'avant** : côté Lua, `playback.frame(state, doc, input)` prend
-déjà exactement ces entrées et rend exactement ces sorties, et `tests/lap.lua`
-sait dérouler une séquence de frames. Il ne reste qu'un chargeur de JSONL. Côté
-Python il y a **un seul point d'écriture** à envelopper :
-`InterpolateFrame.interpolate`, appelé à `CamTool_2.py:1389`.
+Marche à suivre :
 
-**Ce que ça apporte** : un golden master de la **chaîne entière**, là où les
-tests actuels vérifient les fonctions isolément. C'est précisément là que les
-bugs se sont logés (repli du cap non keyframé, DOF écrasé par la sonde). Une
-seule session d'enregistrement achète une couverture de non-régression
-permanente, rejouable sans Théo.
+1. Ajouter `"dev_record_trace": true` dans `apps/python/CamTool_2/settings.json`
+   (le défaut dans `Settings.__init__` ne suffit pas : `load_settings` remplace
+   tout le dictionnaire — le piège était bien réel, il est documenté et
+   contourné).
+2. Lancer AC, ouvrir CamTool 2, charger le fichier caméra du scénario, jouer le
+   replay. L'enregistrement s'arrête seul au bout de **deux minutes**. Console
+   AC : `recording a trace to ...`.
+3. Le fichier arrive dans `apps/python/CamTool_2/traces/` (ignoré par git).
+4. Conversion, depuis `apps/lua/CamTool3/` :
+   `python tools/trace_to_lua.py <la trace>.jsonl tests/fixtures/trace_<nom>.lua`
+5. Ajouter la trace à `RECORDINGS` dans `tests/test_trace_replay.lua`, lancer,
+   et inscrire les écarts mesurés comme tolérances.
 
-**Ce que ça n'apporte pas** : rien sur l'image (flou, artefacts, UI), et la
-comparaison se fait contre CamTool 2 **bugs compris** — ce qui est voulu pour le
-mode `legacy`, et muet sur la qualité d'une correction.
+Scénarios proposés : Silverstone `seb` (splines), `le_lancone` (dernière
+caméra, là où #23 se voit).
 
-**Coût** : ~100 lignes Python côté CamTool 2 (désactivé par défaut, hors chemin
-chaud, aucune modification du calcul) + ~100 lignes Lua de chargeur et
-comparateur + 2-3 traces courtes en fixtures.
+**À savoir avant de lire les écarts.** Le rejeu ignore volontairement les
+frames enregistrées pendant un mouse look (CamTool 2 y mélange sa sortie avec
+la position courante de la caméra, ce que le portage ne modélise pas), et le
+smart tracking n'est pas porté : les caméras qui l'utilisent divergeront par
+construction. La valeur est dans la **localisation** de l'écart.
 
-⚠️ **Piège repéré** : `Settings.load_settings()` *remplace* tout le dictionnaire
-par le contenu du fichier. Un nouveau défaut ne prendrait donc pas effet sur un
-`settings.json` existant — lire le drapeau avec un repli explicite.
-
-Scénarios proposés : Silverstone `seb` (splines), `le_lancone` (dernière caméra).
+Ce que ça n'apporte pas : rien sur l'image, et la comparaison se fait contre
+CamTool 2 **bugs compris** — voulu pour le mode `legacy`, muet sur la qualité
+d'une correction.
 
 ## Chantiers restants, par taille croissante
 
