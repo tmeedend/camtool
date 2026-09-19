@@ -106,6 +106,14 @@ local function plainRow(key, label, unit)
   return { key = key, label = label, unit = unit, plain = true }
 end
 
+---A number that lives on the camera and is never interpolated, however much
+---it looks like the ones beside it. core/evaluate calls these CAMERA_LEVEL:
+---they have a slot in every keyframe and the legacy reads straight past it.
+---No diamond, then -- but the arrows and the keyboard work as usual.
+local function levelRow(key, label, unit)
+  return { key = key, label = label, unit = unit, cameraLevel = true }
+end
+
 atr.COLUMNS = {
   {
     colour = 'camera',
@@ -149,11 +157,33 @@ atr.COLUMNS = {
   },
 }
 
+---The Spline tab of CamTool 2, which the mockup leaves out entirely. These
+---shape how a camera follows the path recorded for it, and without them a
+---camera with a path can only be played, never adjusted.
+---
+---The three affect_ angles are camera level: they sit in every keyframe and
+---the legacy never interpolates them, which core/evaluate records and
+---docs/legacy.md explains.
+atr.SPLINE = {
+  row('spline_speed', 'SPEED', UNITS.ratio),
+  row('spline_affect_loc_xy', 'AFFECT XY', UNITS.percent),
+  row('spline_affect_loc_z', 'AFFECT Z', UNITS.percent),
+  levelRow('spline_affect_pitch', 'AFFECT PITCH', UNITS.percent),
+  levelRow('spline_affect_roll', 'AFFECT ROLL', UNITS.percent),
+  levelRow('spline_affect_heading', 'AFFECT HEADING', UNITS.percent),
+  row('spline_offset_loc_x', 'OFFSET X', UNITS.metres),
+  row('spline_offset_loc_z', 'OFFSET Z', UNITS.metres),
+  row('spline_offset_pitch', 'OFFSET PITCH', UNITS.degrees),
+  row('spline_offset_heading', 'OFFSET HEADING', UNITS.degrees),
+  row('spline_offset_spline', 'OFFSET ALONG', UNITS.ratio),
+}
+
 ---Everything docs/ui-inventory.md lists that the mockup has no place for.
 ---Drawn, so that it is impossible to ship without noticing, and so the
 ---conversation about where each one goes happens over something visible.
 atr.MISSING = {
-  'Spline tab', 'Settings tab', 'Activate Free Camera',
+  'recording a spline (per camera, and the track and pit ones)',
+  'load on startup, hotkeys', 'Activate Free Camera',
 }
 
 --------------------------------------------------------------------------------
@@ -231,6 +261,66 @@ local function strip(id, count, active, width, colour, live)
   ui.newLine(2)
 
   return picked, added, removed
+end
+
+---Draw one parameter, whichever section it belongs to.
+---
+---Every kind of row goes through here: keyframable, camera level, the two
+---plain fields and the runtime readouts. One place, so a gesture or a unit
+---added later reaches all of them.
+local function drawCell(spec, colour, colWidth, state, actions, section)
+  local value, keyframe
+
+  if spec.runtime then
+    value, keyframe = state[spec.key], 'none'
+  elseif spec.plain or spec.cameraLevel then
+    value = state.camera ~= nil and state.camera[spec.key] or nil
+    keyframe = 'none'
+  else
+    value, keyframe = valueOf(state.camera, spec.key, state.keyframeIndex)
+  end
+
+  -- camera_in is a track position: stored as a fraction of a lap, shown in
+  -- metres, exactly as CamTool 2 shows it.
+  local shown = value
+  if spec.key == 'camera_in' and type(shown) == 'number' then
+    shown = shown * (state.trackLength or 0)
+  end
+
+  -- A flag has no number to format, and Specific cam reads as a name.
+  local text = nil
+  if spec.plain or type(shown) == 'number' then
+    text = spec.unit.show(shown)
+  end
+
+  local action, payload = parameter.draw(section .. spec.key, {
+    label = spec.label,
+    text = text,
+    raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
+    noDiamond = spec.plain == true or spec.runtime == true
+      or spec.cameraLevel == true,
+    noTyping = spec.plain == true or spec.runtime == true,
+    column = colour,
+    keyframe = keyframe,
+    present = value ~= nil or spec.plain == true,
+    width = colWidth,
+    badge = spec.badge,
+    badgeOn = spec.badge ~= nil and state.camera ~= nil
+      and state.camera.camera_use_tracking_point == 1,
+  })
+
+  if action ~= nil then
+    -- A typed value arrives in the unit the field is labelled with, so it
+    -- goes back through the same conversion that displayed it. The track
+    -- position also has to lose its metres.
+    if action == 'commit' and type(payload) == 'number' then
+      payload = spec.unit.read(payload)
+      if spec.key == 'camera_in' and (state.trackLength or 0) > 0 then
+        payload = payload / state.trackLength
+      end
+    end
+    actions[spec.key] = { op = action, amount = payload }
+  end
 end
 
 local function columnWidth(total)
@@ -404,57 +494,7 @@ function atr.draw(state)
       if spec == nil then
         parameter.blank(colWidth)
       else
-        local value, keyframe
-        if spec.runtime then
-          value, keyframe = state[spec.key], 'none'
-        elseif spec.plain then
-          value = state.camera ~= nil and state.camera[spec.key] or nil
-          keyframe = 'none'
-        else
-          value, keyframe = valueOf(state.camera, spec.key, state.keyframeIndex)
-        end
-
-        -- camera_in is a track position: stored as a fraction of a lap, shown
-        -- in metres, exactly as CamTool 2 shows it.
-        local shown = value
-        if spec.key == 'camera_in' and type(shown) == 'number' then
-          shown = shown * (state.trackLength or 0)
-        end
-
-        -- A flag has no number to format, and Specific cam reads as a name.
-        local text = nil
-        if spec.plain then
-          text = spec.unit.show(shown)
-        elseif type(shown) == 'number' then
-          text = spec.unit.show(shown)
-        end
-
-        local action, payload = parameter.draw(column.colour .. spec.key, {
-          label = spec.label,
-          text = text,
-          raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
-          noDiamond = spec.plain == true or spec.runtime == true,
-          noTyping = spec.plain == true or spec.runtime == true,
-          column = colour,
-          keyframe = keyframe,
-          present = value ~= nil or spec.plain == true,
-          width = colWidth,
-          badge = spec.badge,
-          badgeOn = spec.badge ~= nil and state.camera ~= nil
-            and state.camera.camera_use_tracking_point == 1,
-        })
-        if action ~= nil then
-          -- A typed value arrives in the unit the field is labelled with, so
-          -- it goes back through the same conversion that displayed it. The
-          -- track position also has to lose its metres.
-          if action == 'commit' and type(payload) == 'number' then
-            payload = spec.unit.read(payload)
-            if spec.key == 'camera_in' and (state.trackLength or 0) > 0 then
-              payload = payload / state.trackLength
-            end
-          end
-          actions[spec.key] = { op = action, amount = payload }
-        end
+        drawCell(spec, colour, colWidth, state, actions, column.colour)
       end
 
       if index < #atr.COLUMNS then ui.nextColumn() end
@@ -465,6 +505,34 @@ function atr.draw(state)
   ui.columns(1)
 
   ui.newLine(4)
+
+  ------------------------------------------------------------------
+  -- The recorded path
+  ------------------------------------------------------------------
+  -- CamTool 2 keeps these behind a tab of their own. They only mean anything
+  -- once a path has been recorded for the camera, so the section says when
+  -- there is none rather than showing eleven numbers that do nothing.
+  local path = state.camera ~= nil and state.camera.spline or nil
+  local points = type(path) == 'table' and type(path.the_x) == 'table'
+    and #path.the_x or 0
+
+  ui.pushStyleColor(ui.StyleColor.Text, theme.columns.camera.accent)
+  ui.textAligned(points > 0
+    and string.format('SPLINE -- %d points recorded', points)
+    or 'SPLINE -- nothing recorded for this camera', vec2(0, 0.5),
+    vec2(width, 20))
+  ui.popStyleColor()
+
+  if points > 0 then
+    local perRow = 3
+    ui.columns(perRow, false, 'atrSpline')
+    for _, spec in ipairs(atr.SPLINE) do
+      drawCell(spec, theme.columns.camera, colWidth, state, actions, 'spline')
+      ui.nextColumn()
+    end
+    ui.columns(1)
+    ui.newLine(4)
+  end
 
   ------------------------------------------------------------------
   -- What has not found a place yet

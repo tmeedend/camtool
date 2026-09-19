@@ -544,3 +544,53 @@ test('the undo and redo buttons are both offered', function()
 
   handle.restoreIo()
 end)
+
+test('the spline section appears only for a camera that has a path', function()
+  local handle = fakes.install({})
+  local splineFile = require('tests/fixtures/camera_file_splines')
+  local doc = dataModule.load(splineFile)
+
+  -- The Silverstone set is driven by recorded paths, so one of its cameras
+  -- has points and the section is worth drawing.
+  local withPath = nil
+  for _, cam in ipairs(doc.pos) do
+    if cam.spline ~= nil and #(cam.spline.the_x or {}) > 0 then withPath = cam end
+  end
+  eq(withPath ~= nil, true, 'the fixture should have a recorded path')
+
+  local ok, err = pcall(atr.draw, {
+    camera = withPath, cameraIndex = 1, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = #(withPath.keyframes or {}),
+    trackPos = 0.1, trackLength = 5802,
+  })
+  eq(ok, true, ok and '' or tostring(err))
+
+  -- And a camera with no path must not raise either.
+  ok, err = pcall(atr.draw, {
+    camera = { camera_in = 0, keyframes = {} }, cameraIndex = 1,
+    cameraCount = 1, keyframeCount = 0, trackPos = 0.1, trackLength = 5802,
+  })
+  eq(ok, true, ok and '' or tostring(err))
+
+  handle.restoreIo()
+end)
+
+test('every spline parameter is real, and the camera-level ones have no diamond', function()
+  -- The three affect_ angles sit in every keyframe and the legacy never
+  -- interpolates them, so offering to keyframe them would be a lie. The
+  -- expectation comes from core/evaluate rather than a list written here:
+  -- the first version of this test carried its own list, and the list
+  -- happily agreed with a mistake -- spline_speed marked camera level when
+  -- core interpolates it.
+  for _, spec in ipairs(atr.SPLINE) do
+    eq(type(spec.unit), 'table', spec.label .. ' has no unit')
+    local interp = evaluate.interpolatorFor(spec.key)
+    eq(interp ~= nil, true, spec.key .. ' is not a parameter core knows')
+
+    local neverInterpolated = interp == evaluate.CAMERA_LEVEL
+    eq(spec.cameraLevel == true, neverInterpolated, string.format(
+      '%s: core says %s, the panel says %s',
+      spec.key, neverInterpolated and 'camera level' or 'keyframable',
+      spec.cameraLevel and 'camera level' or 'keyframable'))
+  end
+end)
