@@ -243,7 +243,7 @@ local function strip(id, count, active, width, colour, live)
     ui.pushStyleColor(ui.StyleColor.Button, fill)
     ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
     ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-    if ui.button(tostring(i) .. '##' .. id .. i,
+    if ui.button(tostring(i) .. '###' .. id .. i,
         vec2(cell, theme.stripHeight)) then
       picked = i
     end
@@ -364,7 +364,7 @@ function atr.draw(state)
     actions.prevFile = true
   end
   ui.sameLine(0, 2)
-  if ui.button((state.fileName or 'no file') .. '##fileName',
+  if ui.button((state.fileName or 'no file') .. '###fileName',
       vec2(nameWidth, theme.barHeight)) then
     actions.loadFile = true
   end
@@ -373,7 +373,7 @@ function atr.draw(state)
     actions.nextFile = true
   end
   ui.sameLine(0, 6)
-  if ui.button((state.held and 'Release camera' or 'Take camera') .. '##hold',
+  if ui.button((state.held and 'Release camera' or 'Take camera') .. '###hold',
       vec2(HOLD_WIDTH, theme.barHeight)) then
     if state.held then actions.release = true else actions.grab = true end
   end
@@ -426,18 +426,18 @@ function atr.draw(state)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
 
   local depth = state.undoDepth or 0
-  if ui.button(string.format('Undo (%d)##undo', depth),
+  if ui.button(string.format('Undo (%d)###undo', depth),
       vec2(74, theme.stripHeight)) then
     actions.undo = true
   end
   ui.sameLine(0, 3)
-  if ui.button(string.format('Redo (%d)##redo', state.redoDepth or 0),
+  if ui.button(string.format('Redo (%d)###redo', state.redoDepth or 0),
       vec2(70, theme.stripHeight)) then
     actions.redo = true
   end
   ui.sameLine(0, 3)
   -- The star is the only thing saying there is work not on disk yet.
-  if ui.button((depth > 0 and 'Save *' or 'Save') .. '##save',
+  if ui.button((depth > 0 and 'Save *' or 'Save') .. '###save',
       vec2(60, theme.stripHeight)) then
     actions.save = true
   end
@@ -449,7 +449,7 @@ function atr.draw(state)
   -- Square brackets mean "on" throughout this row, as they do for the list
   -- and the maths beside it.
   ui.sameLine(0, 3)
-  if ui.button((state.showMap and '[map]' or ' map ') .. '##showMap',
+  if ui.button((state.showMap and '[map]' or ' map ') .. '###showMap',
       vec2(52, theme.stripHeight)) then
     actions.toggleMap = true
   end
@@ -460,18 +460,18 @@ function atr.draw(state)
   -- a surprise, switchable because a file can be moved across on purpose.
   ui.sameLine(0, 10)
   if ui.button((state.listName == 'pos' and '[position]' or ' position ')
-      .. '##modePos', vec2(74, theme.stripHeight)) then
+      .. '###modePos', vec2(74, theme.stripHeight)) then
     actions.listName = 'pos'
   end
   ui.sameLine(0, 3)
   if ui.button((state.listName == 'time' and '[time]' or ' time ')
-      .. '##modeTime', vec2(58, theme.stripHeight)) then
+      .. '###modeTime', vec2(58, theme.stripHeight)) then
     actions.listName = 'time'
   end
   if state.loadedName ~= nil then
     ui.sameLine(0, 10)
     local legacy = state.mode ~= 'fixed'
-    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '##mode',
+    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '###mode',
         vec2(96, theme.stripHeight)) then
       actions.mode = legacy and 'fixed' or 'legacy'
     end

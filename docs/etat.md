@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (366 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (370 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -120,6 +120,7 @@ rien.
 | 21 | **Glisser une valeur** | Sélectionner une caméra d'abord (sinon tout est à `--` et il n'y a rien à bouger). Le curseur doit devenir ↔ au survol. Un clic qui ripe de 2 px ne change **rien**. Un glissé vertical non plus. |
 | 22 | Glisser, annuler | **Échap pendant le glissé** remet la valeur de départ. Et `Undo` doit compter **+1 pour tout le glissé**, pas un par frame — c'est le point que les faux ne peuvent pas vérifier (leur `itemActive` répond vrai pour tous les champs à la fois, alors qu'ImGui n'en a qu'un d'actif). |
 | 23 | Pas de molette | La molette sur un champ ne doit **rien** changer : elle reste au défilement du panneau. |
+| 24 | **`steering wheel` vs `cockpit`** | Les deux doivent donner deux vues différentes. Si elles se ressemblent, chercher `settled on` dans le log : l'app demande la caméra et **relit** ce qu'AC a retenu. Voir la réserve ci-dessous. |
 
 ## ⏳ En attente de Théo
 
@@ -370,6 +371,17 @@ diagnostic.
    migration à sens unique dans `docs/legacy.md` : on écrit toujours le format v1.
 
 ### Réserves connues, non bloquantes
+
+- **`steering wheel` est peut-être hors bornes.** `CamMode.changeCamModeZero`
+  de CamTool 2 travaille **modulo 6** : son cycle F1 a six positions, et
+  « steering wheel » est la sixième (`drivable = 5`). Or `ac.DrivableCamera` de
+  CSP n'en nomme que cinq (0 à 4, `cockpit` = 4 = `Dash`). Soit la sixième
+  existe sans être documentée, soit la demander retombe sur la cinquième — ce
+  qui expliquerait que Théo ne voie pas de différence entre les deux. Lire le
+  SDK ne tranche pas, et « ça se ressemble » non plus. L'app demande donc la
+  caméra puis **relit `sim.driveableCameraMode`** à la frame suivante et logge
+  `WARNING ... settled on N` si AC a retenu autre chose. Un lancement règle la
+  question.
 
 - **Les champs sont vides tant qu'aucune caméra n'est choisie.** `atrCamera`
   retombe sur `pbOut.activeCam`, qui n'existe que **caméra prise** (le calcul de

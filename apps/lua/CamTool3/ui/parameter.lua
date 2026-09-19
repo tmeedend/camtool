@@ -159,7 +159,7 @@ function parameter.draw(id, spec)
     ui.pushStyleColor(ui.StyleColor.ButtonActive, column.pill)
     ui.pushStyleColor(ui.StyleColor.Text,
       spec.badgeOn and column.accent or theme.absent)
-    if ui.button(spec.badge .. '##' .. id .. 'badge',
+    if ui.button(spec.badge .. '###' .. id .. 'badge',
         vec2(theme.arrowWidth + 6, theme.labelHeight)) then
       action = 'badge'
     end
@@ -212,7 +212,12 @@ function parameter.draw(id, spec)
     ------------------------------------------------------------------
     -- Dragging, and the double click that opens the field
     ------------------------------------------------------------------
-    ui.button((spec.text or '--') .. '##' .. id .. 'val',
+    -- ### and not ##: ImGui hashes the WHOLE label for a widget's
+    -- identity, and only ### makes the part after it the identity on its
+    -- own. The visible part here IS the value, so with ## the button was
+    -- a different widget the instant it changed -- ImGui dropped the
+    -- active item, and a drag moved the value exactly once before dying.
+    ui.button((spec.text or '--') .. '###' .. id .. 'val',
       vec2(valueWidth, theme.rowHeight))
 
     local live = spec.present ~= false and not spec.noTyping

@@ -409,6 +409,18 @@ local function runPlayback(transform)
   -- ask AC for the camera the file names, and stop writing the transform --
   -- ownShare at zero lets AC's own view through the grab we are still
   -- holding, so coming back is a matter of putting it back.
+  -- Last frame's hand-over, read back now that AC has had a frame to obey it.
+  if checkHandOver ~= nil then
+    local asked = checkHandOver
+    checkHandOver = nil
+    if asked.drivable ~= nil and sim.driveableCameraMode ~= nil
+        and sim.driveableCameraMode ~= asked.drivable then
+      log(string.format(
+        'WARNING %s asked for drivable camera %d, Assetto Corsa settled on %d',
+        asked.label, asked.drivable, sim.driveableCameraMode))
+    end
+  end
+
   local handOver = cameramode.find(out.specificCam)
   if handOver ~= nil then
     if handedTo ~= handOver.value then
@@ -426,6 +438,15 @@ local function runPlayback(transform)
       end
       log('camera ' .. tostring(out.activeCam) .. ' hands the view to '
         .. handOver.label)
+      -- Ask for it on the next frame what it actually settled on.
+      --
+      -- CamTool 2 walks the F1 family modulo SIX (CamMode.changeCamModeZero),
+      -- so its cycle has six positions and "steering wheel" is the sixth.
+      -- CSP's ac.DrivableCamera names five, 0 to 4. Either the sixth exists
+      -- and is merely unnamed, or asking for it lands somewhere else -- and
+      -- "it looks the same as cockpit" is not evidence either way. The read
+      -- back is.
+      checkHandOver = handOver
     end
     cam.ownShare = 0
     return
@@ -453,6 +474,10 @@ end
 -- CSP is configured, and the work must happen exactly once: running twice would
 -- advance the replay cursor and the car history double.
 local lastFrame = -1
+
+---A hand-over asked for last frame, waiting to be checked against what
+---Assetto Corsa actually did with it. See where it is set.
+local checkHandOver = nil
 
 local function perFrame(dt)
   local frame = sim.frame

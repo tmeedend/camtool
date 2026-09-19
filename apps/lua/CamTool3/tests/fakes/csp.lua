@@ -65,6 +65,9 @@ function fakes.install(opts)
     -- A 500 m circle is a hair over 3141 m round.
     trackLengthM = opts.trackLengthM or 3141.59,
     isTrackOpen = opts.isTrackOpen == true,
+    -- What the game says its drivable camera actually is, which is not
+    -- always what was asked for.
+    driveableCameraMode = opts.driveableCameraMode,
     focusedCar = 0,
     carsCount = 1,
     dt = 0.016,
@@ -143,6 +146,13 @@ function fakes.install(opts)
     setCurrentDrivableCamera = function(mode)
       handle.drivableCamera = mode
       handle.cameraCalls[#handle.cameraCalls + 1] = { 'drivable', mode }
+      -- opts.drivableCeiling models a game that refuses what it was given
+      -- and clamps: exactly the suspicion about the sixth F1 camera.
+      if opts.drivableCeiling ~= nil and mode > opts.drivableCeiling then
+        sim.driveableCameraMode = opts.drivableCeiling
+      else
+        sim.driveableCameraMode = mode
+      end
     end,
     setCurrentCarCamera = function(index)
       handle.carCamera = index

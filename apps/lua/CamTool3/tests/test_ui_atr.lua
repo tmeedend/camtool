@@ -18,6 +18,7 @@ local runner = require('tests/runner')
 local fakes = require('tests/fakes/csp')
 local trackAdapter = require('adapters/track')
 local trackMap = require('ui/map')
+local data = require('core/data')
 local theme = require('ui/theme')
 local atr = require('ui/atr')
 local parameter = require('ui/parameter')
@@ -267,10 +268,10 @@ test('the session bar can load a file and take the camera', function()
     cameraFile = rawFile,
     splinePosition = 0.02,
     clicks = {
-      ['no file##fileName'] = true,
+      ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
-      ['Take camera##hold'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
     },
   })
 
@@ -606,11 +607,11 @@ test('the panel can save the file it loaded, and says so', function()
     cameraFile = rawFile,
     splinePosition = 0.02,
     clicks = {
-      ['no file##fileName'] = true,
+      ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
-      ['Save##save'] = true,
-      ['Save *##save'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['Save###save'] = true,
+      ['Save *###save'] = true,
     },
   })
 
@@ -633,7 +634,7 @@ test('the panel can save the file it loaded, and says so', function()
 end)
 
 test('saving with nothing loaded is refused, not crashed', function()
-  local handle = fakes.install({ clicks = { ['Save##save'] = true } })
+  local handle = fakes.install({ clicks = { ['Save###save'] = true } })
 
   local chunk = assert(loadfile('CamTool3.lua'))
   chunk()
@@ -651,9 +652,9 @@ test('Reset asks before it clears anything', function()
   local handle = fakes.install({
     cameraFile = rawFile,
     clicks = {
-      ['no file##fileName'] = true,
+      ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
       ['Reset##reset'] = true,
     },
   })
@@ -673,7 +674,7 @@ test('Reset asks before it clears anything', function()
 end)
 
 test('the undo and redo buttons are both offered', function()
-  local handle = fakes.install({ clicks = { ['Redo (0)##redo'] = true } })
+  local handle = fakes.install({ clicks = { ['Redo (0)###redo'] = true } })
   local doc = dataModule.load(rawFile)
 
   local actions = atr.draw({
@@ -760,9 +761,9 @@ test('a camera with an AC camera set hands the view over', function()
     cameraFile = doc,
     splinePosition = 0.5,
     clicks = {
-      ['no file##fileName'] = true,
-      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
-      ['Take camera##hold'] = true,
+      ['no file###fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
     },
   })
 
@@ -803,9 +804,9 @@ test('a camera that drives itself takes the view back', function()
     cameraFile = doc,
     splinePosition = 0.1,
     clicks = {
-      ['no file##fileName'] = true,
-      ['fake_track_-cameras.json   [CamTool 2]##fileName'] = true,
-      ['Take camera##hold'] = true,
+      ['no file###fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
     },
   })
 
@@ -1039,7 +1040,7 @@ test('the map can be put away, and the panel still works without it', function()
 
   handle = fakes.install({
     cameraFile = rawFile,
-    clicks = { [' map ##showMap'] = true, ['[map]##showMap'] = true },
+    clicks = { [' map ###showMap'] = true, ['[map]###showMap'] = true },
   })
   trackAdapter.clearCache()
   trackMap.reset()
@@ -1055,6 +1056,157 @@ test('the map can be put away, and the panel still works without it', function()
     if handle.drawn[i].op == 'pathStroke' then after = after + 1 end
   end
   eq(after, 0, 'the second draw has no map in it')
+
+  handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- Widget identity: ### and not ##
+--------------------------------------------------------------------------
+
+---What ImGui would use as a widget's identity: the part after ###, or the
+---whole label when there is no ###.
+local function identityOf(label)
+  local after = tostring(label):match('###(.*)$')
+  return after or tostring(label)
+end
+
+test('a value keeps its identity when the value changes', function()
+  -- ImGui hashes the WHOLE label, and only ### makes the part after it the
+  -- identity on its own. The visible part of this widget IS the value, so
+  -- with ## the button became a different widget the moment it moved: ImGui
+  -- dropped the active item, and a drag changed the value exactly once and
+  -- then died. That is the bug this pins.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  parameter.draw('row', { label = 'FOV', text = '40.00 deg', width = 140 })
+  local first = {}
+  for i = 1, #handle.buttons do first[#first + 1] = identityOf(handle.buttons[i]) end
+
+  handle.buttons = {}
+  parameter.draw('row', { label = 'FOV', text = '41.00 deg', width = 140 })
+  local second = {}
+  for i = 1, #handle.buttons do second[#second + 1] = identityOf(handle.buttons[i]) end
+
+  eq(#first > 0, true)
+  eq(#first, #second)
+  for i = 1, #first do
+    eq(first[i], second[i], 'widget ' .. i .. ' kept its identity')
+  end
+
+  handle.restoreIo()
+end)
+
+test('no widget in the panel changes identity when its text does', function()
+  -- The same trap, swept across the whole panel rather than one row: draw it
+  -- twice with everything the same except the words, and every identity has
+  -- to match. A label built with ## and a changing prefix shows up here.
+  local doc = data.load(rawFile)
+  local base = {
+    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0.3, trackLength = 4300,
+    listName = 'pos', showMap = false,
+  }
+
+  local function identities(extra)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+
+    local state = {}
+    for k, v in pairs(base) do state[k] = v end
+    for k, v in pairs(extra) do state[k] = v end
+    atr.draw(state)
+
+    local out = {}
+    for i = 1, #handle.buttons do out[#out + 1] = identityOf(handle.buttons[i]) end
+    handle.restoreIo()
+    return out
+  end
+
+  local quiet = identities({
+    fileName = 'a.json', held = false, undoDepth = 0, redoDepth = 0,
+    mode = 'legacy',
+  })
+  local busy = identities({
+    fileName = 'a much longer name.json', held = true, undoDepth = 7,
+    redoDepth = 3, mode = 'fixed',
+  })
+
+  eq(#quiet > 10, true, 'the panel drew a good number of widgets')
+  eq(#quiet, #busy, 'and the same number both times')
+  for i = 1, #quiet do
+    eq(quiet[i], busy[i], 'widget ' .. i .. ' (' .. tostring(quiet[i]) .. ')')
+  end
+end)
+
+--------------------------------------------------------------------------
+-- Did Assetto Corsa actually take the camera we asked for?
+--------------------------------------------------------------------------
+
+---Run the app with a file whose only camera asks for the steering wheel --
+---the sixth of the F1 family, and the one in question.
+local function runHandOver(opts)
+  opts.cameraFile = {
+    pos = { {
+      camera_in = 0, camera_use_specific_cam = 0,
+      keyframes = { { keyframe = 0, interpolation = { loc_x = 0, loc_y = 0, loc_z = 5 } } },
+    } },
+    time = {},
+  }
+  opts.splinePosition = 0.5
+  opts.clicks = {
+    ['no file###fileName'] = true,
+    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    ['Take camera###hold'] = true,
+  }
+  local handle = fakes.install(opts)
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 6 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  return handle
+end
+
+test('a game that clamps the camera we asked for is caught saying so', function()
+  -- CamTool 2 walks the F1 family modulo SIX, so its cycle has six positions
+  -- and "steering wheel" is the sixth. CSP names five. Whether the sixth
+  -- exists or lands back on the fifth is not something reading the SDK can
+  -- settle -- and "it looks the same as cockpit" is not evidence either. So
+  -- the app asks, reads back, and says when the two disagree.
+  local handle = runHandOver({ drivableCeiling = 4 })
+
+  local asked = false
+  for i = 1, #handle.cameraCalls do
+    if handle.cameraCalls[i][1] == 'drivable' and handle.cameraCalls[i][2] == 5 then
+      asked = true
+    end
+  end
+
+  eq(asked, true, 'the fixture does ask for the sixth camera')
+
+  local warned = false
+  for i = 1, #handle.logs do
+    if tostring(handle.logs[i]):find('settled on', 1, true) then warned = true end
+  end
+  eq(warned, true, 'the log says what the game did with it')
+
+  handle.restoreIo()
+end)
+
+test('a game that obeys says nothing', function()
+  -- The bite test for the one above: a warning that fires whatever happens
+  -- would be worth nothing.
+  local handle = runHandOver({})
+
+  for i = 1, #handle.logs do
+    eq(tostring(handle.logs[i]):find('settled on', 1, true), nil,
+      'no complaint when the camera is the one we asked for')
+  end
 
   handle.restoreIo()
 end)
