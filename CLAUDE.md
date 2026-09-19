@@ -287,8 +287,23 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   bien interpolé (easing sinus), mais `camera_offset_shake_strength` a un
   emplacement dans chaque keyframe et est pourtant lu **au niveau caméra**,
   jamais interpolé. Idem pour `spline_affect_pitch`/`roll`/`heading`.
-- **#23 dernière caméra buguée** : à reproduire en test. Voir le wraparound de
-  `get_prev_camera` et le décalage `the_x -= 1` de `is_last_camera()`.
+- **#23 dernière caméra buguée — MÉCANISME IDENTIFIÉ, reproduit par un test.**
+  La dernière caméra est active de son `camera_in` jusqu'à la fin du tour, puis
+  au-delà de la ligne jusqu'à ce que la première prenne le relais. Pour
+  interpoler à travers ce saut, CamTool lit ses keyframes **un tour en arrière**
+  (`the_x -= 1`), ce qui suppose qu'ils soient stockés en négatif.
+  Deux des trois dernières caméras multi-keyframes des fichiers de référence le
+  sont (Red Bull Ring `[-0.096 … 0.08]`, Spa `[-0.102 … 0.062]` avec un
+  `camera_in` de **1.0078**). **La troisième non** : le_lancone a ses keyframes
+  à `[0.947, 0.962, 0.964]`, entièrement avant la ligne.
+  Or le legacy décale quand même — il ne teste que « est-ce la dernière » et
+  « `the_x > 0.5` ». La requête tombe donc à −0,05, avant tous les keyframes, et
+  `interpolate` renvoie le premier : **la caméra se fige dessus tout du long.**
+  Correctif en mode `fixed` : ne décaler que si les keyframes sont réellement
+  stockés décalés (`evaluate.hasWrappedKeyframes`). Les deux comportements sont
+  derrière une case à cocher, legacy par défaut.
+  **À confirmer par Théo dans CamTool 2** : la dernière caméra de `le_lancone`
+  doit y être figée elle aussi.
 - Pas d'**annuler/refaire** : prévoir une pile de snapshots de l'état caméras (données petites, JSON) alimentée par un point d'entrée unique de modification.
 - Toute nouvelle méthode d'interpolation doit être **optionnelle** (mode legacy par défaut) pour ne pas modifier les vidéos existantes.
 - Visualiser les courbes d'interpolation hors jeu (matplotlib dans `tools/`) pour déboguer sans lancer AC.
