@@ -18,6 +18,7 @@ local runner = require('tests/runner')
 local fakes = require('tests/fakes/csp')
 local trackAdapter = require('adapters/track')
 local trackMap = require('ui/map')
+local theme = require('ui/theme')
 local atr = require('ui/atr')
 local parameter = require('ui/parameter')
 local evaluate = require('core/evaluate')
@@ -824,6 +825,56 @@ test('a track with no map says why, in the log the panel shows', function()
     if handle.logs[i]:find('no track map', 1, true) then said = handle.logs[i] end
   end
   eq(said ~= nil, true, 'the panel explained itself in the log')
+
+  handle.restoreIo()
+end)
+
+test('the map never takes more than its share of a small window', function()
+  -- The default panel is 460 px tall. A map allowed its full ceiling would
+  -- take two thirds of it and push the parameters off the bottom.
+  local handle = fakes.install({ cameraFile = rawFile, panelHeight = 460 })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+  pcall(_G.script.windowAtr, 0.016)
+
+  local tallest = 0
+  for i = 1, #handle.drawn do
+    local call = handle.drawn[i]
+    if call.op == 'drawRectFilled' and call.y2 ~= nil then
+      local tall = call.y2 - call.y
+      if tall > tallest then tallest = tall end
+    end
+  end
+
+  eq(tallest <= 460 * 0.35 + 1, true,
+    'the map fits its share, got ' .. tostring(tallest))
+  eq(tallest > 0, true, 'and it is still drawn')
+
+  handle.restoreIo()
+end)
+
+test('a window dragged out tall gets a bigger map, up to the ceiling', function()
+  local handle = fakes.install({ cameraFile = rawFile, panelHeight = 1600 })
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+  pcall(_G.script.windowAtr, 0.016)
+
+  local tallest = 0
+  for i = 1, #handle.drawn do
+    local call = handle.drawn[i]
+    if call.op == 'drawRectFilled' and call.y2 ~= nil then
+      local tall = call.y2 - call.y
+      if tall > tallest then tallest = tall end
+    end
+  end
+
+  eq(tallest <= theme.mapHeightMax, true, 'never past the ceiling')
 
   handle.restoreIo()
 end)

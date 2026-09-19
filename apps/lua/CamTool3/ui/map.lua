@@ -39,6 +39,9 @@ local cachedFit = nil
 local cachedOutline = nil
 local cachedWidth, cachedHeight = nil, nil
 local cachedSegments = nil
+---The height the track's shape asked for, and the turn it was given.
+local cachedDrawnHeight = nil
+local cachedAngle = nil
 
 ---Have the cameras moved since the last frame?
 ---
@@ -89,18 +92,49 @@ end
 ---  liveCameraIndex  the camera the car has made live
 ---  trackPos     the car, 0..1
 ---@param width number
----@param height number
-function map.draw(state, width, height)
+---@param maxHeight number @the most the map may take; it often takes less
+---@return number|nil @a camera the user clicked on, if any
+function map.draw(state, width, maxHeight)
+  local outline = state.outline
+  local points = outline ~= nil and outline.points or nil
+
+  ------------------------------------------------------------------
+  -- How much room to take, and which way up
+  ------------------------------------------------------------------
+  -- Both answers depend on each other, so the turn is worked out against the
+  -- tallest box allowed and the height then follows from it.
+  local height = math.min(maxHeight, theme.mapHeightMax)
+  local angle = 0
+
+  if points ~= nil and #points >= 2 then
+    if cachedOutline ~= outline or cachedWidth ~= width
+        or cachedHeight ~= maxHeight then
+      cachedAngle = trackmap.bestAngle(points, width, height, theme.mapPadding)
+
+      -- Then only as tall as the turned track needs. A band that is mostly
+      -- empty is a band the parameters would rather have.
+      local turned = trackmap.bounds(points, cachedAngle)
+      local spanX = turned.maxX - turned.minX
+      local spanY = turned.maxY - turned.minY
+      if spanX > 0 and spanY > 0 then
+        local wanted = (width - 2 * theme.mapPadding) * spanY / spanX
+          + 2 * theme.mapPadding
+        height = math.max(theme.mapHeightMin, math.min(height, wanted))
+      end
+      cachedDrawnHeight = height
+    else
+      height = cachedDrawnHeight or height
+    end
+    angle = cachedAngle or 0
+  end
+
   local origin = ui.getCursor()
-  -- Reserve the room first, so whatever follows in the panel lands below the
-  -- map rather than on top of it.
-  ui.dummy(vec2(width, height))
+  -- Reserve the room, and take the click with it. invisibleButton rather than
+  -- dummy: a dummy does not answer for the mouse.
+  local clicked = ui.invisibleButton('##trackMap', vec2(width, height))
 
   ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
     theme.mapBackground, theme.rounding)
-
-  local outline = state.outline
-  local points = outline ~= nil and outline.points or nil
 
   if points == nil or #points < 2 then
     -- A drift layout, a gymkhana map, a track whose fast_lane was never made.
@@ -112,17 +146,18 @@ function map.draw(state, width, height)
       vec2(0.5, 0.5), vec2(width, 16))
     ui.popStyleColor()
     ui.setCursor(vec2(origin.x, origin.y + height))
-    return
+    return nil
   end
 
   ------------------------------------------------------------------
   -- Fit and ownership, recomputed only when something has changed
   ------------------------------------------------------------------
-  if cachedOutline ~= outline or cachedWidth ~= width or cachedHeight ~= height then
-    cachedFit = trackmap.fit(trackmap.bounds(points), width, height,
-      theme.mapPadding)
+  if cachedOutline ~= outline or cachedWidth ~= width
+      or cachedHeight ~= maxHeight then
+    cachedFit = trackmap.fit(trackmap.bounds(points, angle), width, height,
+      theme.mapPadding, angle)
     trackmap.projectAll(cachedFit, points, projected)
-    cachedOutline, cachedWidth, cachedHeight = outline, width, height
+    cachedOutline, cachedWidth, cachedHeight = outline, width, maxHeight
     cachedSegments = nil
   end
 
@@ -134,7 +169,7 @@ function map.draw(state, width, height)
 
   if cachedFit == nil or #projected < 2 then
     ui.setCursor(vec2(origin.x, origin.y + height))
-    return
+    return nil
   end
 
   ------------------------------------------------------------------
@@ -192,6 +227,24 @@ function map.draw(state, width, height)
 
   -- Leave the cursor below the map whatever the drawing did to it.
   ui.setCursor(vec2(origin.x, origin.y + height))
+
+  ------------------------------------------------------------------
+  -- Clicking a camera
+  ------------------------------------------------------------------
+  -- Where the click landed is measured from the item's own rectangle rather
+  -- than from the cursor: the rectangle and the mouse are both in screen
+  -- coordinates, so the two cannot disagree about padding or scrolling.
+  -- ui/parameter reads its drag the same way.
+  if clicked then
+    local rect, mouse = ui.itemRectMin(), ui.mousePos()
+    if rect ~= nil and mouse ~= nil then
+      local index = trackmap.nearest(projected, mouse.x - rect.x,
+        mouse.y - rect.y, theme.mapClickRadius)
+      if index ~= nil and owners[index] then return owners[index] end
+    end
+  end
+
+  return nil
 end
 
 ---Forget what was cached. For tests, and for a track change.
@@ -199,6 +252,7 @@ function map.reset()
   projected, owners = {}, {}
   cachedFit, cachedOutline, cachedSegments = nil, nil, nil
   cachedWidth, cachedHeight = nil, nil
+  cachedAngle, cachedDrawnHeight = nil, nil
 end
 
 return map

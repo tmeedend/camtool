@@ -38,19 +38,27 @@ end
 ---into a dot. Skipping them keeps a usable map; returning nil when nothing
 ---finite is left lets the caller say "no track" rather than draw nonsense.
 ---@param points table[] @{ x = , y = } each
+---@param angle number|nil @radians to turn the track by first, default none
 ---@return table|nil @{ minX = , minY = , maxX = , maxY = }
-function trackmap.bounds(points)
+function trackmap.bounds(points, angle)
   if type(points) ~= 'table' then return nil end
+
+  local cos, sin = 1, 0
+  if isFinite(angle) and angle ~= 0 then
+    cos, sin = math.cos(angle), math.sin(angle)
+  end
 
   local minX, minY, maxX, maxY
 
   for i = 1, #points do
     local point = points[i]
     if type(point) == 'table' and isFinite(point.x) and isFinite(point.y) then
-      if minX == nil or point.x < minX then minX = point.x end
-      if maxX == nil or point.x > maxX then maxX = point.x end
-      if minY == nil or point.y < minY then minY = point.y end
-      if maxY == nil or point.y > maxY then maxY = point.y end
+      local x = point.x * cos - point.y * sin
+      local y = point.x * sin + point.y * cos
+      if minX == nil or x < minX then minX = x end
+      if maxX == nil or x > maxX then maxX = x end
+      if minY == nil or y < minY then minY = y end
+      if maxY == nil or y > maxY then maxY = y end
     end
   end
 
@@ -67,8 +75,10 @@ end
 ---@param width number @the rectangle, in pixels
 ---@param height number
 ---@param margin number|nil @pixels kept clear on every side, default 0
+---@param angle number|nil @the rotation `bounds` was measured with, carried so
+---  that project turns each point the same way
 ---@return table|nil @{ scale = , offsetX = , offsetY = }, nil if it cannot fit
-function trackmap.fit(bounds, width, height, margin)
+function trackmap.fit(bounds, width, height, margin, angle)
   if type(bounds) ~= 'table' then return nil end
   if not isFinite(width) or not isFinite(height) then return nil end
 
@@ -102,6 +112,7 @@ function trackmap.fit(bounds, width, height, margin)
   local offsetX = margin + (usableW - spanX * scale) / 2
   local offsetY = margin + (usableH - spanY * scale) / 2
 
+  local turned = isFinite(angle) and angle ~= 0
   return {
     scale = scale,
     offsetX = offsetX,
@@ -110,6 +121,13 @@ function trackmap.fit(bounds, width, height, margin)
     minY = bounds.minY,
     spanX = spanX,
     spanY = spanY,
+    angle = turned and angle or 0,
+    cos = turned and math.cos(angle) or 1,
+    sin = turned and math.sin(angle) or 0,
+    -- What the drawing is worth: pixels per metre. Comparing two candidate
+    -- angles is comparing these.
+    width = width,
+    height = height,
   }
 end
 
@@ -126,8 +144,11 @@ function trackmap.project(fit, x, y)
     return nil, nil
   end
 
-  local sx = fit.offsetX + (x - fit.minX) * fit.scale
-  local sy = fit.offsetY + (fit.spanY - (y - fit.minY)) * fit.scale
+  local rx = x * fit.cos - y * fit.sin
+  local ry = x * fit.sin + y * fit.cos
+
+  local sx = fit.offsetX + (rx - fit.minX) * fit.scale
+  local sy = fit.offsetY + (fit.spanY - (ry - fit.minY)) * fit.scale
   return sx, sy
 end
 
@@ -289,6 +310,86 @@ function trackmap.fromRecordedSpline(recorded)
 
   if #points < 2 then return nil end
   return points
+end
+
+---How much bigger the drawing has to get before turning the track is worth
+---the disorientation. A tenth is not worth it; half is.
+trackmap.ROTATION_WORTH_IT = 1.15
+
+---Degrees between the angles tried. The scale is a smooth function of the
+---angle, so a degree costs a tenth of a percent of the answer.
+local ANGLE_STEP_DEG = 1
+
+---The angle that draws the track as large as the box allows.
+---
+---A wide band and a portrait circuit waste most of their width: Spa is about
+---two units tall for one wide, so in a 5:1 band the height binds and four
+---fifths of the panel stays empty. Turning the track is what recovers it.
+---
+---Tried rather than derived. The obvious derivation -- the principal axis of
+---the points -- maximises their spread, which is not the same as filling a
+---box of a given shape, and gets the answer wrong on a track with one long
+---straight. Every degree of a half turn is cheap enough to try, once, and
+---answers the question actually being asked. Half a turn because a bounding
+---box repeats every 180 degrees.
+---
+---Returns no rotation unless it earns its keep, so a circuit that already
+---fits stays the way everyone pictures it.
+---@param points table[]
+---@param width number
+---@param height number
+---@param margin number|nil
+---@return number @radians, 0 when turning the track would not gain enough
+---@return number @how much bigger it draws than it would unturned, 1 when flat
+function trackmap.bestAngle(points, width, height, margin)
+  local upright = trackmap.fit(trackmap.bounds(points), width, height, margin)
+  if upright == nil or upright.scale <= 0 then return 0, 1 end
+
+  local bestAngle, bestScale = 0, upright.scale
+
+  for degrees = ANGLE_STEP_DEG, 180 - ANGLE_STEP_DEG, ANGLE_STEP_DEG do
+    local angle = math.rad(degrees)
+    local candidate = trackmap.fit(trackmap.bounds(points, angle),
+      width, height, margin, angle)
+    if candidate ~= nil and candidate.scale > bestScale then
+      bestAngle, bestScale = angle, candidate.scale
+    end
+  end
+
+  local gain = bestScale / upright.scale
+  if gain < trackmap.ROTATION_WORTH_IT then return 0, 1 end
+  return bestAngle, gain
+end
+
+---The point of a projected outline nearest to somewhere in the box.
+---
+---For clicking: the track is a line a few pixels wide and nobody hits a line
+---exactly, so the click looks for what is near it. Beyond `maxDistance` it
+---finds nothing, which is how a click on the empty part of the map means
+---"nothing" rather than "whatever was least far away".
+---@param projectedPoints table[] @from trackmap.projectAll
+---@param x number @inside the box, same origin as the projection
+---@param y number
+---@param maxDistance number|nil @pixels, default 16
+---@return number|nil @index into the projected outline
+function trackmap.nearest(projectedPoints, x, y, maxDistance)
+  if type(projectedPoints) ~= 'table' then return nil end
+  if not isFinite(x) or not isFinite(y) then return nil end
+
+  maxDistance = isFinite(maxDistance) and maxDistance or 16
+  local limit = maxDistance * maxDistance
+
+  local best, bestDistance = nil, nil
+  for i = 1, #projectedPoints do
+    local point = projectedPoints[i]
+    local dx, dy = point.x - x, point.y - y
+    local distance = dx * dx + dy * dy
+    if distance <= limit and (bestDistance == nil or distance < bestDistance) then
+      best, bestDistance = i, distance
+    end
+  end
+
+  return best
 end
 
 return trackmap

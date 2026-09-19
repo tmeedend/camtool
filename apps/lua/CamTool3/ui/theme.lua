@@ -87,12 +87,26 @@ theme.mapStartLine = rgbm(0.70, 0.70, 0.70, 1)
 
 ---How tall the map sits in the panel, and how thick the track is drawn.
 ---
----The thickness is a constant in pixels and not the track's real width: a
----4 km circuit in a 300 px panel puts a metre at a fifteenth of a pixel, so a
----12 m track would be under a pixel wide however carefully it were measured.
+---A RANGE rather than a height. A band the full width of the panel and a
+---fixed 150 px tall wastes four fifths of itself on a circuit that is taller
+---than it is wide, which is most of them: the height binds, and the track is
+---drawn small in the middle of a lot of nothing. The widget takes the height
+---the track's shape asks for and stops at the ceiling, so the map is as big
+---as the panel can afford and no taller.
+theme.mapHeightMin = 120
+theme.mapHeightMax = 300
+---And never more than this share of the window, whatever its shape asks for.
+---A map worth having in a window dragged out wide, and not two thirds of the
+---default panel.
+theme.mapShareOfWindow = 0.35
+---Kept for anything still asking for one height.
 theme.mapHeight = 150
 theme.mapPadding = 8
 theme.mapThickness = 3
+---How close a click has to land to count as hitting the track, in pixels.
+---Generous on purpose: the line is three pixels wide and nobody hits three
+---pixels.
+theme.mapClickRadius = 14
 
 ---Measurements, in pixels at the panel's default scale.
 -- Tall enough that a line of text sits comfortably in the middle of it.

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (317 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (349 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -112,7 +112,10 @@ rien.
 | 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
 | 14 | **Carte du circuit** | Le tracé doit apparaître **dans son cadre**, pas décalé : le widget dessine depuis `ui.getCursor()`, et c'est la seule hypothèse du portage que les faux ne peuvent pas vérifier. Silverstone doit ressembler à Silverstone. |
 | 15 | Carte, couleurs | La caméra en cours d'édition est en rouge sur la carte **et** dans la bande, la caméra live dans le ton pâle, et les deux changent ensemble quand on clique dans la bande. Le point blanc suit la voiture. |
-| 16 | Carte, cas limite | Sur un circuit sans `fast_lane.ai` (drift, gymkhana), la carte affiche « no track outline » et le reste du panneau continue de marcher. |
+| 16 | Carte, cas limite | Sur un circuit sans `fast_lane.ai` (drift, gymkhana), la carte dit **laquelle des quatre raisons** s'applique, et le reste du panneau continue de marcher. |
+| 17 | Carte, rotation | Un circuit en portrait (Spa) doit apparaître **couché**, remplissant la bande. Un circuit déjà large doit rester dans son orientation habituelle : on ne tourne que si ça fait gagner 15 %. |
+| 18 | Carte, hauteur | Fenêtre par défaut : la carte ne prend pas plus d'un tiers du panneau. Fenêtre étirée : elle grandit jusqu'à 300 px et pas au-delà. Pas de bande vide sous un circuit large. |
+| 19 | **Clic sur la carte** | Cliquer un bout de tracé sélectionne la caméra qui le couvre, comme un clic dans la bande. Cliquer le vide au milieu ne doit **rien** changer. |
 
 ## ⏳ En attente de Théo
 
@@ -246,7 +249,14 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
 4. La **mini-carte — premier jet fait, jamais vue en jeu.** Le tracé du
    circuit dans le panneau ATR, teinté caméra par caméra : `core/trackmap.lua`
    (pur), `adapters/track.lua` (échantillonnage), `ui/map.lua` (dessin).
-   Lecture seule ; cliquer une caméra reste à faire.
+   Le clic sélectionne la caméra qui couvre le bout de tracé visé ; éditer
+   depuis la carte (glisser un `camera_in`) reste à faire.
+
+   **La carte se tourne** pour remplir la bande — l'angle est cherché degré
+   par degré sur un demi-tour, et n'est retenu que s'il fait gagner 15 %, donc
+   un circuit déjà large garde l'orientation que tout le monde a en tête. Et
+   elle prend **la hauteur que sa forme demande**, bornée par un tiers de la
+   fenêtre : sur Spa, environ trois fois plus grande qu'au premier jet.
 
    **Le tracé vient de la spline IA, pas de `map.png`** — tranché avec Théo,
    qui avait proposé d'ouvrir `content/tracks/` et n'en a pas eu besoin.

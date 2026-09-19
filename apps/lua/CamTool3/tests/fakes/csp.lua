@@ -214,12 +214,18 @@ function fakes.install(opts)
     end,
     availableSpaceX = function() return opts.panelWidth or 360 end,
     windowWidth = function() return opts.panelWidth or 360 end,
+    windowHeight = function() return opts.panelHeight or 620 end,
     -- Deliberately not the origin. A widget that draws at its own
     -- coordinates and forgets to add the cursor would land in exactly the
     -- right place if this were { 0, 0 }, and the test that checks it stays
     -- inside its box would never notice.
     getCursor = function() return { x = opts.cursorX or 17, y = opts.cursorY or 23 } end,
-    itemRectMin = function() return { x = 0, y = 0 } end,
+    itemRectMin = function() return { x = opts.itemX or 0, y = opts.itemY or 0 } end,
+    -- Where the click landed. The map measures from itemRectMin, so these two
+    -- are read together and a test sets both.
+    mousePos = function()
+      return { x = opts.mouseX or -1, y = opts.mouseY or -1 }
+    end,
     itemRectMax = function() return { x = 10, y = 10 } end,
     measureText = function(t) return { x = #tostring(t) * 7, y = 14 } end,
 

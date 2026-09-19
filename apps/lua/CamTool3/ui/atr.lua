@@ -479,10 +479,20 @@ function atr.draw(state)
   -- The strip above says the same thing in list order; this says it in the
   -- order you actually drive, which is the one the shot is cut in.
   --
-  -- Placement is provisional. It costs 150 px of a 460 px panel, which is
-  -- real estate the parameters would also like, and only ATR can say whether
-  -- that trade is worth it in front of a replay.
-  trackMap.draw(state, width, theme.mapHeight)
+  -- Placement is provisional, and only ATR can say whether the trade against
+  -- the parameters is worth it in front of a replay. The map takes what its
+  -- shape needs up to a ceiling rather than a fixed band, so a circuit that
+  -- draws wide does not leave an empty strip under it.
+  --
+  -- The ceiling is the smaller of what the map is ever allowed and a share of
+  -- this window. Without the second, the default 460 px panel would hand two
+  -- thirds of itself to the map and push the parameters off the bottom, while
+  -- a window dragged out wide gets a map worth having.
+  local ceiling = math.min(theme.mapHeightMax,
+    math.max(theme.mapHeightMin,
+      math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
+  local picked = trackMap.draw(state, width, ceiling)
+  if picked ~= nil then actions.selectCamera = picked end
   ui.newLine(2)
 
   -- Where the selected keyframe sits on the track.

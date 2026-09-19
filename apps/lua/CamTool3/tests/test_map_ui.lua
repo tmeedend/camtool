@@ -333,3 +333,164 @@ test('moving a camera retints the track without a resize', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- Filling the panel: how tall, and which way up
+--------------------------------------------------------------------------
+
+---An ellipse, to stand in for a circuit longer one way than the other.
+local function ellipse(long, short, n)
+  local points = {}
+  n = n or 180
+  for i = 0, n - 1 do
+    local p = i / n
+    local a = p * 2 * math.pi
+    points[#points + 1] =
+      { x = long * math.cos(a), y = short * math.sin(a), p = p }
+  end
+  return { points = points, closed = true, source = 'ai-spline' }
+end
+
+---What the drawn outline measures on screen.
+local function drawnSpan(drawn)
+  local minX, maxX, minY, maxY
+  for i = 1, #drawn do
+    local call = drawn[i]
+    if call.op == 'pathLineTo' then
+      if minX == nil or call.x < minX then minX = call.x end
+      if maxX == nil or call.x > maxX then maxX = call.x end
+      if minY == nil or call.y < minY then minY = call.y end
+      if maxY == nil or call.y > maxY then maxY = call.y end
+    end
+  end
+  return maxX - minX, maxY - minY
+end
+
+test('a portrait circuit in a wide band is turned to fill it', function()
+  -- Spa in the panel: the band is wide, the circuit is taller than it is
+  -- wide, and unturned it drew small in the middle of a lot of nothing.
+  local handle = fakes.install({})
+  trackMap.reset()
+  trackMap.draw({ outline = ellipse(100, 500), cameras = cameras({ 0 }),
+    cameraIndex = 1 }, 1200, 300)
+  local turnedW, turnedH = drawnSpan(handle.drawn)
+  handle.restoreIo()
+
+  eq(turnedW > turnedH, true, 'the long axis now lies across the panel')
+  eq(turnedW > 400, true, 'and it uses the width it was given')
+end)
+
+test('a circuit that already fits is left the way everyone pictures it', function()
+  local handle = fakes.install({})
+  trackMap.reset()
+  trackMap.draw({ outline = ellipse(500, 100), cameras = cameras({ 0 }),
+    cameraIndex = 1 }, 1200, 300)
+  local w, h = drawnSpan(handle.drawn)
+  handle.restoreIo()
+
+  eq(w > h, true, 'still lying the way it was drawn')
+end)
+
+test('the map takes the height its shape needs, not the whole ceiling', function()
+  -- A wide circuit in a wide panel does not need 300 px of band, and the
+  -- parameters below would rather have the room.
+  local handle = fakes.install({})
+  trackMap.reset()
+  trackMap.draw({ outline = ellipse(500, 50), cameras = cameras({ 0 }),
+    cameraIndex = 1 }, 1200, 300)
+
+  local reserved = nil
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'drawRectFilled' then
+      reserved = handle.drawn[i].y2 - handle.drawn[i].y
+    end
+  end
+  handle.restoreIo()
+
+  eq(reserved < 300, true, 'less than the ceiling')
+  eq(reserved >= theme.mapHeightMin, true, 'and never squashed below the floor')
+end)
+
+test('a very long thin circuit still gets the floor height', function()
+  local handle = fakes.install({})
+  trackMap.reset()
+  trackMap.draw({ outline = ellipse(5000, 20), cameras = cameras({ 0 }),
+    cameraIndex = 1 }, 1200, 300)
+
+  local reserved = nil
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'drawRectFilled' then
+      reserved = handle.drawn[i].y2 - handle.drawn[i].y
+    end
+  end
+  handle.restoreIo()
+
+  eq(reserved, theme.mapHeightMin)
+end)
+
+--------------------------------------------------------------------------
+-- Clicking a camera
+--------------------------------------------------------------------------
+
+---Draw once with the mouse somewhere, and say whether it was clicked.
+local function clickAt(state, x, y, clickedIt)
+  local handle = fakes.install({
+    clicks = clickedIt ~= false and { ['##trackMap'] = true } or {},
+    itemX = 17, itemY = 23,
+    mouseX = 17 + x, mouseY = 23 + y,
+  })
+  trackMap.reset()
+  local picked = trackMap.draw(state, WIDTH, HEIGHT)
+  handle.restoreIo()
+  return picked, handle.drawn
+end
+
+test('clicking a stretch of track selects the camera that covers it', function()
+  local state = {
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.25, 0.5, 0.75 }),
+    cameraIndex = 1,
+  }
+
+  -- Draw once to learn where the track landed, then click one of its points.
+  local _, drawn = clickAt(state, -999, -999)
+  local target = nil
+  for i = 1, #drawn do
+    if drawn[i].op == 'pathLineTo' then target = drawn[i] end
+  end
+
+  -- That last point is the end of the lap, so the last camera owns it.
+  local picked = clickAt(state, target.x - 17, target.y - 23)
+  eq(picked, 4)
+end)
+
+test('clicking the empty middle of the map selects nothing', function()
+  -- Otherwise a click meant for nothing would move the panel to whichever
+  -- camera happened to be least far away.
+  local picked = clickAt({
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.5 }),
+    cameraIndex = 1,
+  }, WIDTH / 2, HEIGHT / 2)
+  eq(picked, nil)
+end)
+
+test('hovering without clicking selects nothing', function()
+  local state = {
+    outline = outline(120),
+    cameras = cameras({ 0.0, 0.5 }),
+    cameraIndex = 1,
+  }
+  local _, drawn = clickAt(state, -999, -999)
+  local target
+  for i = 1, #drawn do
+    if drawn[i].op == 'pathLineTo' then target = drawn[i] break end
+  end
+
+  eq(clickAt(state, target.x - 17, target.y - 23, false), nil,
+    'the mouse was over the track, but nobody pressed anything')
+end)
+
+test('clicking a track with no outline does not raise', function()
+  eq(clickAt({ outline = nil, cameras = cameras({ 0.2 }) }, 10, 10), nil)
+end)

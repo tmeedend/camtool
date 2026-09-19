@@ -412,3 +412,130 @@ test('a recorded spline with bad numbers in it loses those points only', functio
   eq(#points, 2)
   near(points[2].p, 0.3, 1e-12)
 end)
+
+--------------------------------------------------------------------------
+-- Turning the track to fill the panel
+--------------------------------------------------------------------------
+
+---An ellipse `long` by `short`, turned by `turn` radians. Stands in for a
+---circuit that is longer one way than the other, which is most of them.
+local function ellipse(long, short, turn, n)
+  n = n or 180
+  turn = turn or 0
+  local points = {}
+  for i = 0, n - 1 do
+    local p = i / n
+    local a = p * 2 * math.pi
+    local x, y = long * math.cos(a), short * math.sin(a)
+    points[#points + 1] = {
+      x = x * math.cos(turn) - y * math.sin(turn),
+      y = x * math.sin(turn) + y * math.cos(turn),
+      p = p,
+    }
+  end
+  return points
+end
+
+test('a track already the shape of the box is left alone', function()
+  -- The rule that keeps Spa looking like Spa: turning it has to buy something.
+  local angle, gain = trackmap.bestAngle(ellipse(500, 100), 600, 200, 0)
+  eq(angle, 0)
+  eq(gain, 1)
+end)
+
+test('a portrait track in a wide band gets turned onto its side', function()
+  -- The case from the panel: the band is 5:1 and the circuit is taller than
+  -- it is wide, so the height binds and most of the width goes to waste.
+  local angle, gain = trackmap.bestAngle(ellipse(100, 500), 1200, 230, 8)
+
+  -- A quarter turn, either way round -- both put the long axis across.
+  local quarter = math.pi / 2
+  near(math.min(math.abs(angle - quarter), math.abs(angle + quarter)),
+    0, math.rad(2), 'within a couple of degrees of square')
+  eq(gain > 2, true, 'and it draws at least twice as big')
+end)
+
+test('a diagonal track is straightened', function()
+  local turned = ellipse(500, 120, math.rad(30))
+  local angle = trackmap.bestAngle(turned, 1200, 230, 8)
+  -- Bringing the long axis back to horizontal means undoing the 30 degrees.
+  near(math.min(math.abs(angle - math.rad(-30)), math.abs(angle - math.rad(150))),
+    0, math.rad(3))
+end)
+
+test('the angle really is the best one tried', function()
+  local points = ellipse(100, 500)
+  local angle = trackmap.bestAngle(points, 1200, 230, 8)
+  local best = trackmap.fit(trackmap.bounds(points, angle), 1200, 230, 8, angle)
+
+  for degrees = 0, 179, 3 do
+    local a = math.rad(degrees)
+    local other = trackmap.fit(trackmap.bounds(points, a), 1200, 230, 8, a)
+    eq(best.scale >= other.scale - 1e-9, true,
+      'no angle draws bigger than the one chosen, including ' .. degrees)
+  end
+end)
+
+test('a turned track still projects inside its box', function()
+  local points = ellipse(100, 500)
+  local angle = trackmap.bestAngle(points, 1200, 230, 8)
+  local fit = trackmap.fit(trackmap.bounds(points, angle), 1200, 230, 8, angle)
+  local out = trackmap.projectAll(fit, points)
+
+  eq(#out, #points)
+  for i = 1, #out do
+    eq(out[i].x >= -1e-9 and out[i].x <= 1200 + 1e-9, true, 'x of point ' .. i)
+    eq(out[i].y >= -1e-9 and out[i].y <= 230 + 1e-9, true, 'y of point ' .. i)
+  end
+end)
+
+test('no rotation projects exactly as before', function()
+  -- The unturned path has to stay bit for bit what it was, or every existing
+  -- expectation about the map moves.
+  local points = circle(500, 90)
+  local fit = trackmap.fit(trackmap.bounds(points), 200, 200, 20)
+  local sx, sy = trackmap.project(fit, -500, 500)
+  near(sx, 20, 1e-9)
+  near(sy, 20, 1e-9)
+  eq(fit.angle, 0)
+end)
+
+--------------------------------------------------------------------------
+-- Clicking the map
+--------------------------------------------------------------------------
+
+test('a click on the track finds the point under it', function()
+  local points = circle(500, 120)
+  local fit = trackmap.fit(trackmap.bounds(points), 200, 200, 10)
+  local out = trackmap.projectAll(fit, points)
+
+  local target = out[30]
+  local found = trackmap.nearest(out, target.x + 2, target.y - 3)
+  eq(found, 30)
+end)
+
+test('a click on the empty middle of the map finds nothing', function()
+  -- Otherwise every click anywhere would select whatever was least far away,
+  -- and a click meant for nothing would move the panel.
+  local points = circle(500, 120)
+  local fit = trackmap.fit(trackmap.bounds(points), 200, 200, 10)
+  local out = trackmap.projectAll(fit, points)
+
+  eq(trackmap.nearest(out, 100, 100, 16), nil, 'the middle of a circle')
+end)
+
+test('the caller decides how near counts as near', function()
+  local points = circle(500, 120)
+  local fit = trackmap.fit(trackmap.bounds(points), 200, 200, 10)
+  local out = trackmap.projectAll(fit, points)
+
+  local target = out[1]
+  eq(trackmap.nearest(out, target.x + 30, target.y, 16), nil)
+  eq(trackmap.nearest(out, target.x + 30, target.y, 40), 1)
+end)
+
+test('nearest survives an empty outline and a click that is not a number', function()
+  eq(trackmap.nearest({}, 1, 1), nil)
+  eq(trackmap.nearest(nil, 1, 1), nil)
+  eq(trackmap.nearest({ { x = 0, y = 0 } }, 0 / 0, 0), nil)
+end)
