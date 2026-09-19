@@ -15,6 +15,8 @@
 ]]
 
 local fakes = require('tests/fakes/csp')
+local playbackCore = require('core/playback')
+local dataModule = require('core/data')
 
 local lap = {}
 
@@ -179,5 +181,104 @@ lap.FIELDS = {
   'ux', 'uy', 'uz',
   'fov', 'dofDistance', 'dofFactor',
 }
+
+--------------------------------------------------------------------------------
+-- The same lap, straight through the core
+--------------------------------------------------------------------------------
+
+---Fields a core row carries beyond the camera pose, for the checks that need
+---to know which camera was live and where its keyframes were read.
+lap.CORE_FIELDS = {
+  'x', 'y', 'z',
+  'lookX', 'lookY', 'lookZ',
+  'upX', 'upY', 'upZ',
+  'fov', 'dofDistance', 'dofFactor',
+  'heading', 'pitch',
+}
+
+---Run a lap through core/playback with no app and no fake CSP around it.
+---
+---Faster than lap.run, and it keeps the diagnostics the app only shows on
+---screen: which camera was live, where its keyframes were read, how strongly
+---it tracked. Those are what the invariant checks need.
+---
+---@param opts table
+---  cameraFile  a raw camera document; it is migrated here
+---  frames      how many frames to run (default 600)
+---  from, to    normalised track positions to sweep between (default 0 to 1)
+---  options     overrides for playback.DEFAULTS
+---  sampler     (position) -> x, y, z in CamTool space
+---  frameMs     replay frame length, which drives the shake clock
+---  replayRate  replay playback rate (default 1)
+---@return table @{ doc = <migrated>, frames = { <one row per frame> } }
+function lap.runCore(opts)
+  opts = opts or {}
+  local frames = opts.frames or 600
+  local from = opts.from or 0
+  local to = opts.to or 1
+  local frameMs = opts.frameMs or 16.6
+
+  local doc = dataModule.load(opts.cameraFile)
+  local state = playbackCore.new(opts.options)
+
+  local sampler = opts.sampler or lap.trackSampler(doc) or lap.circleSampler()
+
+  local input = {
+    replayRate = opts.replayRate or 1,
+    -- Seeded once, like a fresh grab of a camera pointing down the X axis.
+    seedHeading = opts.seedHeading or 0,
+    seedPitch = opts.seedPitch or 0,
+  }
+
+  local rows = {}
+  for i = 1, frames do
+    local t = frames > 1 and ((i - 1) / (frames - 1)) or 0
+    local position = from + (to - from) * t
+
+    input.trackPos = position
+    input.carX, input.carY, input.carZ = sampler(position)
+    input.clock = i * frameMs / 1000
+
+    local out = playbackCore.frame(state, doc, input)
+
+    -- The output table is reused frame to frame, so this has to be a copy.
+    local row = {
+      frame = i,
+      position = position,
+      active = out.active,
+      activeCam = out.activeCam,
+      isLastCamera = out.isLastCamera,
+      keyframeQuery = out.keyframeQuery,
+      aimStrength = out.aimStrength,
+    }
+    for _, field in ipairs(lap.CORE_FIELDS) do row[field] = out[field] end
+    rows[i] = row
+  end
+
+  return { doc = doc, frames = rows }
+end
+
+---Split a lap into the stretches during which one camera was live.
+---
+---A cut between two cameras is CamTool doing its job; a jump inside one is a
+---bug. Every continuity check below is therefore per span, never across one.
+---@return table[] @{ camera = <index>, first = <frame>, last = <frame> }
+function lap.spans(rows)
+  local spans = {}
+  local current = nil
+
+  for i = 1, #rows do
+    local row = rows[i]
+    local camera = row.active and row.activeCam or nil
+    if camera ~= (current and current.camera) then
+      current = camera and { camera = camera, first = i, last = i } or nil
+      if current ~= nil then spans[#spans + 1] = current end
+    elseif current ~= nil then
+      current.last = i
+    end
+  end
+
+  return spans
+end
 
 return lap
