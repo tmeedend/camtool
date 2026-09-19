@@ -213,6 +213,20 @@ local function refreshFileList()
   log(string.format('found %d camera files for %s', #files, filePrefix))
 end
 
+-- Scan for this track's files without being asked, so the list is already there
+-- when the panel opens. Driven from the window rather than from load: reading a
+-- directory has no business in the per-frame path, and the app stays loaded
+-- across a session change, so the track has to be rechecked rather than scanned
+-- once and trusted.
+local scannedPrefix = nil
+
+local function ensureFileList()
+  local prefix = storage.trackPrefix()
+  if scannedPrefix == prefix then return end
+  scannedPrefix = prefix
+  refreshFileList()
+end
+
 local function loadSelectedFile()
   if fileIndex < 1 or fileIndex > #files then return end
   local name = files[fileIndex]
@@ -228,6 +242,12 @@ local function loadSelectedFile()
   log(string.format('loaded %s -- %d cameras, version %s, mode %s',
     name, dataModule.cameraCount(loaded), tostring(loaded.version),
     tostring(loaded.interpolation_mode)))
+
+  -- Loading a file is a statement of intent, so select playback here too, not
+  -- only on grab. The grab section sits above this one in the window, so
+  -- switching on grab alone would depend on which the user clicked first.
+  mode = MODE_PLAYBACK
+  log('mode: playback')
 end
 
 ---Pick the keyframed value, else the camera-level one, else a default.
@@ -280,6 +300,14 @@ local function grabCamera()
   fovDeg = grabbed.fovOriginal
   log(string.format('grab OK -- anchor %s, original FOV %.2f deg',
     fmtVec(anchor), grabbed.fovOriginal))
+
+  -- Grabbing is nearly always a prelude to playing a file back. Switching only
+  -- when a file is loaded matters: the playback branch does nothing without
+  -- one, so the camera would sit frozen with no clue why.
+  if doc ~= nil then
+    mode = MODE_PLAYBACK
+    log('mode: playback')
+  end
   return true
 end
 
@@ -781,6 +809,8 @@ end
 local function drawPlayback()
   ui.separator()
   ui.header('12. Play a real CamTool 2 camera')
+
+  ensureFileList()
 
   if ui.checkbox('list every track', showAllTracks) then
     showAllTracks = not showAllTracks

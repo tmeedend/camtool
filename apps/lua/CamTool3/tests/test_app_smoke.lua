@@ -279,3 +279,77 @@ test('the work happens once per frame even if both entry points fire', function(
 
   handle.restoreIo()
 end)
+
+---True when any log line contains `needle`.
+local function logged(handle, needle)
+  for i = 1, #handle.logs do
+    if handle.logs[i]:find(needle, 1, true) then return true end
+  end
+  return false
+end
+
+test('the track files are listed without anyone clicking', function()
+  -- Opening the panel is enough; the scan is driven from the window rather than
+  -- from load, so reading a directory never lands in the per-frame path.
+  local handle = fakes.install({ cameraFile = rawFile })
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  _G.script.windowMain(0.016)
+  eq(logged(handle, 'found 1 camera files for fake_track_-'), true,
+    'the list must be populated on the first draw')
+
+  handle.restoreIo()
+end)
+
+test('the scan is not repeated every frame', function()
+  local handle = fakes.install({ cameraFile = rawFile })
+  local scans = 0
+  local realScanDir = io.scanDir
+  io.scanDir = function(...) scans = scans + 1 return realScanDir(...) end
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+  for _ = 1, 30 do _G.script.windowMain(0.016) end
+
+  eq(scans, 1, 'one scan for thirty frames')
+
+  io.scanDir = realScanDir
+  handle.restoreIo()
+end)
+
+test('loading a file selects playback, whichever button came first', function()
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    clicks = { ['Load this file'] = true, ['Grab camera'] = true },
+  })
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- The grab section is drawn above the playback one, so on a single frame the
+  -- grab lands before the load. Selecting playback on load too makes the
+  -- outcome independent of that ordering.
+  _G.script.windowMain(0.016)
+
+  eq(logged(handle, 'grab OK'), true)
+  eq(logged(handle, 'mode: playback'), true)
+  handle.restoreIo()
+end)
+
+test('grabbing with no file loaded leaves the mode alone', function()
+  -- The playback branch does nothing without a document, so switching to it
+  -- would leave the camera frozen with no clue why.
+  local handle = fakes.install({
+    cameraFile = rawFile,
+    clicks = { ['Grab camera'] = true },   -- note: never loads a file
+  })
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 3 do _G.script.windowMain(0.016) end
+
+  eq(logged(handle, 'grab OK'), true, 'the grab itself must still happen')
+  eq(logged(handle, 'mode: playback'), false, 'but the mode must not change')
+
+  handle.restoreIo()
+end)
