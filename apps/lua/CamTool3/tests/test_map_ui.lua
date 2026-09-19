@@ -180,14 +180,26 @@ test('the car and the start line are drawn on top', function()
     cameraIndex = 1,
     trackPos = 0.5,
   })
-  eq(countOf(drawn, 'drawCircleFilled'), 1, 'the car')
+  -- Two filled circles now: the car and the selected camera's drag handle.
+  -- They are told apart by colour, which is also what a user does.
+  local function filledOf(colour)
+    local n = 0
+    for i = 1, #drawn do
+      if drawn[i].op == 'drawCircleFilled' and drawn[i].colour == colour then
+        n = n + 1
+      end
+    end
+    return n
+  end
+  eq(filledOf(theme.mapPlayhead), 1, 'the car')
   eq(countOf(drawn, 'drawCircle'), 1, 'the start line')
 
   -- Halfway round a circle that starts at (500, 0) is (-500, 0): opposite
   -- sides of the map, so a sign slip anywhere would show here.
   local car, start
   for i = 1, #drawn do
-    if drawn[i].op == 'drawCircleFilled' then car = drawn[i] end
+    if drawn[i].op == 'drawCircleFilled'
+      and drawn[i].colour == theme.mapPlayhead then car = drawn[i] end
     if drawn[i].op == 'drawCircle' then start = drawn[i] end
   end
   eq(math.abs(car.x - start.x) > WIDTH / 3, true,
@@ -202,7 +214,12 @@ test('a lap with no car position still draws the track', function()
     trackPos = nil,
   })
   eq(countOf(drawn, 'pathStroke') > 0, true)
-  eq(countOf(drawn, 'drawCircleFilled'), 0, 'no car, no dot')
+  local cars = 0
+  for i = 1, #drawn do
+    if drawn[i].op == 'drawCircleFilled'
+      and drawn[i].colour == theme.mapPlayhead then cars = cars + 1 end
+  end
+  eq(cars, 0, 'no car, no dot')
 end)
 
 test('a closed track joins up, an A-B track does not', function()
@@ -572,4 +589,75 @@ test('the click and the ring cannot disagree', function()
     eq(ring ~= nil, true, 'a ring at point ' .. at)
     eq(picked ~= nil, true, 'and a camera taken at point ' .. at)
   end
+end)
+
+--------------------------------------------------------------------------
+-- Dragging a camera's start along the outline
+--------------------------------------------------------------------------
+
+---Press on the map at a point, and report what came back.
+local function pressMap(state, x, y)
+  local handle = fakes.install({
+    itemActive = true, itemHovered = true,
+    mouseX = ORIGIN_X + x, mouseY = ORIGIN_Y + y,
+  })
+  local picked, move = trackMap.draw(state, WIDTH, HEIGHT)
+  handle.restoreIo()
+  return move, picked
+end
+
+---Where the map put a given lap position, and where the handle was drawn.
+local function handleOf(state)
+  local _, drawn = clickAt(state, -999, -999, false)
+  for i = 1, #drawn do
+    if drawn[i].op == 'drawCircleFilled'
+      and drawn[i].colour == theme.stripActive then return drawn[i] end
+  end
+end
+
+test('the selected camera shows a handle on the outline', function()
+  trackMap.reset()
+  local handle = handleOf({
+    outline = outline(120), cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1,
+  })
+  eq(handle ~= nil, true, 'a grip where that camera takes over')
+end)
+
+test('dragging the handle reports lap positions, not pixels', function()
+  -- The whole reason the AI spline was chosen over a picture of the track:
+  -- every point of the outline IS a value of camera_in, so a drag reads an
+  -- index rather than inverting a projection.
+  trackMap.reset()
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1,
+  }
+
+  local handle = handleOf(state)
+  trackMap.reset()
+
+  local move = pressMap(state, handle.x - ORIGIN_X, handle.y - ORIGIN_Y)
+  eq(move ~= nil, true, 'the press landed on the handle')
+  near(move.position, 0.25, 0.02, 'and it reads as a lap position')
+  trackMap.reset()
+end)
+
+test('a press away from the handle selects instead of dragging', function()
+  trackMap.reset()
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1,
+  }
+  local handle = handleOf(state)
+  trackMap.reset()
+
+  -- The far side of the circle from the handle.
+  local move = pressMap(state, WIDTH - (handle.x - ORIGIN_X),
+    HEIGHT - (handle.y - ORIGIN_Y))
+  eq(move, nil)
+  trackMap.reset()
+end)
+
+test('with no camera selected the map has no handle to drag', function()
+  trackMap.reset()
+  eq(handleOf({ outline = outline(120), cameras = cameras({ 0.25 }) }), nil)
+  trackMap.reset()
 end)

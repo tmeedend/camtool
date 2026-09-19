@@ -43,6 +43,15 @@ local cachedSegments = nil
 local cachedDrawnHeight = nil
 local cachedAngle = nil
 
+-- Dragging the selected camera's start along the outline. Counted rather than
+-- named, so two drags of the same camera are two undo entries.
+local dragging = false
+local dragToken = 0
+-- Whether the mouse was already down on this widget last frame. The press is
+-- the frame it goes from up to down, and only a press may take the handle:
+-- otherwise a drag that started elsewhere picks it up as it crosses over.
+local wasActive = false
+
 ---Have the cameras moved since the last frame?
 ---
 ---Compared field by field rather than by building a key: this runs every
@@ -93,7 +102,8 @@ end
 ---  trackPos     the car, 0..1
 ---@param width number
 ---@param maxHeight number @the most the map may take; it often takes less
----@return number|nil @a camera the user clicked on, if any
+---@return number|nil @a camera the user clicked on
+---@return table|nil @{ position = , gesture = } while a start is dragged, if any
 function map.draw(state, width, maxHeight)
   local outline = state.outline
   local points = outline ~= nil and outline.points or nil
@@ -148,7 +158,7 @@ function map.draw(state, width, maxHeight)
       vec2(0.5, 0.5), vec2(width, 16))
     ui.popStyleColor()
     ui.setCursor(vec2(origin.x, origin.y + height))
-    return nil
+    return nil, nil
   end
 
   ------------------------------------------------------------------
@@ -171,7 +181,7 @@ function map.draw(state, width, maxHeight)
 
   if cachedFit == nil or #projected < 2 then
     ui.setCursor(vec2(origin.x, origin.y + height))
-    return nil
+    return nil, nil
   end
 
   ------------------------------------------------------------------
@@ -238,6 +248,27 @@ function map.draw(state, width, maxHeight)
   end
 
   ------------------------------------------------------------------
+  -- The handle: where the selected camera takes over
+  ------------------------------------------------------------------
+  -- One handle, on the selected camera only. On a set of a hundred, a grip
+  -- per camera would be a necklace of dots and dragging the wrong one is a
+  -- mistake that surfaces in the edit, not here.
+  local selected = state.cameras ~= nil and state.cameraIndex ~= nil
+    and state.cameras[state.cameraIndex] or nil
+  local handleAt = type(selected) == 'table'
+    and type(selected.camera_in) == 'number' and selected.camera_in or nil
+  local handlePoint = nil
+
+  if handleAt ~= nil then
+    handlePoint = projected[nearestIndex(points, handleAt)]
+    if handlePoint ~= nil then
+      ui.drawCircleFilled(
+        vec2(origin.x + handlePoint.x, origin.y + handlePoint.y), 5,
+        theme.stripActive, 12)
+    end
+  end
+
+  ------------------------------------------------------------------
   -- The start line, and the car
   ------------------------------------------------------------------
   local start = projected[nearestIndex(points, 0)]
@@ -263,6 +294,40 @@ function map.draw(state, width, maxHeight)
   -- Whatever the pointer was over is what the click takes: one piece of
   -- arithmetic, drawn on screen every frame, rather than a second one that
   -- only runs on the click and can only be checked by clicking.
+  -- Dragging the handle moves where that camera takes over. The press has to
+  -- start on the handle: a drag that merely passes over it cannot grab it.
+  local active = ui.itemActive()
+  local pressed = active and not wasActive
+  wasActive = active
+
+  if active then
+    if pressed and handlePoint ~= nil and hovered then
+      local mouse = ui.mouseLocalPos()
+      if mouse ~= nil and mouse.x >= 0 then
+        local dx = handlePoint.x - (mouse.x - origin.x)
+        local dy = handlePoint.y - (mouse.y - origin.y)
+        if dx * dx + dy * dy <= theme.mapClickRadius * theme.mapClickRadius then
+          dragging, dragToken = true, dragToken + 1
+        end
+      end
+    end
+
+    if dragging then
+      -- Wherever the pointer is on the outline IS a lap position: that is what
+      -- picking the AI spline bought, and why no projection has to be undone
+      -- here.
+      if hoverIndex ~= nil then
+        local at = points[hoverIndex]
+        if at ~= nil then
+          return nil, { position = at.p, gesture = 'map:' .. dragToken }
+        end
+      end
+      return nil, nil
+    end
+  elseif dragging then
+    dragging = false
+  end
+
   if clicked and hoverIndex ~= nil and owners[hoverIndex] then
     return owners[hoverIndex]
   end
@@ -272,6 +337,7 @@ end
 
 ---Forget what was cached. For tests, and for a track change.
 function map.reset()
+  dragging, wasActive = false, false
   projected, owners = {}, {}
   cachedFit, cachedOutline, cachedSegments = nil, nil, nil
   cachedWidth, cachedHeight = nil, nil

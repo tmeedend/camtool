@@ -987,6 +987,11 @@ end
 ---belongs to. See remember.
 local openDrag = nil
 
+---A gesture from the map or the band, for the frame it is reported on. The
+---parameter rows have their own counter; these two need one too, or a drag
+---across the map would land one undo entry per frame.
+local externalGesture = nil
+
 local function remember(change)
   if change == nil then return end
 
@@ -995,7 +1000,7 @@ local function remember(change)
   -- drag, and undoing would then walk back through it a pixel at a time.
   -- Instead the entry already on the stack keeps the value from before the
   -- gesture started and grows a new end.
-  local gesture = atrParameter.draggingGesture()
+  local gesture = atrParameter.draggingGesture() or externalGesture
   if edit.continues(openDrag, change, gesture) then
     openDrag.change.after = change.after
     return
@@ -1110,9 +1115,30 @@ function script.windowAtr(dt)
     atrKeyframe = 1
     atrParameter.cancelEditing()
   end
+  ------------------------------------------------------------------
+  -- Moving a camera's start from the map or the band
+  ------------------------------------------------------------------
+  -- The same edit the STARTING POINT row makes, so it lands on the undo stack
+  -- the same way and stops at the neighbouring cameras the same way. The
+  -- gesture token keeps a whole drag to one entry.
+  if actions.moveCameraIn ~= nil and camera ~= nil then
+    externalGesture = actions.moveCameraIn.gesture
+    remember(edit.apply({
+      camera = camera,
+      cameras = cameras,
+      cameraIndex = atrCamera,
+      key = 'camera_in',
+      op = 'set',
+      value = actions.moveCameraIn.position,
+    }))
+    externalGesture = nil
+  end
+
   -- Once nothing is being dragged, the entry is closed: the next edit starts
   -- a new one even on the same parameter.
-  if atrParameter.draggingGesture() == nil then openDrag = nil end
+  if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil then
+    openDrag = nil
+  end
 
   if actions.toggleMap then atrShowMap = not atrShowMap end
   if actions.toggleHelp then atrShowHelp = not atrShowHelp end
@@ -1166,6 +1192,10 @@ function script.windowAtr(dt)
         elseif op ~= nil then
           remember(edit.apply({
             camera = camera,
+            -- Moving a camera's start needs to see its neighbours, so it can
+            -- stop at them instead of crossing one.
+            cameras = cameras,
+            cameraIndex = atrCamera,
             keyframeIndex = keyframeCount > 0 and atrKeyframe or nil,
             key = key,
             op = op,

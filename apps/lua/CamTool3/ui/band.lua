@@ -24,6 +24,16 @@ local trackmap = require('core/trackmap')
 
 local band = {}
 
+-- The drag in progress, and which gesture it is. Counted, not named, so two
+-- drags of the same camera are two entries on the undo stack -- the same
+-- reasoning as ui/parameter.
+local dragging = false
+local dragToken = 0
+-- Whether the mouse was already down on this widget last frame. The press is
+-- the frame it goes from up to down, and only a press may take the handle:
+-- otherwise a drag that started elsewhere picks it up as it crosses over.
+local wasActive = false
+
 ---Where a lap position sits along the ribbon.
 ---@return number @pixels from the ribbon's left edge
 local function xOf(position, width)
@@ -58,6 +68,7 @@ end
 ---@param width number
 ---@return number|nil camera @a camera the user clicked on
 ---@return number|nil keyframe @or a keyframe of the selected camera
+---@return table|nil move @{ position = , gesture = } while a start is dragged
 function band.draw(state, width)
   local height = theme.bandHeight
   local origin = ui.getCursor()
@@ -115,6 +126,23 @@ function band.draw(state, width)
   end
 
   ------------------------------------------------------------------
+  -- The handle: where the selected camera takes over
+  ------------------------------------------------------------------
+  -- Only the selected one. A handle on every camera would be a row of grips
+  -- on a ribbon a few pixels tall, and dragging the wrong one is the kind of
+  -- mistake that only shows up in the edit.
+  local selected = state.cameras ~= nil and state.cameraIndex ~= nil
+    and state.cameras[state.cameraIndex] or nil
+  local handleAt = type(selected) == 'table'
+    and type(selected.camera_in) == 'number' and selected.camera_in or nil
+
+  if handleAt ~= nil then
+    local x = origin.x + xOf(handleAt, width)
+    ui.drawRectFilled(vec2(x - 2, origin.y), vec2(x + 2, origin.y + height),
+      theme.stripActive, theme.rounding)
+  end
+
+  ------------------------------------------------------------------
   -- The car
   ------------------------------------------------------------------
   if type(state.trackPos) == 'number' and state.trackPos == state.trackPos then
@@ -130,12 +158,31 @@ function band.draw(state, width)
   ------------------------------------------------------------------
   -- A keyframe first, then the camera under the click. Diamonds are small and
   -- sit on top of the ribbon, so anything else would make them unclickable.
-  if not clicked or not hovered then return nil, nil end
-
   local mouse = ui.mouseLocalPos()
-  if mouse == nil or mouse.x < 0 then return nil, nil end
+  local at = (mouse ~= nil and mouse.x >= 0)
+    and positionOf(mouse.x - origin.x, width) or nil
 
-  local at = positionOf(mouse.x - origin.x, width)
+  -- Dragging the handle moves where the camera takes over. Held down and
+  -- near it: the press has to start on the handle, so dragging across the
+  -- ribbon from somewhere else cannot grab it by passing over.
+  local active = ui.itemActive()
+  local pressed = active and not wasActive
+  wasActive = active
+
+  if active and at ~= nil then
+    if pressed and handleAt ~= nil
+        and math.abs(xOf(handleAt, width) - (mouse.x - origin.x))
+          <= theme.bandClickRadius then
+      dragging, dragToken = true, dragToken + 1
+    end
+    if dragging then
+      return nil, nil, { position = at, gesture = 'band:' .. dragToken }
+    end
+  elseif dragging then
+    dragging = false
+  end
+
+  if not clicked or not hovered or at == nil then return nil, nil, nil end
 
   if type(keyframes) == 'table' then
     local best, bestDistance = nil, nil
@@ -149,10 +196,15 @@ function band.draw(state, width)
         end
       end
     end
-    if best ~= nil then return nil, best end
+    if best ~= nil then return nil, best, nil end
   end
 
-  return trackmap.ownerAt(segments, at), nil
+  return trackmap.ownerAt(segments, at), nil, nil
+end
+
+---Give up any drag in progress. For tests.
+function band.reset()
+  dragging, wasActive = false, false
 end
 
 return band

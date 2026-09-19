@@ -50,26 +50,36 @@ local function rects(drawn)
   return out
 end
 
+---Only the pieces of the ribbon itself: the background and the drag handle
+---are rectangles too, and they run the full height.
+local function ribbon(drawn)
+  local out = {}
+  local top = ORIGIN_Y + theme.bandHeight - theme.bandRibbon
+  for _, bar in ipairs(rects(drawn)) do
+    if math.abs(bar.y - top) < 0.001 then out[#out + 1] = bar end
+  end
+  return out
+end
+
 --------------------------------------------------------------------------
 -- Drawing
 --------------------------------------------------------------------------
 
 test('each camera gets a stretch of the ribbon, in lap order', function()
   local _, _, drawn = draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 })
-  local bars = rects(drawn)
+  local bars = ribbon(drawn)
 
-  -- One background plus two cameras.
-  eq(#bars, 3)
-  near(bars[2].x, ORIGIN_X, 1, 'the first camera starts at the line')
-  near(bars[3].x, ORIGIN_X + WIDTH / 2, 1, 'the second at half a lap')
+  eq(#bars, 2)
+  near(bars[1].x, ORIGIN_X, 1, 'the first camera starts at the line')
+  near(bars[2].x, ORIGIN_X + WIDTH / 2, 1, 'the second at half a lap')
 end)
 
 test('the ribbon fills the width exactly, whatever the cameras', function()
   local _, _, drawn = draw({ cameras = cameras({ 0.2, 0.7, 0.75 }), cameraIndex = 1 })
-  local bars = rects(drawn)
+  local bars = ribbon(drawn)
 
   local left, right = nil, nil
-  for i = 2, #bars do
+  for i = 1, #bars do
     if left == nil or bars[i].x < left then left = bars[i].x end
     if right == nil or bars[i].x2 > right then right = bars[i].x2 end
   end
@@ -100,7 +110,7 @@ test('the camera being edited is red, the live one pale', function()
     cameras = cameras({ 0, 0.33, 0.66 }), cameraIndex = 2, liveCameraIndex = 3,
   })
   local reds, pales = 0, 0
-  for _, bar in ipairs(rects(drawn)) do
+  for _, bar in ipairs(ribbon(drawn)) do
     if bar.colour == theme.stripActive then reds = reds + 1 end
     if bar.colour == theme.stripLive then pales = pales + 1 end
   end
@@ -113,7 +123,7 @@ test('the camera holding the start line is drawn at both ends', function()
     cameras = cameras({ 0.25, 0.5 }), cameraIndex = 2,
   })
   local reds = {}
-  for _, bar in ipairs(rects(drawn)) do
+  for _, bar in ipairs(ribbon(drawn)) do
     if bar.colour == theme.stripActive then reds[#reds + 1] = bar end
   end
   eq(#reds, 2, 'camera 2 runs to the finish and carries on past the line')
@@ -209,4 +219,86 @@ test('hovering without clicking selects nothing', function()
   local camera, keyframe = draw(state, WIDTH * 0.6, false)
   eq(camera, nil)
   eq(keyframe, nil)
+end)
+
+--------------------------------------------------------------------------
+-- Dragging where a camera takes over
+--------------------------------------------------------------------------
+
+---Press somewhere on the band and report what came back.
+local function press(state, mouseX)
+  local handle = fakes.install({
+    itemActive = true, itemHovered = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  local camera, keyframe, move = band.draw(state, WIDTH)
+  handle.restoreIo()
+  return move, camera, keyframe
+end
+
+test('the selected camera shows a handle where it takes over', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 })
+  local handle = nil
+  for _, bar in ipairs(rects(drawn)) do
+    if bar.colour == theme.stripActive
+      and math.abs(bar.y - ORIGIN_Y) < 0.001 then handle = bar end
+  end
+  eq(handle ~= nil, true)
+  near((handle.x + handle.x2) / 2, ORIGIN_X + WIDTH * 0.25, 1)
+end)
+
+test('pressing the handle and moving reports a new start', function()
+  band.reset()
+  local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
+
+  local move = press(state, WIDTH * 0.25)
+  eq(move ~= nil, true, 'the press landed on the handle')
+
+  move = press(state, WIDTH * 0.4)
+  near(move.position, 0.4, 0.01, 'and it follows the pointer')
+  band.reset()
+end)
+
+test('a drag is one gesture from beginning to end', function()
+  -- What keeps a drag across the whole ribbon to a single undo entry.
+  band.reset()
+  local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
+
+  local first = press(state, WIDTH * 0.25)
+  local later = press(state, WIDTH * 0.45)
+  eq(first.gesture, later.gesture)
+
+  -- Let go, press again: a new gesture, so a second undo entry.
+  local released = fakes.install({ itemActive = false })
+  band.draw(state, WIDTH)
+  released.restoreIo()
+
+  local again = press(state, WIDTH * 0.25)
+  eq(again.gesture ~= first.gesture, true)
+  band.reset()
+end)
+
+test('a press away from the handle does not grab it', function()
+  -- Otherwise clicking a camera to select it would move the selected one.
+  band.reset()
+  local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
+  eq(press(state, WIDTH * 0.6), nil)
+  band.reset()
+end)
+
+test('a drag that merely passes over the handle cannot grab it', function()
+  -- The press has to start on it. Dragging across the ribbon from elsewhere
+  -- crosses the handle on the way, and would otherwise pick it up mid-flight.
+  band.reset()
+  local state = { cameras = cameras({ 0.5, 0.9 }), cameraIndex = 1 }
+
+  eq(press(state, WIDTH * 0.1), nil, 'pressed well away from it')
+  eq(press(state, WIDTH * 0.5), nil, 'and passing over it changes nothing')
+  band.reset()
+end)
+
+test('with no camera selected there is nothing to drag', function()
+  band.reset()
+  eq(press({ cameras = cameras({ 0.25 }), cameraIndex = nil }, WIDTH * 0.25), nil)
+  band.reset()
 end)

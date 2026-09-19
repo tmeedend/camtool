@@ -556,3 +556,97 @@ test('with nothing open there is nothing to continue', function()
   eq(edit.continues(nil, change({}, 'camera_fov', 40, 41), 7), false)
   eq(edit.continues({ gesture = 7 }, change({}, 'camera_fov', 40, 41), 7), false)
 end)
+
+--------------------------------------------------------------------------
+-- Moving where a camera takes over
+--------------------------------------------------------------------------
+
+local function threeCameras()
+  return {
+    { camera_in = 0.10, keyframes = {} },
+    { camera_in = 0.50, keyframes = {} },
+    { camera_in = 0.90, keyframes = {} },
+  }
+end
+
+test('a camera start moves where it is asked to', function()
+  local cameras = threeCameras()
+  local change = edit.apply({
+    camera = cameras[2], cameras = cameras, cameraIndex = 2,
+    key = 'camera_in', op = 'set', value = 0.6,
+  })
+  runner.near(cameras[2].camera_in, 0.6)
+  runner.near(change.before, 0.5)
+end)
+
+test('a camera start stops at its neighbour rather than crossing it', function()
+  -- The list is sorted by camera_in and everything downstream leans on it:
+  -- selection walks it in order, and both projections cut their segments from
+  -- consecutive starts. Crossing would break all three quietly.
+  local cameras = threeCameras()
+  edit.apply({
+    camera = cameras[2], cameras = cameras, cameraIndex = 2,
+    key = 'camera_in', op = 'set', value = 0.99,
+  })
+  runner.near(cameras[2].camera_in, 0.9 - edit.MIN_CAMERA_GAP)
+  eq(cameras[2].camera_in < cameras[3].camera_in, true, 'still in order')
+end)
+
+test('and stops at the one before it too', function()
+  local cameras = threeCameras()
+  edit.apply({
+    camera = cameras[2], cameras = cameras, cameraIndex = 2,
+    key = 'camera_in', op = 'set', value = 0,
+  })
+  runner.near(cameras[2].camera_in, 0.1 + edit.MIN_CAMERA_GAP)
+  eq(cameras[1].camera_in < cameras[2].camera_in, true)
+end)
+
+test('the first and last cameras still reach the start and finish lines', function()
+  local cameras = threeCameras()
+  edit.apply({
+    camera = cameras[1], cameras = cameras, cameraIndex = 1,
+    key = 'camera_in', op = 'set', value = -1,
+  })
+  runner.near(cameras[1].camera_in, 0, 1e-12, 'clamped to the lap, not to a neighbour')
+
+  edit.apply({
+    camera = cameras[3], cameras = cameras, cameraIndex = 3,
+    key = 'camera_in', op = 'set', value = 2,
+  })
+  runner.near(cameras[3].camera_in, 1, 1e-12)
+end)
+
+test('the arrows move a start too, and stop at the same fences', function()
+  -- Same rule whichever gesture asks: the STARTING POINT row had no edit path
+  -- at all before this, so its arrows did nothing.
+  local cameras = threeCameras()
+  for _ = 1, 1000 do
+    edit.apply({
+      camera = cameras[2], cameras = cameras, cameraIndex = 2,
+      key = 'camera_in', op = 'nudge', direction = 1, amount = 1,
+    })
+  end
+  eq(cameras[2].camera_in <= cameras[3].camera_in - edit.MIN_CAMERA_GAP, true,
+    'a thousand steps up still cannot pass the next camera')
+end)
+
+test('a start with no list to compare against just clamps to the lap', function()
+  -- The map hands the neighbours over; a caller that does not should still
+  -- get a sane answer rather than an error.
+  local camera = { camera_in = 0.5, keyframes = {} }
+  edit.apply({ camera = camera, key = 'camera_in', op = 'set', value = 0.7 })
+  runner.near(camera.camera_in, 0.7)
+end)
+
+test('two cameras cannot be squeezed onto the same point', function()
+  local cameras = {
+    { camera_in = 0.5, keyframes = {} },
+    { camera_in = 0.5 + edit.MIN_CAMERA_GAP, keyframes = {} },
+  }
+  edit.apply({
+    camera = cameras[1], cameras = cameras, cameraIndex = 1,
+    key = 'camera_in', op = 'set', value = 0.9,
+  })
+  eq(cameras[1].camera_in < cameras[2].camera_in, true)
+end)

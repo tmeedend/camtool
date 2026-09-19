@@ -609,9 +609,10 @@ function atr.draw(state)
   -- replaces them at all, is ATR's call in front of a replay, not something
   -- to decide by deleting them first.
   ui.newLine(2)
-  local bandCamera, bandKeyframe = trackBand.draw(state, width)
+  local bandCamera, bandKeyframe, bandMove = trackBand.draw(state, width)
   if bandCamera ~= nil then actions.selectCamera = bandCamera end
   if bandKeyframe ~= nil then actions.selectKeyframe = bandKeyframe end
+  if bandMove ~= nil then actions.moveCameraIn = bandMove end
   ui.newLine(2)
 
   ------------------------------------------------------------------
@@ -634,8 +635,9 @@ function atr.draw(state)
     local ceiling = math.min(theme.mapHeightMax,
       math.max(theme.mapHeightMin,
         math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
-    local picked = trackMap.draw(state, width, ceiling)
+    local picked, mapMove = trackMap.draw(state, width, ceiling)
     if picked ~= nil then actions.selectCamera = picked end
+    if mapMove ~= nil then actions.moveCameraIn = mapMove end
   end
   ui.newLine(2)
 

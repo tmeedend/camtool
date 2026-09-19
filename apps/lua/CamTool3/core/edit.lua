@@ -83,7 +83,21 @@ edit.RULES = {
   -- the Camera tab in docs/ui-inventory.md.
   camera_focus_point = rule(0.5, false, 1),
   camera_fov = rule(0.5, false, 1),
+
+  -- Where the camera takes over, as a fraction of a lap. CamTool 2 has no
+  -- field for it -- a camera's start was wherever you happened to create it,
+  -- and the red bar was the only way to move one -- so the step is ours:
+  -- a thousandth of a lap is about five metres on a normal circuit, and it
+  -- scales with the track rather than being five metres everywhere.
+  --
+  -- Clamped, because a lap position outside 0..1 is not a place.
+  camera_in = rule(0.001, true, 5),
 }
+
+---How close two cameras may start to one another, as a fraction of a lap.
+---Half a metre on a five kilometre circuit: enough that a camera always has
+---some lap to call its own.
+edit.MIN_CAMERA_GAP = 0.0001
 
 ---Parameters that exist only as keyframes. There is nowhere on the camera to
 ---put them, so with no keyframe there is nothing for an arrow to move -- the
@@ -158,6 +172,40 @@ local function clamped(value, rule_)
   return math.max(0, math.min(1, value))
 end
 
+---Keep a camera's start between its neighbours'.
+---
+---The camera list is sorted by camera_in and everything downstream leans on
+---it: evaluate walks it in order to find the live camera, and both
+---projections in core/trackmap cut their segments from consecutive starts.
+---Dragging one camera past another would break that quietly -- no error, just
+---a set that selects the wrong camera on part of the lap.
+---
+---So a start stops at its neighbours rather than swapping with them. Crossing
+---would mean renumbering mid-gesture, which is worse: the camera being
+---dragged would change index under the hand doing it.
+---@param cameras table[]|nil @the list the camera belongs to
+---@param index number|nil @its position in that list
+---@param position number
+---@return number
+function edit.betweenNeighbours(cameras, index, position)
+  if type(cameras) ~= 'table' or type(index) ~= 'number' then return position end
+
+  local previous = cameras[index - 1]
+  local next_ = cameras[index + 1]
+
+  if type(previous) == 'table' and type(previous.camera_in) == 'number' then
+    local floor_ = previous.camera_in + edit.MIN_CAMERA_GAP
+    if position < floor_ then position = floor_ end
+  end
+
+  if type(next_) == 'table' and type(next_.camera_in) == 'number' then
+    local ceiling = next_.camera_in - edit.MIN_CAMERA_GAP
+    if position > ceiling then position = ceiling end
+  end
+
+  return position
+end
+
 ---Apply one edit.
 ---
 ---@param request table
@@ -219,6 +267,9 @@ function edit.apply(request)
   if request.op == 'set' then
     if type(request.value) ~= 'number' then return nil, 'no value given' end
     local after = clamped(request.value, rule_)
+    if key == 'camera_in' then
+      after = edit.betweenNeighbours(request.cameras, request.cameraIndex, after)
+    end
     if after == before then return nil, 'unchanged' end
     holder[key] = after
     return { holder = holder, key = key, before = before, after = after }
@@ -251,6 +302,9 @@ function edit.apply(request)
     after = math.max(0, after)
   end
   after = clamped(after, rule_)
+  if key == 'camera_in' then
+    after = edit.betweenNeighbours(request.cameras, request.cameraIndex, after)
+  end
 
   if after == before then return nil, 'unchanged' end
   holder[key] = after

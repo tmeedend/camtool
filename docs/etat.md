@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (405 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (422 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -374,9 +374,32 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    ⚠️ **Elle ne remplace encore rien.** Les deux bandes numérotées,
    `Starting point` et la barre de keyframe sont toujours là. Ce qu'elle
    remplace se décide devant un replay, pas en supprimant d'abord.
-6. **Éditer depuis la carte** : glisser un `camera_in` sur le tracé. Le
-   test de collision et le point d'entrée d'édition existent tous les deux,
-   c'est du câblage.
+6. ✅ **Éditer depuis la carte et depuis la bande — fait, jamais vu en jeu.**
+   La caméra sélectionnée porte une **poignée** là où elle prend le relais :
+   un point sur le tracé, un trait sur le ruban. La glisser déplace son
+   `camera_in`.
+
+   Une seule poignée, celle de la caméra choisie : sur un set de cent, une
+   poignée par caméra serait un collier de points, et déplacer la mauvaise est
+   une erreur qui ne se voit qu'au montage. **L'appui doit commencer dessus** —
+   un glissé parti d'ailleurs ne l'attrape pas au passage, sinon cliquer pour
+   sélectionner déplacerait la caméra sélectionnée. Les deux règles ont leur
+   test de morsure.
+
+   **Trouvé en câblant : `camera_in` n'avait aucun chemin d'édition.** La ligne
+   `STARTING POINT` s'affichait, et ses flèches, son glissé et sa saisie ne
+   faisaient rien — la boucle de dispatch ne traite que les clés de
+   `edit.RULES`, où `camera_in` ne figurait pas. Il y est maintenant, avec un
+   pas d'un millième de tour (≈ 5 m sur un circuit normal, et qui suit la
+   longueur du circuit plutôt que d'être 5 m partout).
+
+   ⚠️ **Un `camera_in` ne peut plus croiser ses voisins**
+   (`edit.betweenNeighbours`). La liste est triée par `camera_in` et tout en
+   dépend : la sélection la parcourt dans l'ordre, et les deux projections
+   découpent leurs segments sur des débuts consécutifs. Croiser casserait les
+   trois en silence. Une caméra s'arrête donc à sa voisine au lieu d'échanger
+   de place — échanger voudrait dire renuméroter en plein geste, et la caméra
+   tirée changerait d'index sous la main qui la tire.
 
 Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
 que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
