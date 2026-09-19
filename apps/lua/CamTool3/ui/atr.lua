@@ -324,7 +324,45 @@ local function strip(id, count, active, width, colour, live)
   end
   ui.popStyleColor(3)
 
-  return picked, added, removed
+  -- How wide the LAST line of the strip ended up. Whatever is put beside it
+  -- needs this to know how much room is left, and counting the cells is the
+  -- only way to know: the strip wraps at twenty and the plus and minus follow
+  -- the last one.
+  local onLastLine = count % perRow + 2
+  if count % perRow == 0 and count > 0 then onLastLine = 2 end
+  local usedWidth = onLastLine * cell + (onLastLine - 1)
+
+  return picked, added, removed, usedWidth
+end
+
+---Decide where a row of buttons has to break.
+---
+---Pure arithmetic, so the one thing that actually goes wrong here -- a button
+---landing past the edge of the window where nothing can click it -- is
+---something a test can catch. The panel is resizable and this row has grown
+---twice already.
+---@param items table[] @{ width = , gap = } each, in order
+---@param available number @the width the row has
+---@param startX number|nil @how much of the first line is already taken
+---@return boolean[] @whether each item begins a new line
+function atr.wrapRow(items, available, startX)
+  local breaks = {}
+  local x = startX or 0
+
+  for i, item in ipairs(items) do
+    local gap = (i == 1 and startX ~= nil and startX > 0) and (item.gap or 3)
+      or (i == 1 and 0 or item.gap or 3)
+
+    if x + gap + item.width > available and (i > 1 or x > 0) then
+      breaks[i] = true
+      x = item.width
+    else
+      breaks[i] = false
+      x = x + gap + item.width
+    end
+  end
+
+  return breaks
 end
 
 ---Draw one parameter, whichever section it belongs to.
@@ -476,7 +514,9 @@ function atr.draw(state)
   -- left side, which the mockup has no place for -- without it a camera can
   -- hold a pose but never move.
   ui.newLine(2)
-  actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe =
+  local stripWidth
+  actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe,
+    stripWidth =
     strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
       theme.stripKeyframe)
 
@@ -484,68 +524,74 @@ function atr.draw(state)
   -- room is: a camera rarely has twenty keyframes, and these were previously
   -- on the file line, where they ran off the end of the window and could not
   -- be clicked at all.
-  ui.sameLine(0, 12)
+  --
+  -- They WRAP now. Beside a long keyframe strip, or in a narrow window, the
+  -- row used to run past the edge and the last buttons became unclickable --
+  -- the same failure as before, moved one line down. Where it breaks is
+  -- arithmetic, in atr.wrapRow, so a test catches it rather than an eye.
   ui.pushStyleColor(ui.StyleColor.Button, theme.strip)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
 
   local depth = state.undoDepth or 0
-  if ui.button(string.format('Undo (%d)###undo', depth),
-      vec2(74, theme.stripHeight)) then
-    actions.undo = true
-  end
-  ui.sameLine(0, 3)
-  if ui.button(string.format('Redo (%d)###redo', state.redoDepth or 0),
-      vec2(70, theme.stripHeight)) then
-    actions.redo = true
-  end
-  ui.sameLine(0, 3)
-  -- The star is the only thing saying there is work not on disk yet.
-  if ui.button((depth > 0 and 'Save *' or 'Save') .. '###save',
-      vec2(60, theme.stripHeight)) then
-    actions.save = true
-  end
-  ui.sameLine(0, 3)
-  if ui.button('Reset##reset', vec2(56, theme.stripHeight)) then
-    actions.reset = true
-  end
+  local legacy = state.mode ~= 'fixed'
 
-  -- Square brackets mean "on" throughout this row, as they do for the list
-  -- and the maths beside it.
-  ui.sameLine(0, 3)
-  if ui.button((state.showMap and '[map]' or ' map ') .. '###showMap',
-      vec2(52, theme.stripHeight)) then
-    actions.toggleMap = true
-  end
+  -- Square brackets mean "on" throughout this row, for the map, the help, the
+  -- list and the maths alike.
+  local items = {
+    { id = 'undo', width = 74, gap = 12,
+      label = string.format('Undo (%d)###undo', depth) },
+    { id = 'redo', width = 70,
+      label = string.format('Redo (%d)###redo', state.redoDepth or 0) },
+    -- The star is the only thing saying there is work not on disk yet.
+    { id = 'save', width = 60,
+      label = (depth > 0 and 'Save *' or 'Save') .. '###save' },
+    { id = 'reset', width = 56, label = 'Reset##reset' },
+    { id = 'toggleMap', width = 52,
+      label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
+    { id = 'toggleHelp', width = 30,
+      label = (state.showHelp and '[?]' or ' ? ') .. '###showHelp' },
+    -- Position or time, and which curve maths the file gets. The second is
+    -- not a preference: a CamTool 2 file is loaded as legacy and has to
+    -- behave as CamTool 2 did, or footage already cut would change. Shown so
+    -- it is never a surprise, switchable because a file can be moved across
+    -- on purpose.
+    { id = 'posList', width = 74, gap = 10,
+      label = (state.listName == 'pos' and '[position]' or ' position ')
+        .. '###modePos' },
+    { id = 'timeList', width = 58,
+      label = (state.listName == 'time' and '[time]' or ' time ')
+        .. '###modeTime' },
+  }
 
-  ui.sameLine(0, 3)
-  if ui.button((state.showHelp and '[?]' or ' ? ') .. '###showHelp',
-      vec2(30, theme.stripHeight)) then
-    actions.toggleHelp = true
-  end
-
-  -- Position or time, and which curve maths the file gets. The second is not
-  -- a preference: a CamTool 2 file is loaded as legacy and has to behave as
-  -- CamTool 2 did, or footage already cut would change. Shown so it is never
-  -- a surprise, switchable because a file can be moved across on purpose.
-  ui.sameLine(0, 10)
-  if ui.button((state.listName == 'pos' and '[position]' or ' position ')
-      .. '###modePos', vec2(74, theme.stripHeight)) then
-    actions.listName = 'pos'
-  end
-  ui.sameLine(0, 3)
-  if ui.button((state.listName == 'time' and '[time]' or ' time ')
-      .. '###modeTime', vec2(58, theme.stripHeight)) then
-    actions.listName = 'time'
-  end
   if state.loadedName ~= nil then
-    ui.sameLine(0, 10)
-    local legacy = state.mode ~= 'fixed'
-    if ui.button((legacy and 'maths: legacy' or 'maths: fixed') .. '###mode',
-        vec2(96, theme.stripHeight)) then
-      actions.mode = legacy and 'fixed' or 'legacy'
+    items[#items + 1] = { id = 'maths', width = 96, gap = 10,
+      label = (legacy and 'maths: legacy' or 'maths: fixed') .. '###mode' }
+  end
+
+  local breaks = atr.wrapRow(items, width, stripWidth)
+  local clicked = {}
+
+  for i, item in ipairs(items) do
+    if breaks[i] then
+      ui.newLine(2)
+    else
+      ui.sameLine(0, item.gap or 3)
+    end
+    if ui.button(item.label, vec2(item.width, theme.stripHeight)) then
+      clicked[item.id] = true
     end
   end
+
+  if clicked.undo then actions.undo = true end
+  if clicked.redo then actions.redo = true end
+  if clicked.save then actions.save = true end
+  if clicked.reset then actions.reset = true end
+  if clicked.toggleMap then actions.toggleMap = true end
+  if clicked.toggleHelp then actions.toggleHelp = true end
+  if clicked.posList then actions.listName = 'pos' end
+  if clicked.timeList then actions.listName = 'time' end
+  if clicked.maths then actions.mode = legacy and 'fixed' or 'legacy' end
 
   ui.popStyleColor(3)
   ui.newLine(2)

@@ -1452,3 +1452,86 @@ test('every parameter of the panel carries a sentence', function()
   end
   for _, spec in ipairs(atr.SPLINE) do check(spec) end
 end)
+
+--------------------------------------------------------------------------
+-- The action row, which has run off the edge twice now
+--------------------------------------------------------------------------
+
+---Replay a layout and return where every item ends up.
+---@return table[] @{ x = , right = , line = } per item
+local function layout(items, available, startX)
+  local breaks = atr.wrapRow(items, available, startX)
+  local out = {}
+  local x, line = startX or 0, 1
+
+  for i, item in ipairs(items) do
+    if breaks[i] then
+      x, line = 0, line + 1
+    elseif i > 1 or (startX or 0) > 0 then
+      x = x + (item.gap or 3)
+    end
+    out[i] = { x = x, right = x + item.width, line = line }
+    x = x + item.width
+  end
+  return out
+end
+
+local function widths(list)
+  local items = {}
+  for i, w in ipairs(list) do items[i] = { width = w, gap = 3 } end
+  return items
+end
+
+test('a row that fits stays on one line', function()
+  local placed = layout(widths({ 50, 50, 50 }), 400, 0)
+  eq(placed[1].line, 1)
+  eq(placed[3].line, 1)
+end)
+
+test('a button that would not fit starts the next line', function()
+  local placed = layout(widths({ 50, 50, 50 }), 110, 0)
+  eq(placed[1].line, 1)
+  eq(placed[2].line, 1, '50 + 3 + 50 = 103, still inside 110')
+  eq(placed[3].line, 2, 'the third would reach 156')
+end)
+
+test('a full keyframe strip pushes the whole row down', function()
+  -- What Théo saw: the strip beside it had taken the width, and the buttons
+  -- carried on off the edge of the window where nothing can click them.
+  local placed = layout(widths({ 74, 70, 60 }), 300, 290)
+  eq(placed[1].line, 2, 'no room left on the strip line at all')
+  eq(placed[1].x, 0)
+end)
+
+test('no button of the real row ever lands past the edge', function()
+  -- The row as the panel actually builds it, at every width from cramped to
+  -- comfortable, with the keyframe strip taking anything from nothing to
+  -- almost everything.
+  local real = {
+    { id = 'undo', width = 74, gap = 12 }, { id = 'redo', width = 70 },
+    { id = 'save', width = 60 }, { id = 'reset', width = 56 },
+    { id = 'map', width = 52 }, { id = 'help', width = 30 },
+    { id = 'pos', width = 74, gap = 10 }, { id = 'time', width = 58 },
+    { id = 'maths', width = 96, gap = 10 },
+  }
+
+  for available = 120, 900, 20 do
+    for _, startX in ipairs({ 0, 60, available - 40, available }) do
+      local placed = layout(real, available, startX)
+      for i, at in ipairs(placed) do
+        eq(at.right <= available or at.x == 0, true, string.format(
+          'button %d reaches %d of %d (strip took %d)',
+          i, at.right, available, startX))
+      end
+    end
+  end
+end)
+
+test('a button wider than the panel gets its own line rather than a neighbour', function()
+  -- It will still be clipped, and nothing can be done about that but make the
+  -- window bigger. What matters is that it does not drag a second button off
+  -- the edge with it.
+  local placed = layout(widths({ 200, 50 }), 100, 0)
+  eq(placed[1].line, 1)
+  eq(placed[2].line, 2)
+end)
