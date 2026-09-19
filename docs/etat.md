@@ -53,11 +53,12 @@ en Lua. **#25** et **#37** ont des éléments concrets dans `docs/legacy.md`.
 
 ## Chantiers restants, par taille croissante
 
-1. **Compléter `docs/ui-inventory.md`** — la première passe est faite : modèle
-   d'interaction, zones d'écran, les cinq onglets, raccourcis et gestes souris.
-   Huit points restent ouverts, listés en fin de document. Trois d'entre eux
-   (libellés réels, disposition à l'écran, boutons de replay) demandent de
-   **voir l'app tourner** : Théo ou des captures.
+1. **Compléter `docs/ui-inventory.md`** — l'essentiel est fait, recoupé avec
+   cinq captures fournies par Théo : libellés réels, unités, code couleur,
+   disposition, les cinq onglets, le formulaire de fichiers. Huit points restent
+   ouverts en fin de document, **tous relevant désormais de la lecture de code**.
+   Deux méritent d'être traités avant la refonte : la portée du bouton `Reset`
+   (potentiellement destructif) et le déroulé de `Record`.
 2. **Shake** (`camera_shake_strength`, `camera_offset_shake_strength`) et
    **focus point DOF** (`camera_focus_point`).
 3. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
