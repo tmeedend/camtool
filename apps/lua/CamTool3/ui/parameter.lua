@@ -90,9 +90,12 @@ function parameter.draw(id, spec)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, pillHover)
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
 
-  -- Held arrows repeat, as they do in CamTool 2.
+  -- Held arrows repeat, as they do in CamTool 2. arrowButton rather than a
+  -- '<' in a button: a drawn triangle sizes itself to the row and stays quiet
+  -- next to the coloured pill, where the text glyph did not.
   ui.pushButtonRepeat(true)
-  if ui.button('<##' .. id .. 'dec', vec2(theme.arrowWidth, theme.rowHeight)) then
+  if ui.arrowButton('##' .. id .. 'dec', ui.Direction.Left,
+      vec2(theme.arrowWidth, theme.rowHeight)) then
     action = 'decrement'
   end
   ui.popButtonRepeat()
@@ -120,7 +123,8 @@ function parameter.draw(id, spec)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, pillHover)
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
   ui.pushButtonRepeat(true)
-  if ui.button('>##' .. id .. 'inc', vec2(theme.arrowWidth, theme.rowHeight)) then
+  if ui.arrowButton('##' .. id .. 'inc', ui.Direction.Right,
+      vec2(theme.arrowWidth, theme.rowHeight)) then
     action = 'increment'
   end
   ui.popButtonRepeat()

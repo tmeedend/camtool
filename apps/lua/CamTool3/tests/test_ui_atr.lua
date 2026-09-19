@@ -74,7 +74,7 @@ test('the debt list is not empty until everything has a place', function()
 end)
 
 test('a parameter row draws and reports which part was clicked', function()
-  local handle = fakes.install({ clicks = { ['<##testdec'] = true } })
+  local handle = fakes.install({ clicks = { ['##testdec'] = true } })
 
   local action = parameter.draw('test', {
     label = 'FOCUS POINT', text = '69.40 m', width = 120,
