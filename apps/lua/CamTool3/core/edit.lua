@@ -141,6 +141,15 @@ end
 ---@field key string
 ---@field before number|nil
 ---@field after number|nil
+---
+---A structural change -- a camera or a keyframe added or removed -- carries
+---the list and a copy of it instead, because the lists are kept sorted and
+---an insertion shifts every index after it. Restoring the copy puts the
+---order back as well as the contents.
+---@class EditStructuralChange
+---@field list table
+---@field before table @a copy of the list as it was
+---@field after table @a copy of the list as it became
 
 local function clamped(value, rule_)
   if not rule_.clamp then return value end
@@ -166,12 +175,29 @@ function edit.apply(request)
   local key = request.key
   if camera == nil or key == nil then return nil, 'nothing to edit' end
 
-  local rule_ = edit.RULES[key]
-  if rule_ == nil then return nil, 'no rule for ' .. tostring(key) end
-
   if request.op == 'toggleKeyframe' then
     return edit.toggleKeyframe(camera, request.keyframeIndex, key, request.live)
   end
+
+  -- A caller that already knows where the value lives says so. The keyframe's
+  -- own position is the case: it is not a parameter, it sits on the keyframe
+  -- record itself, and it has no step of its own because a step in metres
+  -- depends on how long the track is.
+  if request.holder ~= nil then
+    if request.op ~= 'set' then return nil, 'an explicit holder only takes set' end
+    local holderBefore = request.holder[key]
+    local holderAfter = request.value
+    if type(holderAfter) ~= 'number' then return nil, 'no value given' end
+    if holderAfter == holderBefore then return nil, 'unchanged' end
+    request.holder[key] = holderAfter
+    return {
+      holder = request.holder, key = key,
+      before = holderBefore, after = holderAfter,
+    }
+  end
+
+  local rule_ = edit.RULES[key]
+  if rule_ == nil then return nil, 'no rule for ' .. tostring(key) end
 
   local holder, where = edit.holderOf(camera, request.keyframeIndex, key)
   if holder == nil then
@@ -262,18 +288,181 @@ function edit.toggleKeyframe(camera, keyframeIndex, key, live)
   return { holder = interp, key = key, before = nil, after = seed }
 end
 
+--------------------------------------------------------------------------------
+-- The two fields that are not numbers
+--------------------------------------------------------------------------------
+
+---Pit only. A real boolean in every reference file, unlike the autofocus
+---flag beside it, which is a 0 or a 1 -- CamTool 2 is not consistent about
+---this and both have to be read the way they are written.
+---@return EditChange|nil
+function edit.toggleFlag(camera, key)
+  if camera == nil or key == nil then return nil, 'nothing to toggle' end
+  local before = camera[key]
+  local after = not (before == true)
+  camera[key] = after
+  return { holder = camera, key = key, before = before, after = after }
+end
+
+---The lowest and highest values of camera_use_specific_cam. Minus one is
+---CamTool driving; 0 to 13 hand the view to one of Assetto Corsa's own
+---cameras and skip the interpolation entirely. CamTool 2 wraps between the
+---two ends, so this does too.
+edit.SPECIFIC_CAM_MIN = -1
+edit.SPECIFIC_CAM_MAX = 13
+
+---@return EditChange|nil
+function edit.cycleSpecificCam(camera, direction)
+  if camera == nil then return nil, 'no camera' end
+  local key = 'camera_use_specific_cam'
+  local before = camera[key]
+  if type(before) ~= 'number' then before = edit.SPECIFIC_CAM_MIN end
+
+  local after = before + (direction or 1)
+  if after > edit.SPECIFIC_CAM_MAX then after = edit.SPECIFIC_CAM_MIN end
+  if after < edit.SPECIFIC_CAM_MIN then after = edit.SPECIFIC_CAM_MAX end
+
+  camera[key] = after
+  return { holder = camera, key = key, before = camera[key] ~= before
+    and before or before, after = after }
+end
+
+--------------------------------------------------------------------------------
+-- Cameras and keyframes, added and removed
+--------------------------------------------------------------------------------
+
+local function copyList(list)
+  local out = {}
+  for i = 1, #list do out[i] = list[i] end
+  return out
+end
+
+local function replaceList(list, contents)
+  for i = #list, 1, -1 do list[i] = nil end
+  for i = 1, #contents do list[i] = contents[i] end
+end
+
+---@return EditStructuralChange
+local function structural(list, before)
+  return { list = list, before = before, after = copyList(list) }
+end
+
+---Keep keyframes in order of position, as CamTool 2 does after every change.
+---One with no position sorts to the end of the lap, which is where the legacy
+---puts it too.
+function edit.sortKeyframes(camera)
+  local keyframes = camera ~= nil and camera.keyframes or nil
+  if type(keyframes) ~= 'table' then return end
+  table.sort(keyframes, function(a, b)
+    local pa = type(a.keyframe) == 'number' and a.keyframe or 1
+    local pb = type(b.keyframe) == 'number' and b.keyframe or 1
+    return pa < pb
+  end)
+end
+
+---Where a new keyframe goes.
+---
+---CamTool 2 creates one with no position at all and makes you place it
+---afterwards with the position bar; the two locals it computes for the job
+---are dead code. A keyframe with nowhere to be is no use to anybody, so this
+---one is born at the playhead -- the same file either way, one step fewer to
+---get there, and moving it afterwards still works.
+---@param camera table
+---@param position number @the playhead, 0..1
+---@return EditStructuralChange|nil change, string|nil why
+function edit.addKeyframe(camera, position)
+  if camera == nil then return nil, 'no camera' end
+  if type(position) ~= 'number' then return nil, 'no position to put it at' end
+  if type(camera.keyframes) ~= 'table' then camera.keyframes = {} end
+
+  local before = copyList(camera.keyframes)
+  camera.keyframes[#camera.keyframes + 1] = {
+    keyframe = position,
+    interpolation = {},
+  }
+  edit.sortKeyframes(camera)
+
+  return structural(camera.keyframes, before)
+end
+
+---Remove one, unless it is the last. CamTool 2 refuses to leave a camera with
+---no keyframes at all, and so does this.
+---@return EditStructuralChange|nil change, string|nil why
+function edit.removeKeyframe(camera, index)
+  local keyframes = camera ~= nil and camera.keyframes or nil
+  if type(keyframes) ~= 'table' then return nil, 'no keyframes' end
+  if index == nil or keyframes[index] == nil then return nil, 'no such keyframe' end
+  if #keyframes <= 1 then return nil, 'a camera keeps at least one keyframe' end
+
+  local before = copyList(keyframes)
+  table.remove(keyframes, index)
+  return structural(keyframes, before)
+end
+
+---@return EditStructuralChange|nil change, string|nil why
+function edit.addCamera(cameras, position)
+  if type(cameras) ~= 'table' then return nil, 'no camera list' end
+  if type(position) ~= 'number' then return nil, 'no position to put it at' end
+
+  local before = copyList(cameras)
+  cameras[#cameras + 1] = {
+    camera_in = position,
+    camera_pit = false,
+    camera_use_tracking_point = 1,
+    tracking_strength_heading = 1,
+    tracking_strength_pitch = 1,
+    tracking_offset = -0.1,
+    tracking_mix = 0,
+    transform_loc_strength = 1,
+    transform_rot_strength = 1,
+    camera_shake_strength = 0,
+    camera_offset_shake_strength = 0,
+    keyframes = { { keyframe = position, interpolation = {} } },
+  }
+  table.sort(cameras, function(a, b)
+    return (a.camera_in or 0) < (b.camera_in or 0)
+  end)
+
+  return structural(cameras, before)
+end
+
+---@return EditStructuralChange|nil change, string|nil why
+function edit.removeCamera(cameras, index)
+  if type(cameras) ~= 'table' then return nil, 'no camera list' end
+  if index == nil or cameras[index] == nil then return nil, 'no such camera' end
+  if #cameras <= 1 then return nil, 'a file keeps at least one camera' end
+
+  local before = copyList(cameras)
+  table.remove(cameras, index)
+  return structural(cameras, before)
+end
+
+--------------------------------------------------------------------------------
+-- Undo
+--------------------------------------------------------------------------------
+
 ---Put back what a change changed. Undo is a stack of these.
----@param change EditChange
+---@param change EditChange|EditStructuralChange
 function edit.revert(change)
-  if type(change) ~= 'table' or change.holder == nil then return false end
+  if type(change) ~= 'table' then return false end
+  if change.list ~= nil then
+    replaceList(change.list, change.before)
+    return true
+  end
+  if change.holder == nil then return false end
   change.holder[change.key] = change.before
   return true
 end
 
 ---Do it again, after a revert.
----@param change EditChange
+---@param change EditChange|EditStructuralChange
 function edit.reapply(change)
-  if type(change) ~= 'table' or change.holder == nil then return false end
+  if type(change) ~= 'table' then return false end
+  if change.list ~= nil then
+    replaceList(change.list, change.after)
+    return true
+  end
+  if change.holder == nil then return false end
   change.holder[change.key] = change.after
   return true
 end

@@ -62,6 +62,20 @@ local UNITS = {
     show = function(v) return 'car ' .. tostring(math.floor(v)) end,
     read = function(v) return math.floor(v) end,
   },
+  flag = {
+    show = function(v) return v == true and 'yes' or 'no' end,
+    read = function(v) return v end,
+  },
+  specificCam = {
+    -- Minus one means CamTool drives. Anything else hands the view to one of
+    -- Assetto Corsa's own cameras, and CamTool 2 then skips its whole
+    -- interpolation -- which the port does not do yet.
+    show = function(v)
+      if v == nil or v < 0 then return 'CamTool' end
+      return 'AC cam ' .. tostring(math.floor(v))
+    end,
+    read = function(v) return v end,
+  },
 }
 
 atr.UNITS = UNITS
@@ -84,6 +98,14 @@ local function runtimeRow(key, label, unit)
   return { key = key, label = label, unit = unit, runtime = true }
 end
 
+---A row for something that lives on the camera and cannot be keyframed, so
+---it has no diamond and nothing to type into: Pit only and Specific cam.
+---Both are in docs/ui-inventory.md and neither is in ATR's mockup, which is
+---what the debt list at the bottom of the panel was for.
+local function plainRow(key, label, unit)
+  return { key = key, label = label, unit = unit, plain = true }
+end
+
 atr.COLUMNS = {
   {
     colour = 'camera',
@@ -95,6 +117,8 @@ atr.COLUMNS = {
       row('camera_fov', 'FOV', UNITS.plainDegrees),
       row('camera_shake_strength', 'SHAKE CAMERA', UNITS.percent),
       row('camera_offset_shake_strength', 'SHAKE TRACKING', UNITS.percent),
+      plainRow('camera_pit', 'PIT ONLY', UNITS.flag),
+      plainRow('camera_use_specific_cam', 'SPECIFIC CAM', UNITS.specificCam),
     },
   },
   {
@@ -129,8 +153,6 @@ atr.COLUMNS = {
 ---Drawn, so that it is impossible to ship without noticing, and so the
 ---conversation about where each one goes happens over something visible.
 atr.MISSING = {
-  'Pit only', 'Specific cam', 'position / time mode',
-  'keyframe bar (<< < 1023 m > >>)',
   'Spline tab', 'Settings tab', 'Activate Free Camera',
 }
 
@@ -260,6 +282,24 @@ function atr.draw(state)
   end
   ui.popStyleColor(3)
 
+  -- Position or time. CamTool 2 puts this in the header as two icons; the
+  -- two camera lists it switches between are a property of the file, and a
+  -- file made in one mode is meaningless in the other.
+  ui.pushStyleColor(ui.StyleColor.Button, theme.strip)
+  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripLive)
+  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
+  if ui.button((state.listName == 'pos' and '[position]' or ' position ')
+      .. '##modePos', vec2(78, 18)) then
+    actions.listName = 'pos'
+  end
+  ui.sameLine(0, 2)
+  if ui.button((state.listName == 'time' and '[time]' or ' time ')
+      .. '##modeTime', vec2(64, 18)) then
+    actions.listName = 'time'
+  end
+  ui.popStyleColor(3)
+  ui.sameLine(0, 8)
+
   ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
   ui.text(state.loadedName ~= nil
     and ('loaded: ' .. state.loadedName)
@@ -294,6 +334,28 @@ function atr.draw(state)
   actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe =
     strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
       theme.stripKeyframe)
+
+  -- Where the selected keyframe sits on the track.
+  --
+  -- This is the red band of ATR's mockup, and it turns out not to be
+  -- navigation: in CamTool 2 a new keyframe is created with no position at
+  -- all and this is the only thing that gives it one. Reading the source for
+  -- it is what made that clear. Here a keyframe is born at the playhead
+  -- instead, so the row moves one rather than placing it -- but it is the
+  -- same field, and without it a keyframe could never be moved.
+  if state.keyframeIndex ~= nil and state.keyframePosition ~= nil then
+    local metres = state.keyframePosition * (state.trackLength or 0)
+    local op, payload = parameter.draw('keyframePosition', {
+      label = 'KEYFRAME ' .. tostring(state.keyframeIndex),
+      text = string.format('%.2f m', metres),
+      raw = string.format('%.2f', metres),
+      column = theme.columns.camera,
+      keyframe = 'here',
+      width = math.min(240, width),
+    })
+    if op ~= nil then actions.keyframePosition = { op = op, amount = payload } end
+    ui.newLine(2)
+  end
 
   ------------------------------------------------------------------
   -- The three columns
@@ -330,6 +392,9 @@ function atr.draw(state)
         local value, keyframe
         if spec.runtime then
           value, keyframe = state[spec.key], 'none'
+        elseif spec.plain then
+          value = state.camera ~= nil and state.camera[spec.key] or nil
+          keyframe = 'none'
         else
           value, keyframe = valueOf(state.camera, spec.key, state.keyframeIndex)
         end
@@ -337,17 +402,27 @@ function atr.draw(state)
         -- camera_in is a track position: stored as a fraction of a lap, shown
         -- in metres, exactly as CamTool 2 shows it.
         local shown = value
-        if spec.key == 'camera_in' and shown ~= nil then
+        if spec.key == 'camera_in' and type(shown) == 'number' then
           shown = shown * (state.trackLength or 0)
+        end
+
+        -- A flag has no number to format, and Specific cam reads as a name.
+        local text = nil
+        if spec.plain then
+          text = spec.unit.show(shown)
+        elseif type(shown) == 'number' then
+          text = spec.unit.show(shown)
         end
 
         local action, payload = parameter.draw(column.colour .. spec.key, {
           label = spec.label,
-          text = type(shown) == 'number' and spec.unit.show(shown) or nil,
+          text = text,
           raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
+          noDiamond = spec.plain == true or spec.runtime == true,
+          noTyping = spec.plain == true or spec.runtime == true,
           column = colour,
           keyframe = keyframe,
-          present = value ~= nil,
+          present = value ~= nil or spec.plain == true,
           width = colWidth,
           badge = spec.badge,
           badgeOn = spec.badge ~= nil and state.camera ~= nil

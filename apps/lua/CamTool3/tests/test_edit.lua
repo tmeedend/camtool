@@ -287,10 +287,148 @@ test('every parameter the panel shows has a rule', function()
   local atr = require('ui/atr')
   for _, column in ipairs(atr.COLUMNS) do
     for _, spec in ipairs(column.rows) do
-      if not spec.runtime and spec.key ~= 'camera_in' then
+      -- Skipping the ones that are not numbers to nudge: the starting point
+      -- is metres and converted by the panel, and the two plain fields are a
+      -- flag and a cycle with their own operations.
+      if not spec.runtime and not spec.plain and spec.key ~= 'camera_in' then
         eq(type(edit.RULES[spec.key]), 'table',
           spec.key .. ' (' .. spec.label .. ') has no step')
       end
     end
   end
+end)
+
+--------------------------------------------------------------------------------
+-- Cameras and keyframes, added and removed
+--------------------------------------------------------------------------------
+
+test('a new keyframe is born at the playhead, in order', function()
+  -- CamTool 2 creates one with no position and makes you place it afterwards
+  -- with the position bar. Same file either way; one step fewer to get there.
+  local c = camera()
+  local change = edit.addKeyframe(c, 0.45)
+
+  eq(#c.keyframes, 3)
+  eq(c.keyframes[2].keyframe, 0.45, 'sorted between 0.30 and 0.60')
+  eq(next(c.keyframes[2].interpolation), nil, 'and carrying nothing yet')
+  eq(change ~= nil, true)
+end)
+
+test('removing a keyframe leaves at least one', function()
+  local c = camera()
+  eq(edit.removeKeyframe(c, 1) ~= nil, true)
+  eq(#c.keyframes, 1)
+
+  local change, why = edit.removeKeyframe(c, 1)
+  eq(change, nil)
+  eq(type(why), 'string')
+  eq(#c.keyframes, 1, 'the last one stays')
+end)
+
+test('adding and removing a keyframe can be undone, order included', function()
+  -- The lists are kept sorted, so an insertion shifts every index after it.
+  -- Undo has to put the order back, not just the contents.
+  local c = camera()
+  local first, second = c.keyframes[1], c.keyframes[2]
+
+  local added = edit.addKeyframe(c, 0.45)
+  eq(#c.keyframes, 3)
+
+  edit.revert(added)
+  eq(#c.keyframes, 2)
+  eq(c.keyframes[1], first, 'the same tables, in the same order')
+  eq(c.keyframes[2], second)
+
+  edit.reapply(added)
+  eq(#c.keyframes, 3)
+  eq(c.keyframes[2].keyframe, 0.45)
+end)
+
+test('a new camera arrives usable and in position order', function()
+  local cameras = { { camera_in = 0.1 }, { camera_in = 0.8 } }
+  local change = edit.addCamera(cameras, 0.5)
+
+  eq(#cameras, 3)
+  eq(cameras[2].camera_in, 0.5)
+  eq(#cameras[2].keyframes, 1, 'with a keyframe, or it could never animate')
+  eq(cameras[2].camera_pit, false)
+  eq(cameras[2].tracking_strength_heading, 1, 'tracking on, like CamTool 2')
+
+  edit.revert(change)
+  eq(#cameras, 2)
+end)
+
+test('removing a camera leaves at least one', function()
+  local cameras = { { camera_in = 0.1 } }
+  local change, why = edit.removeCamera(cameras, 1)
+  eq(change, nil)
+  eq(type(why), 'string')
+end)
+
+--------------------------------------------------------------------------------
+-- The keyframe's own position
+--------------------------------------------------------------------------------
+
+test('a keyframe can be moved along the track, and moved back', function()
+  -- Not a parameter: it lives on the keyframe record, and a step in metres
+  -- depends on the track, so the caller works out the number and says where
+  -- to put it.
+  local c = camera()
+  local kf = c.keyframes[1]
+
+  local change = edit.apply({
+    camera = c, holder = kf, key = 'keyframe', op = 'set', value = 0.42,
+  })
+  eq(kf.keyframe, 0.42)
+
+  edit.revert(change)
+  eq(kf.keyframe, 0.30)
+end)
+
+test('an explicit holder refuses anything but a plain set', function()
+  local c = camera()
+  local change, why = edit.apply({
+    camera = c, holder = c.keyframes[1], key = 'keyframe',
+    op = 'nudge', direction = 1,
+  })
+  eq(change, nil)
+  eq(type(why), 'string')
+end)
+
+--------------------------------------------------------------------------------
+-- The two fields that are not numbers
+--------------------------------------------------------------------------------
+
+test('Pit only flips either way, and can be put back', function()
+  local c = camera()
+  c.camera_pit = false
+
+  local change = edit.toggleFlag(c, 'camera_pit')
+  eq(c.camera_pit, true)
+  edit.revert(change)
+  eq(c.camera_pit, false)
+end)
+
+test('Specific cam cycles between CamTool and the AC cameras', function()
+  -- Minus one is CamTool driving; 0 to 13 hand the view to Assetto Corsa and
+  -- CamTool 2 then skips interpolating altogether. It wraps at both ends.
+  local c = camera()
+  c.camera_use_specific_cam = -1
+
+  edit.cycleSpecificCam(c, 1)
+  eq(c.camera_use_specific_cam, 0)
+
+  c.camera_use_specific_cam = edit.SPECIFIC_CAM_MAX
+  edit.cycleSpecificCam(c, 1)
+  eq(c.camera_use_specific_cam, edit.SPECIFIC_CAM_MIN, 'wraps at the top')
+
+  edit.cycleSpecificCam(c, -1)
+  eq(c.camera_use_specific_cam, edit.SPECIFIC_CAM_MAX, 'and at the bottom')
+end)
+
+test('a camera with no Specific cam set starts from CamTool', function()
+  local c = camera()
+  eq(c.camera_use_specific_cam, nil)
+  edit.cycleSpecificCam(c, 1)
+  eq(c.camera_use_specific_cam, 0, 'nil reads as -1, so one step is 0')
 end)

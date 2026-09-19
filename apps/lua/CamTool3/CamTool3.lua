@@ -871,6 +871,11 @@ local atrKeyframe = 1
 local undoStack = {}
 local UNDO_KEPT = 200
 
+-- How far one press moves a keyframe along the track. CamTool 2 offers 1, 10
+-- and 100 m on separate buttons; one row plus the modifiers covers the same
+-- ground -- 2.5 m with Ctrl, 10 plain, 40 with Shift.
+local KEYFRAME_STEP_M = 10
+
 ---What the camera is doing right now, for seeding a new keyframe. This is the
 ---gesture the whole tool is built on: put the view where you want it, then
 ---pin it.
@@ -912,6 +917,7 @@ function script.windowAtr(dt)
     doc = doc,
     fileName = fileIndex >= 1 and files[fileIndex] or nil,
     undoDepth = #undoStack,
+    listName = pb.options.listName,
     loadedName = doc ~= nil and docName or nil,
     held = cameraActive(),
     camera = camera,
@@ -920,6 +926,8 @@ function script.windowAtr(dt)
     liveCameraIndex = pbOut.activeCam,
     keyframeIndex = keyframeCount > 0 and atrKeyframe or nil,
     keyframeCount = keyframeCount,
+    keyframePosition = keyframeCount > 0 and keyframes[atrKeyframe] ~= nil
+      and keyframes[atrKeyframe].keyframe or nil,
     trackPos = pbOut.trackPos,
     trackLength = sim.trackLengthM,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
@@ -947,6 +955,20 @@ function script.windowAtr(dt)
   if camera ~= nil then
     local ctrl = ac.isKeyDown(ac.KeyIndex.Control)
     local shift = ac.isKeyDown(ac.KeyIndex.Shift)
+
+    -- The two that are not numbers: a flag either way, and a cycle.
+    local pit = actions.camera_pit
+    if type(pit) == 'table' and (pit.op == 'increment' or pit.op == 'decrement') then
+      remember(edit.toggleFlag(camera, 'camera_pit'))
+    end
+    local specific = actions.camera_use_specific_cam
+    if type(specific) == 'table' then
+      if specific.op == 'increment' then
+        remember(edit.cycleSpecificCam(camera, 1))
+      elseif specific.op == 'decrement' then
+        remember(edit.cycleSpecificCam(camera, -1))
+      end
+    end
 
     for key, request in pairs(actions) do
       if edit.RULES[key] ~= nil and type(request) == 'table' then
@@ -983,6 +1005,67 @@ function script.windowAtr(dt)
     end
   end
 
+  ------------------------------------------------------------------
+  -- Cameras and keyframes, added, removed and moved
+  ------------------------------------------------------------------
+  local playhead = pbOut.trackPos
+
+  if actions.addKeyframe and camera ~= nil then
+    local change = edit.addKeyframe(camera, playhead)
+    remember(change)
+    if change ~= nil then
+      -- Select what was just made, which is what anyone expects next.
+      for i = 1, #camera.keyframes do
+        if camera.keyframes[i].keyframe == playhead then atrKeyframe = i end
+      end
+    end
+  end
+  if actions.removeKeyframe and camera ~= nil then
+    remember(edit.removeKeyframe(camera, atrKeyframe))
+    if atrKeyframe > #camera.keyframes then atrKeyframe = #camera.keyframes end
+  end
+  if actions.addCamera and cameras ~= nil then
+    remember(edit.addCamera(cameras, playhead))
+  end
+  if actions.removeCamera and cameras ~= nil then
+    remember(edit.removeCamera(cameras, atrCamera))
+    if atrCamera > #cameras then atrCamera = #cameras end
+    atrKeyframe = 1
+  end
+
+  -- Moving the selected keyframe along the track. The step is in metres, so
+  -- the conversion happens here rather than in core/edit, which has no idea
+  -- how long a lap is.
+  local request = actions.keyframePosition
+  if request ~= nil and camera ~= nil and keyframes ~= nil then
+    local kf = keyframes[atrKeyframe]
+    local length = sim.trackLengthM
+    if kf ~= nil and type(length) == 'number' and length > 0 then
+      local step = KEYFRAME_STEP_M
+      if ac.isKeyDown(ac.KeyIndex.Control) then step = step / 4 end
+      if ac.isKeyDown(ac.KeyIndex.Shift) then step = step * 4 end
+
+      local metres = (kf.keyframe or 0) * length
+      local target = nil
+      if request.op == 'increment' then target = metres + step
+      elseif request.op == 'decrement' then target = metres - step
+      elseif request.op == 'drag' then target = metres + step * (request.amount or 0)
+      elseif request.op == 'commit' then target = request.amount
+      end
+
+      if type(target) == 'number' then
+        remember(edit.apply({
+          camera = camera, holder = kf, key = 'keyframe',
+          op = 'set', value = target / length,
+        }))
+        edit.sortKeyframes(camera)
+        for i = 1, #camera.keyframes do
+          if camera.keyframes[i] == kf then atrKeyframe = i end
+        end
+      end
+    end
+  end
+
   if actions.undo and #undoStack > 0 then
     edit.revert(undoStack[#undoStack])
     table.remove(undoStack)
@@ -990,6 +1073,11 @@ function script.windowAtr(dt)
 
   -- The session controls, so that starting work no longer means opening the
   -- probe panel.
+  if actions.listName ~= nil and actions.listName ~= pb.options.listName then
+    pb.options.listName = actions.listName
+    atrCamera, atrKeyframe = nil, 1
+    atrParameter.cancelEditing()
+  end
   if actions.prevFile and fileIndex > 1 then fileIndex = fileIndex - 1 end
   if actions.nextFile and fileIndex < #files then fileIndex = fileIndex + 1 end
   if actions.loadFile then loadSelectedFile() end

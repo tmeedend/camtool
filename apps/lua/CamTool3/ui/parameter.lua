@@ -110,7 +110,11 @@ function parameter.draw(id, spec)
   ------------------------------------------------------------------
   -- Diamond, label, badge
   ------------------------------------------------------------------
-  if diamond(id, spec.keyframe or 'none') then
+  if spec.noDiamond then
+    -- Nothing to keyframe, so nothing to show: an indent keeps the labels of
+    -- the column lined up with those that do have one.
+    ui.dummy(vec2(DIAMOND_SIZE + 4, theme.labelHeight))
+  elseif diamond(id, spec.keyframe or 'none') then
     action = 'keyframe'
   end
   ui.sameLine(0, 2)
@@ -191,7 +195,7 @@ function parameter.draw(id, spec)
     ui.button((spec.text or '--') .. '##' .. id .. 'val',
       vec2(valueWidth, theme.rowHeight))
 
-    if spec.present ~= false and ui.itemActive() then
+    if spec.present ~= false and not spec.noTyping and ui.itemActive() then
       local delta = ui.mouseDragDelta(0)
       if delta ~= nil and delta.x ~= 0 then
         action, payload = 'drag', delta.x / PIXELS_PER_STEP
@@ -201,7 +205,7 @@ function parameter.draw(id, spec)
       end
     end
 
-    if ui.itemHovered() and ui.mouseDoubleClicked(0) then
+    if not spec.noTyping and ui.itemHovered() and ui.mouseDoubleClicked(0) then
       editing, editingWasActive = id, false
       buffer = spec.raw or ''
     end

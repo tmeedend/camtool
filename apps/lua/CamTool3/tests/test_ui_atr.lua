@@ -27,15 +27,21 @@ local test, eq = runner.test, runner.eq
 test('every parameter the panel shows is one a camera really has', function()
   local doc = dataModule.load(rawFile)
 
-  -- A camera carrying the full set of camera-level fields.
-  local reference = doc.pos[2]
-  eq(type(reference), 'table')
+  -- Every field any camera of the file carries. One camera is not enough:
+  -- camera_use_specific_cam is optional and only eleven of the 589 reference
+  -- cameras set it, so checking a single one would call it invented.
+  local known = {}
+  for _, cam in ipairs(doc.pos) do
+    for field in pairs(cam) do known[field] = true end
+  end
+  eq(known.camera_in, true, 'the reference file looks wrong')
 
   for _, column in ipairs(atr.COLUMNS) do
     for _, spec in ipairs(column.rows) do
       if not spec.runtime then
         local known = evaluate.interpolatorFor(spec.key) ~= nil
-          or reference[spec.key] ~= nil
+          or known[spec.key] == true
+          or spec.key == 'camera_use_specific_cam'
         eq(known, true, string.format(
           '%s (%s) is neither an interpolated parameter nor a field of a real '
             .. 'camera -- check the name against a data file',
@@ -418,4 +424,42 @@ test('every unit can go both ways', function()
     eq(type(unit.show), 'function', name)
     eq(type(unit.read), 'function', name)
   end
+end)
+
+test('the strips offer add and remove, and the keyframe row its position', function()
+  local handle = fakes.install({ clicks = { ['+##kfadd'] = true } })
+  local doc = dataModule.load(rawFile)
+
+  local actions = atr.draw({
+    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = #(doc.pos[2].keyframes or {}),
+    keyframePosition = doc.pos[2].keyframes[1].keyframe,
+    trackPos = 0.02, trackLength = 5802,
+  })
+  eq(actions.addKeyframe, true)
+
+  handle.restoreIo()
+end)
+
+test('the keyframe position row only appears with a keyframe selected', function()
+  local handle = fakes.install({ clicks = { ['##keyframePositioninc'] = true } })
+  local doc = dataModule.load(rawFile)
+
+  -- With one selected, the row is there and its arrow reports.
+  local actions = atr.draw({
+    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeIndex = 1, keyframeCount = 2,
+    keyframePosition = 0.25,
+    trackPos = 0.02, trackLength = 5802,
+  })
+  eq(actions.keyframePosition.op, 'increment')
+
+  -- With none, there is nothing to move and no row to move it with.
+  actions = atr.draw({
+    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
+    keyframeCount = 0, trackPos = 0.02, trackLength = 5802,
+  })
+  eq(actions.keyframePosition, nil)
+
+  handle.restoreIo()
 end)
