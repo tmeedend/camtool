@@ -12,7 +12,13 @@ class Settings:
         self.settings = {
             "enable_hotkeys": True,
             "load_last_used_data": True,
-            "last_used_data": {}
+            "last_used_data": {},
+            # Dev only. Records every frame to ./traces/ for the CamTool 3
+            # port to be checked against; see classes/trace.py. Adding it here
+            # documents it but does not turn it on for anyone: load_settings
+            # replaces this whole dictionary with the file's contents, so an
+            # existing settings.json has to name the flag itself.
+            "dev_record_trace": False
         }
 
     def load_settings(self):

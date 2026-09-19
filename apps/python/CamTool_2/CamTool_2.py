@@ -37,6 +37,7 @@ from classes.general import *
 from classes.constants import *
 from files.data_files import data_files
 from files.settings import settings
+from classes.trace import trace
 from ui.button import Button
 from ui.editable_button import Editable_Button
 from ui.div import Div
@@ -56,6 +57,17 @@ def acMain(ac_version):
         global gUI
         gUI = CamTool2()
         settings.load_settings()
+        trace.configure(settings)
+    except Exception as e:
+        debug(e)
+
+def acShutdown(*args):
+    # Only the trace recorder cares, and only when it is on: whatever it has
+    # buffered would otherwise be lost with the last few seconds of a session.
+    # AC does not document this hook consistently across versions, so nothing
+    # is allowed to depend on it being called.
+    try:
+        trace.flush()
     except Exception as e:
         debug(e)
 
@@ -1386,7 +1398,20 @@ class CamTool2(object):
                 loc_camera_use_specific_cam = locCameraData.camera_use_specific_cam
 
                 if loc_camera_use_specific_cam == -1:
-                    InterpolateFrame.interpolate(self, locCameraData, interpolation, data, ctt, cam, dt, info, replay, strength_inv, self.__the_x)
+                    # Dev only, off unless settings.json asks for it: record
+                    # this frame's inputs and everything the camera is asked
+                    # for, so the CamTool 3 port can be replayed against it
+                    # out of game. locSpy is None the rest of the time and the
+                    # real ctt is used, unchanged. See classes/trace.py.
+                    locSpy = trace.begin(ctt, data, cam, dt, info, replay, strength_inv, self.__the_x)
+                    locCtt = ctt
+                    if locSpy != None:
+                        locCtt = locSpy
+
+                    InterpolateFrame.interpolate(self, locCameraData, interpolation, data, locCtt, cam, dt, info, replay, strength_inv, self.__the_x)
+
+                    if locSpy != None:
+                        trace.end(locSpy)
                 
                 #---------------------------------------------------------------
                 #things that only need to change when the looking cam changes

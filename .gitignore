@@ -1,6 +1,7 @@
 content/
 !apps/python/CamTool_2/**
 apps/python/CamTool_2/data/
+apps/python/CamTool_2/traces/
 !content/gui/icons/**
 apps/lua/*
 __pycache__/
