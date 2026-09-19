@@ -29,24 +29,48 @@ local atr = {}
 -- What each column holds
 --------------------------------------------------------------------------------
 
----How a value is turned into what the panel shows. The stored form is rarely
----the readable one: angles are radians, strengths are 0..1, and a track
----position is a fraction of a lap. docs/ui-inventory.md calls this out as a
----rule of the old UI, and it carries over unchanged.
-local FORMAT = {
-  metres = function(v) return string.format('%.2f m', v) end,
-  degrees = function(v) return string.format('%.2f deg', math.deg(v)) end,
-  plainDegrees = function(v) return string.format('%.2f deg', v) end,
-  percent = function(v) return string.format('%.0f%%', v * 100) end,
-  ratio = function(v) return string.format('%.2f', v) end,
-  car = function(v) return 'car ' .. tostring(math.floor(v)) end,
+---How a value is shown, and how what someone types comes back.
+---
+---The stored form is rarely the readable one: angles are radians, strengths
+---are 0..1, and a track position is a fraction of a lap.
+---docs/ui-inventory.md records this as a rule of the old UI and it carries
+---over -- but only the old UI ever had to go one way. Typing 45 into a field
+---labelled deg has to arrive as 0.785, so every unit owns both directions and
+---a test walks each one there and back.
+local UNITS = {
+  metres = {
+    show = function(v) return string.format('%.2f m', v) end,
+    read = function(v) return v end,
+  },
+  degrees = {
+    show = function(v) return string.format('%.2f deg', math.deg(v)) end,
+    read = function(v) return math.rad(v) end,
+  },
+  plainDegrees = {
+    show = function(v) return string.format('%.2f deg', v) end,
+    read = function(v) return v end,
+  },
+  percent = {
+    show = function(v) return string.format('%.0f%%', v * 100) end,
+    read = function(v) return v / 100 end,
+  },
+  ratio = {
+    show = function(v) return string.format('%.2f', v) end,
+    read = function(v) return v end,
+  },
+  car = {
+    show = function(v) return 'car ' .. tostring(math.floor(v)) end,
+    read = function(v) return math.floor(v) end,
+  },
 }
+
+atr.UNITS = UNITS
 
 ---@param key string @the field in a keyframe or on the camera
 ---@param label string @as the mockup writes it
----@param format function
-local function row(key, label, format, badge)
-  return { key = key, label = label, format = format, badge = badge }
+---@param unit table @one of UNITS
+local function row(key, label, unit, badge)
+  return { key = key, label = label, unit = unit, badge = badge }
 end
 
 ---A row whose value is not in the camera file at all.
@@ -56,8 +80,8 @@ end
 ---writes them anywhere. They are session state, reset to car 0 every time
 ---Assetto Corsa starts, and no camera remembers which car it was framing.
 ---Making them part of a camera would be a new feature, not a port.
-local function runtimeRow(key, label, format)
-  return { key = key, label = label, format = format, runtime = true }
+local function runtimeRow(key, label, unit)
+  return { key = key, label = label, unit = unit, runtime = true }
 end
 
 atr.COLUMNS = {
@@ -66,37 +90,37 @@ atr.COLUMNS = {
     rows = {
       -- camera_in is not a keyframed parameter: it is where the camera takes
       -- over, and it lives on the camera itself.
-      row('camera_in', 'STARTING POINT', FORMAT.metres),
-      row('camera_focus_point', 'FOCUS POINT', FORMAT.metres, 'AF'),
-      row('camera_fov', 'FOV', FORMAT.plainDegrees),
-      row('camera_shake_strength', 'SHAKE CAMERA', FORMAT.percent),
-      row('camera_offset_shake_strength', 'SHAKE TRACKING', FORMAT.percent),
+      row('camera_in', 'STARTING POINT', UNITS.metres),
+      row('camera_focus_point', 'FOCUS POINT', UNITS.metres, 'AF'),
+      row('camera_fov', 'FOV', UNITS.plainDegrees),
+      row('camera_shake_strength', 'SHAKE CAMERA', UNITS.percent),
+      row('camera_offset_shake_strength', 'SHAKE TRACKING', UNITS.percent),
     },
   },
   {
     colour = 'transform',
     rows = {
-      row('loc_x', 'X', FORMAT.metres),
-      row('loc_y', 'Y', FORMAT.metres),
-      row('loc_z', 'Z', FORMAT.metres),
-      row('transform_loc_strength', 'STRENGTH LO.', FORMAT.percent),
-      row('rot_x', 'PITCH', FORMAT.degrees),
-      row('rot_y', 'ROLL', FORMAT.degrees),
-      row('rot_z', 'HEADING', FORMAT.degrees),
-      row('transform_rot_strength', 'STRENGTH RO.', FORMAT.percent),
+      row('loc_x', 'X', UNITS.metres),
+      row('loc_y', 'Y', UNITS.metres),
+      row('loc_z', 'Z', UNITS.metres),
+      row('transform_loc_strength', 'STRENGTH LO.', UNITS.percent),
+      row('rot_x', 'PITCH', UNITS.degrees),
+      row('rot_y', 'ROLL', UNITS.degrees),
+      row('rot_z', 'HEADING', UNITS.degrees),
+      row('transform_rot_strength', 'STRENGTH RO.', UNITS.percent),
     },
   },
   {
     colour = 'tracking',
     rows = {
-      runtimeRow('trackedCarA', 'ACTIVE CAR', FORMAT.car),
-      row('tracking_mix', 'MIX', FORMAT.percent),
-      runtimeRow('trackedCarB', 'EXTRA CAR', FORMAT.car),
-      row('tracking_offset', 'OFF TRACKING', FORMAT.ratio),
-      row('tracking_offset_pitch', 'OFFSET PITCH', FORMAT.degrees),
-      row('tracking_offset_heading', 'OFF HEADING', FORMAT.degrees),
-      row('tracking_strength_pitch', 'STR PITCH', FORMAT.percent),
-      row('tracking_strength_heading', 'STR HEADING', FORMAT.percent),
+      runtimeRow('trackedCarA', 'ACTIVE CAR', UNITS.car),
+      row('tracking_mix', 'MIX', UNITS.percent),
+      runtimeRow('trackedCarB', 'EXTRA CAR', UNITS.car),
+      row('tracking_offset', 'OFF TRACKING', UNITS.ratio),
+      row('tracking_offset_pitch', 'OFFSET PITCH', UNITS.degrees),
+      row('tracking_offset_heading', 'OFF HEADING', UNITS.degrees),
+      row('tracking_strength_pitch', 'STR PITCH', UNITS.percent),
+      row('tracking_strength_heading', 'STR HEADING', UNITS.percent),
     },
   },
 }
@@ -317,9 +341,10 @@ function atr.draw(state)
           shown = shown * (state.trackLength or 0)
         end
 
-        local action = parameter.draw(column.colour .. spec.key, {
+        local action, payload = parameter.draw(column.colour .. spec.key, {
           label = spec.label,
-          text = type(shown) == 'number' and spec.format(shown) or nil,
+          text = type(shown) == 'number' and spec.unit.show(shown) or nil,
+          raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
           column = colour,
           keyframe = keyframe,
           present = value ~= nil,
@@ -328,7 +353,18 @@ function atr.draw(state)
           badgeOn = spec.badge ~= nil and state.camera ~= nil
             and state.camera.camera_use_tracking_point == 1,
         })
-        if action ~= nil then actions[spec.key] = action end
+        if action ~= nil then
+          -- A typed value arrives in the unit the field is labelled with, so
+          -- it goes back through the same conversion that displayed it. The
+          -- track position also has to lose its metres.
+          if action == 'commit' and type(payload) == 'number' then
+            payload = spec.unit.read(payload)
+            if spec.key == 'camera_in' and (state.trackLength or 0) > 0 then
+              payload = payload / state.trackLength
+            end
+          end
+          actions[spec.key] = { op = action, amount = payload }
+        end
       end
 
       if index < #atr.COLUMNS then ui.nextColumn() end
@@ -350,8 +386,9 @@ function atr.draw(state)
     .. 'screen.')
   ui.text('Elsewhere in CamTool 2, not here yet:')
   ui.text('  ' .. table.concat(atr.MISSING, ', '))
-  ui.text('Arrows and diamonds edit this camera in memory; typing and '
-    .. 'dragging a value are still to come, and nothing is saved yet.')
+  ui.text('Diamond toggles the keyframe; arrows step; drag a value to scrub; '
+    .. 'double click it to type. Ctrl quarters the step, Shift quadruples it.')
+  ui.text('Edits are in memory only -- nothing is saved to disk yet.')
   ui.popStyleColor()
 
   return actions

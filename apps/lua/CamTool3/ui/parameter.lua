@@ -35,12 +35,26 @@ local parameter = {}
 ---| '"keyframe"' @the diamond: add or remove this parameter on the keyframe
 ---| '"decrement"' @the left arrow
 ---| '"increment"' @the right arrow
----| '"edit"' @the value: begin typing
+---| '"drag"' @the value was dragged; the payload is how many steps
+---| '"commit"' @a number was typed; the payload is that number
 ---| '"badge"' @the marker beside the label, where there is one
 
 ---@alias KeyframeState '"none"'|'"elsewhere"'|'"here"'
 
 local DIAMOND_SIZE = 9
+
+---How far the mouse travels for one step of the parameter. Eight pixels is
+---about a comfortable nudge per centimetre of movement, and Ctrl and Shift
+---still divide and multiply it because the drag goes through the same entry
+---point as the arrows.
+local PIXELS_PER_STEP = 8
+
+-- Which row is being typed into, and what is in the field. One at a time,
+-- so this is a plain pair rather than a table: opening a second field closes
+-- the first, which is what anyone would expect.
+local editing = nil
+local buffer = ''
+local editingWasActive = false
 
 ---Draw the keyframe diamond and report whether it was clicked.
 ---@param state KeyframeState
@@ -147,9 +161,50 @@ function parameter.draw(id, spec)
 
   ui.sameLine(0, 1)
 
-  if ui.button((spec.text or '--') .. '##' .. id .. 'val',
-      vec2(width - 2 * theme.arrowWidth - 2, theme.rowHeight)) then
-    action = 'edit'
+  local valueWidth = width - 2 * theme.arrowWidth - 2
+  local payload = nil
+
+  if editing == id then
+    ------------------------------------------------------------------
+    -- Typing
+    ------------------------------------------------------------------
+    ui.setNextItemWidth(valueWidth)
+    -- CharsDecimal keeps letters out; AutoSelectAll means the first keystroke
+    -- replaces the old value instead of appending to it.
+    local text, _, entered = ui.inputText('##' .. id .. 'entry', buffer,
+      ui.InputTextFlags.CharsDecimal + ui.InputTextFlags.AutoSelectAll)
+    buffer = text or buffer
+
+    if entered then
+      action, payload = 'commit', tonumber(buffer)
+      editing, editingWasActive = nil, false
+    elseif ui.itemActive() then
+      editingWasActive = true
+    elseif editingWasActive then
+      -- Clicked away: abandon rather than commit half a number.
+      editing, editingWasActive = nil, false
+    end
+  else
+    ------------------------------------------------------------------
+    -- Dragging, and the double click that opens the field
+    ------------------------------------------------------------------
+    ui.button((spec.text or '--') .. '##' .. id .. 'val',
+      vec2(valueWidth, theme.rowHeight))
+
+    if spec.present ~= false and ui.itemActive() then
+      local delta = ui.mouseDragDelta(0)
+      if delta ~= nil and delta.x ~= 0 then
+        action, payload = 'drag', delta.x / PIXELS_PER_STEP
+        -- Reset so the next frame reports the movement since this one; the
+        -- drag is then a stream of small steps rather than one growing jump.
+        ui.resetMouseDragDelta(0)
+      end
+    end
+
+    if ui.itemHovered() and ui.mouseDoubleClicked(0) then
+      editing, editingWasActive = id, false
+      buffer = spec.raw or ''
+    end
   end
 
   ui.sameLine(0, 1)
@@ -164,7 +219,14 @@ function parameter.draw(id, spec)
   ui.popStyleColor(4)
   ui.endGroup()
 
-  return action
+  return action, payload
+end
+
+---Give up any field being typed into. Called when the panel switches to
+---another camera or keyframe, so a half-typed number cannot land somewhere
+---it was never meant for.
+function parameter.cancelEditing()
+  editing, editingWasActive = nil, false
 end
 
 ---An empty cell the height of a row, so columns of different lengths still

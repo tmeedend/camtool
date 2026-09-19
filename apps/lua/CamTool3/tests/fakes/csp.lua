@@ -145,6 +145,22 @@ function fakes.install(opts)
     Direction = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3 },
     arrowButton = function(label) return clicked(label) end,
     invisibleButton = function(label) return clicked(label) end,
+
+    -- The pointer, for the drag and the double click. These answer the same
+    -- for every widget, so a test that wants to be sure which one reacted
+    -- draws a single row rather than the whole panel.
+    itemActive = function() return opts.itemActive == true end,
+    itemHovered = function() return opts.itemHovered == true end,
+    mouseDoubleClicked = function() return opts.mouseDoubleClicked == true end,
+    mouseDragDelta = function() return opts.mouseDragDelta end,
+    resetMouseDragDelta = function() end,
+    setNextItemWidth = function() end,
+
+    InputTextFlags = { CharsDecimal = 1, AutoSelectAll = 16 },
+    inputText = function(label, str)
+      -- text, changed, enter pressed
+      return opts.typed or str, opts.typed ~= nil, opts.enterPressed == true
+    end,
     availableSpaceX = function() return opts.panelWidth or 360 end,
     windowWidth = function() return opts.panelWidth or 360 end,
     getCursor = function() return { x = 0, y = 0 } end,

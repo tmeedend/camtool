@@ -22,6 +22,7 @@
 local storage = require('adapters/storage')
 local atrPanel = require('ui/atr')
 local edit = require('core/edit')
+local atrParameter = require('ui/parameter')
 local angles = require('core/angles')
 local spline = require('core/spline')
 local playbackCore = require('core/playback')
@@ -931,9 +932,11 @@ function script.windowAtr(dt)
   if actions.selectCamera ~= nil then
     atrCamera = actions.selectCamera
     atrKeyframe = 1
+    atrParameter.cancelEditing()
   end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
+    atrParameter.cancelEditing()
   end
 
   ------------------------------------------------------------------
@@ -945,15 +948,21 @@ function script.windowAtr(dt)
     local ctrl = ac.isKeyDown(ac.KeyIndex.Control)
     local shift = ac.isKeyDown(ac.KeyIndex.Shift)
 
-    for key, action in pairs(actions) do
-      if edit.RULES[key] ~= nil then
-        local op, direction
-        if action == 'keyframe' then
+    for key, request in pairs(actions) do
+      if edit.RULES[key] ~= nil and type(request) == 'table' then
+        local op, direction, amount, value
+        if request.op == 'keyframe' then
           op = 'toggleKeyframe'
-        elseif action == 'decrement' then
+        elseif request.op == 'decrement' then
           op, direction = 'nudge', -1
-        elseif action == 'increment' then
+        elseif request.op == 'increment' then
           op, direction = 'nudge', 1
+        elseif request.op == 'drag' then
+          -- The drag carries its own size, signed, so one entry point serves
+          -- both it and the arrows.
+          op, direction, amount = 'nudge', 1, request.amount
+        elseif request.op == 'commit' then
+          op, value = 'set', request.amount
         end
 
         if op ~= nil then
@@ -963,6 +972,8 @@ function script.windowAtr(dt)
             key = key,
             op = op,
             direction = direction,
+            amount = amount,
+            value = value,
             ctrl = ctrl,
             shift = shift,
             live = liveValue(key),

@@ -56,7 +56,9 @@ test('the panel labels are unique and the columns are the three tabs', function(
       eq(#spec.label > 0, true)
       eq(seen[spec.label], nil, 'two rows are labelled ' .. spec.label)
       seen[spec.label] = true
-      eq(type(spec.format), 'function', spec.label .. ' has no formatter')
+      eq(type(spec.unit), 'table', spec.label .. ' has no unit')
+      eq(type(spec.unit.show), 'function', spec.label .. ' cannot be shown')
+      eq(type(spec.unit.read), 'function', spec.label .. ' cannot be typed')
     end
   end
 
@@ -289,7 +291,7 @@ test('the panel reports an arrow press as an action', function()
     trackPos = 0.02, trackLength = 5802,
   })
 
-  eq(actions.tracking_mix, 'increment')
+  eq(actions.tracking_mix.op, 'increment')
 
   handle.restoreIo()
 end)
@@ -307,7 +309,7 @@ test('the panel reports a diamond click, and the edit round trips', function()
     keyframeIndex = 1, keyframeCount = #(camera.keyframes or {}),
     trackPos = 0.02, trackLength = 5802,
   })
-  eq(actions.loc_x, 'keyframe')
+  eq(actions.loc_x.op, 'keyframe')
 
   local before = camera.keyframes[1].interpolation.loc_x
   local change = edit.apply({
@@ -319,4 +321,101 @@ test('the panel reports a diamond click, and the edit round trips', function()
   eq(camera.keyframes[1].interpolation.loc_x, before, 'undo put it back')
 
   handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------------
+-- The two gestures that are not a click
+--------------------------------------------------------------------------------
+
+test('dragging a value reports how many steps it moved', function()
+  -- Sixteen pixels at eight pixels a step is two steps, and the sign follows
+  -- the direction of travel. core/edit then applies the parameter's own step
+  -- and the modifiers, so a drag and an arrow can never disagree.
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 16, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local action, amount = parameter.draw('drag1', {
+    label = 'MIX', text = '50%', width = 140,
+  })
+  eq(action, 'drag')
+  runner.near(amount, 2, 1e-12)
+
+  handle.restoreIo()
+end)
+
+test('dragging leftwards moves the other way', function()
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = -8, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local _, amount = parameter.draw('drag2', { label = 'MIX', text = '50%', width = 140 })
+  runner.near(amount, -1, 1e-12)
+
+  handle.restoreIo()
+end)
+
+test('a value with nothing behind it cannot be dragged', function()
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 40, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local action = parameter.draw('drag3', {
+    label = 'FOCUS POINT', text = nil, present = false, width = 140,
+  })
+  eq(action, nil, 'there is no value to move yet')
+
+  handle.restoreIo()
+end)
+
+test('a double click opens the field, and Enter commits the number', function()
+  local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
+  parameter.cancelEditing()
+
+  -- First draw: the double click lands, and the field opens for next frame.
+  local action = parameter.draw('type1', {
+    label = 'FOV', text = '29.43 deg', raw = '29.43', width = 140,
+  })
+  eq(action, nil, 'opening the field is not itself an edit')
+  handle.restoreIo()
+
+  -- Next frame, with something typed and Enter pressed.
+  handle = fakes.install({ typed = '45', enterPressed = true })
+  local commit, value = parameter.draw('type1', {
+    label = 'FOV', text = '29.43 deg', raw = '29.43', width = 140,
+  })
+  eq(commit, 'commit')
+  runner.near(value, 45, 1e-12)
+
+  handle.restoreIo()
+  parameter.cancelEditing()
+end)
+
+test('a number typed in degrees is stored in radians', function()
+  -- The panel shows degrees and the file holds radians, so the conversion
+  -- that displays a value has to run backwards on the way in. Getting this
+  -- wrong would put 45 radians into a camera and point it at the sky.
+  local degrees = atr.UNITS.degrees
+  runner.near(degrees.read(45), math.pi / 4, 1e-12)
+  runner.near(degrees.read(tonumber(degrees.show(math.pi / 3):match('[-%d.]+'))),
+    math.pi / 3, 1e-4, 'there and back')
+
+  local percent = atr.UNITS.percent
+  runner.near(percent.read(50), 0.5, 1e-12)
+  runner.near(percent.read(tonumber(percent.show(0.25):match('[-%d.]+'))),
+    0.25, 1e-9, 'there and back')
+
+  -- Metres and plain ratios are stored as shown.
+  runner.near(atr.UNITS.metres.read(12.5), 12.5, 1e-12)
+  runner.near(atr.UNITS.ratio.read(-0.1), -0.1, 1e-12)
+end)
+
+test('every unit can go both ways', function()
+  for name, unit in pairs(atr.UNITS) do
+    eq(type(unit.show), 'function', name)
+    eq(type(unit.read), 'function', name)
+  end
 end)
