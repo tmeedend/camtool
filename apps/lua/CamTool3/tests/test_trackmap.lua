@@ -1,0 +1,355 @@
+--[[
+  Tests for core/trackmap.lua.
+
+  Two kinds of assertion here. The geometry is checked against a synthetic
+  track whose answers can be worked out by hand -- a circle of known radius,
+  a square, a straight line -- because "it looked right" is exactly what this
+  project cannot do out of game.
+
+  The ownership is checked against core/evaluate.activeCameraIndex on a real
+  camera file. That one matters most: if the map tints a stretch of track for
+  camera 4 while the playback runs camera 5 there, the map lies, and it lies
+  about the one thing it exists to show.
+]]
+
+local runner = require('tests/runner')
+local trackmap = require('core/trackmap')
+local evaluate = require('core/evaluate')
+local data = require('core/data')
+local rawFile = require('tests/fixtures/camera_file_lap')
+
+local test, eq, near = runner.test, runner.eq, runner.near
+
+---A circle of radius `r`, sampled `n` times, closed. Progress runs 0..1 the way
+---the AI spline does, so the outline and the cameras share one axis.
+local function circle(r, n)
+  local points = {}
+  for i = 0, n - 1 do
+    local p = i / n
+    local angle = p * 2 * math.pi
+    points[#points + 1] = {
+      x = r * math.cos(angle),
+      y = r * math.sin(angle),
+      p = p,
+    }
+  end
+  return points
+end
+
+local function cameraSet(starts, pit)
+  local cameras = {}
+  for i = 1, #starts do
+    cameras[i] = {
+      camera_in = starts[i],
+      camera_pit = pit ~= nil and pit[i] or false,
+    }
+  end
+  return cameras
+end
+
+--------------------------------------------------------------------------
+-- Bounds
+--------------------------------------------------------------------------
+
+test('bounds of a circle are its radius on both axes', function()
+  local b = trackmap.bounds(circle(500, 360))
+  near(b.minX, -500, 1e-9)
+  near(b.maxX, 500, 1e-9)
+  near(b.minY, -500, 1e-9)
+  near(b.maxY, 500, 1e-9)
+end)
+
+test('bounds ignore points that are not finite', function()
+  -- The whole point of the guard: one inf would stretch the box to infinity
+  -- and squash the real track into a single pixel.
+  local points = {
+    { x = 0, y = 0, p = 0 },
+    { x = 1 / 0, y = 3, p = 0.25 },
+    { x = 0 / 0, y = 0 / 0, p = 0.5 },
+    { x = 10, y = 20, p = 0.75 },
+  }
+  local b = trackmap.bounds(points)
+  eq(b.minX, 0)
+  eq(b.maxX, 10)
+  eq(b.minY, 0)
+  eq(b.maxY, 20)
+end)
+
+test('bounds are nil when nothing finite is left', function()
+  eq(trackmap.bounds({}), nil)
+  eq(trackmap.bounds(nil), nil)
+  eq(trackmap.bounds({ { x = 1 / 0, y = 0 } }), nil, 'a single inf is no track')
+end)
+
+--------------------------------------------------------------------------
+-- Fit
+--------------------------------------------------------------------------
+
+test('a square track fills a square box, less the margin', function()
+  local b = { minX = -500, maxX = 500, minY = -500, maxY = 500 }
+  local fit = trackmap.fit(b, 200, 200, 10)
+  -- 180 usable pixels for 1000 metres.
+  near(fit.scale, 0.18, 1e-12)
+  near(fit.offsetX, 10, 1e-12)
+  near(fit.offsetY, 10, 1e-12)
+end)
+
+test('a wide track keeps its shape and gets centred vertically', function()
+  -- 1000 x 500 metres into a 200 x 200 box: width binds, so half the height
+  -- is left over and becomes equal margins top and bottom.
+  local b = { minX = 0, maxX = 1000, minY = 0, maxY = 500 }
+  local fit = trackmap.fit(b, 200, 200, 0)
+  near(fit.scale, 0.2, 1e-12)
+  near(fit.offsetX, 0, 1e-12)
+  near(fit.offsetY, 50, 1e-12, 'half the leftover height')
+end)
+
+test('a straight track does not divide by its zero span', function()
+  -- Lua would answer inf rather than raising, and inf reaches the drawing
+  -- code as a coordinate. An A-B track sampled along one axis is a real case.
+  local b = { minX = 0, maxX = 1000, minY = 42, maxY = 42 }
+  local fit = trackmap.fit(b, 200, 100, 0)
+  near(fit.scale, 0.2, 1e-12)
+  local _, sy = trackmap.project(fit, 500, 42)
+  eq(sy == sy, true, 'not a nan')
+  near(sy, 50, 1e-12, 'centred in the box')
+end)
+
+test('a track with no extent at all collapses to the centre, not to inf', function()
+  local b = { minX = 3, maxX = 3, minY = 7, maxY = 7 }
+  local fit = trackmap.fit(b, 200, 100, 0)
+  eq(fit.scale, 0)
+  local sx, sy = trackmap.project(fit, 3, 7)
+  near(sx, 100, 1e-12)
+  near(sy, 50, 1e-12)
+end)
+
+test('fit refuses a box the margins have eaten', function()
+  local b = { minX = 0, maxX = 10, minY = 0, maxY = 10 }
+  eq(trackmap.fit(b, 20, 20, 10), nil)
+  eq(trackmap.fit(b, 10, 200, 20), nil)
+end)
+
+test('fit refuses a nil bounds, which is how "no track" arrives', function()
+  eq(trackmap.fit(nil, 200, 200, 10), nil)
+end)
+
+--------------------------------------------------------------------------
+-- Project
+--------------------------------------------------------------------------
+
+test('the vertical axis is flipped: north is up on screen', function()
+  local b = { minX = 0, maxX = 100, minY = 0, maxY = 100 }
+  local fit = trackmap.fit(b, 100, 100, 0)
+
+  local _, top = trackmap.project(fit, 0, 100)
+  local _, bottom = trackmap.project(fit, 0, 0)
+  near(top, 0, 1e-12, 'the northernmost point is at the top of the box')
+  near(bottom, 100, 1e-12)
+end)
+
+test('the corners of the box are the corners of the track', function()
+  local fit = trackmap.fit(trackmap.bounds(circle(500, 360)), 200, 200, 20)
+  local sx, sy = trackmap.project(fit, -500, 500)
+  near(sx, 20, 1e-9)
+  near(sy, 20, 1e-9)
+  sx, sy = trackmap.project(fit, 500, -500)
+  near(sx, 180, 1e-9)
+  near(sy, 180, 1e-9)
+end)
+
+test('projecting a point that is not finite gives nil, not a coordinate', function()
+  local fit = trackmap.fit({ minX = 0, maxX = 1, minY = 0, maxY = 1 }, 10, 10, 0)
+  eq(trackmap.project(fit, 1 / 0, 0), nil)
+  eq(trackmap.project(fit, 0, 0 / 0), nil)
+  eq(trackmap.project(nil, 0, 0), nil)
+end)
+
+--------------------------------------------------------------------------
+-- projectAll
+--------------------------------------------------------------------------
+
+test('projectAll keeps the progress of each point', function()
+  local points = circle(100, 8)
+  local out = trackmap.projectAll(
+    trackmap.fit(trackmap.bounds(points), 200, 200, 0), points)
+  eq(#out, 8)
+  for i = 1, 8 do
+    near(out[i].p, (i - 1) / 8, 1e-12)
+  end
+end)
+
+test('projectAll reuses its output table instead of allocating each frame', function()
+  local fit = trackmap.fit({ minX = 0, maxX = 10, minY = 0, maxY = 10 }, 10, 10, 0)
+  local out = trackmap.projectAll(fit, circle(5, 6))
+  local first = out[1]
+  trackmap.projectAll(fit, circle(5, 6), out)
+  eq(rawequal(out[1], first), true, 'the same point table, written over')
+end)
+
+test('projectAll truncates when the outline gets shorter', function()
+  local fit = trackmap.fit({ minX = 0, maxX = 10, minY = 0, maxY = 10 }, 10, 10, 0)
+  local out = trackmap.projectAll(fit, circle(5, 10))
+  eq(#out, 10)
+  trackmap.projectAll(fit, circle(5, 3), out)
+  eq(#out, 3, 'no stale points left behind from the longer outline')
+end)
+
+test('projectAll drops points that are not finite', function()
+  local fit = trackmap.fit({ minX = 0, maxX = 10, minY = 0, maxY = 10 }, 10, 10, 0)
+  local out = trackmap.projectAll(fit, {
+    { x = 0, y = 0, p = 0 },
+    { x = 1 / 0, y = 0, p = 0.5 },
+    { x = 10, y = 10, p = 0.9 },
+  })
+  eq(#out, 2, 'the line breaks rather than running off to infinity')
+end)
+
+--------------------------------------------------------------------------
+-- Segments
+--------------------------------------------------------------------------
+
+test('each camera runs until the next one starts', function()
+  local segments = trackmap.segments(cameraSet({ 0.1, 0.4, 0.8 }))
+  eq(#segments, 3)
+  near(segments[1].from, 0.1)
+  near(segments[1].to, 0.4)
+  near(segments[2].from, 0.4)
+  near(segments[2].to, 0.8)
+end)
+
+test('the last camera holds the view across the start line', function()
+  local segments = trackmap.segments(cameraSet({ 0.1, 0.4, 0.8 }))
+  near(segments[3].from, 0.8)
+  near(segments[3].to, 1.1, 1e-12, 'past 1, back round to the first camera')
+end)
+
+test('segments carry the index into the camera list, not their own', function()
+  -- With pit cameras filtered out, the third track camera may be the fifth
+  -- entry in the file. The panel selects by file index.
+  local cameras = cameraSet({ 0.1, 0.2, 0.3, 0.4 }, { false, true, true, false })
+  local segments = trackmap.segments(cameras)
+  eq(#segments, 2)
+  eq(segments[1].index, 1)
+  eq(segments[2].index, 4)
+end)
+
+test('pit cameras are a list of their own', function()
+  local cameras = cameraSet({ 0.1, 0.2, 0.3, 0.4 }, { false, true, true, false })
+  local segments = trackmap.segments(cameras, true)
+  eq(#segments, 2)
+  eq(segments[1].index, 2)
+  eq(segments[2].index, 3)
+end)
+
+test('a single camera owns the whole lap', function()
+  local segments = trackmap.segments(cameraSet({ 0.3 }))
+  eq(#segments, 1)
+  near(segments[1].from, 0.3)
+  near(segments[1].to, 1.3)
+end)
+
+test('an empty or missing list gives no segments, not an error', function()
+  eq(#trackmap.segments({}), 0)
+  eq(#trackmap.segments(nil), 0)
+end)
+
+--------------------------------------------------------------------------
+-- Ownership
+--------------------------------------------------------------------------
+
+test('a position before the first camera belongs to the last one', function()
+  local segments = trackmap.segments(cameraSet({ 0.1, 0.4, 0.8 }))
+  eq(trackmap.ownerAt(segments, 0.05), 3)
+  eq(trackmap.ownerAt(segments, 0), 3)
+end)
+
+test('a camera owns its own starting point', function()
+  local segments = trackmap.segments(cameraSet({ 0.1, 0.4, 0.8 }))
+  eq(trackmap.ownerAt(segments, 0.4), 2, 'the boundary belongs to the new camera')
+  eq(trackmap.ownerAt(segments, 0.4 - 1e-9), 1)
+end)
+
+test('ownership past the last camera stays with it', function()
+  local segments = trackmap.segments(cameraSet({ 0.1, 0.4, 0.8 }))
+  eq(trackmap.ownerAt(segments, 0.99), 3)
+end)
+
+test('ownerAt survives no cameras and a position that is not finite', function()
+  eq(trackmap.ownerAt({}, 0.5), nil)
+  eq(trackmap.ownerAt(trackmap.segments(cameraSet({ 0.1 })), 0 / 0), nil)
+end)
+
+--------------------------------------------------------------------------
+-- The assertion that matters: the map agrees with the playback
+--------------------------------------------------------------------------
+
+test('the map tints each point for the camera the playback would run', function()
+  local doc = data.load(rawFile)
+  local cameras = doc.pos
+  local segments = trackmap.segments(cameras)
+
+  eq(#cameras > 1, true, 'the fixture has to have something to disagree about')
+
+  -- Every tenth of a percent of the lap, plus every boundary and the points
+  -- either side of it, which is where the two could drift apart.
+  local positions = {}
+  for i = 0, 1000 do positions[#positions + 1] = i / 1000 end
+  for i = 1, #segments do
+    positions[#positions + 1] = segments[i].from
+    positions[#positions + 1] = segments[i].from - 1e-9
+    positions[#positions + 1] = segments[i].from + 1e-9
+  end
+
+  for i = 1, #positions do
+    local p = positions[i]
+    if p >= 0 and p <= 1 then
+      eq(trackmap.ownerAt(segments, p),
+        evaluate.activeCameraIndex(cameras, p, false),
+        string.format('at %.9f of the lap', p))
+    end
+  end
+end)
+
+test('the pit list agrees with the playback too', function()
+  local doc = data.load(rawFile)
+  local cameras = doc.pos
+  local segments = trackmap.segments(cameras, true)
+
+  -- The fixture's first camera is a pit camera, so this is not a vacuous pass.
+  eq(#segments > 0, true, 'the fixture has to have a pit camera')
+
+  for i = 0, 1000 do
+    local p = i / 1000
+    eq(trackmap.ownerAt(segments, p),
+      evaluate.activeCameraIndex(cameras, p, true),
+      string.format('pit camera at %.3f of the lap', p))
+  end
+end)
+
+test('assign marks every point of the outline with its camera', function()
+  local points = circle(500, 100)
+  local segments = trackmap.segments(cameraSet({ 0.25, 0.75 }))
+  local owners = trackmap.assign(points, segments)
+
+  eq(#owners, 100)
+  eq(owners[1], 2, 'the start line is still the last camera')
+  eq(owners[30], 1, 'a quarter in, the first camera has taken over')
+  eq(owners[80], 2)
+end)
+
+test('assign reuses its table and truncates, like projectAll', function()
+  local segments = trackmap.segments(cameraSet({ 0.5 }))
+  local owners = trackmap.assign(circle(1, 10), segments)
+  eq(#owners, 10)
+  trackmap.assign(circle(1, 4), segments, owners)
+  eq(#owners, 4)
+end)
+
+test('assign says false, not nil, when no camera covers a point', function()
+  -- An array with holes stops answering `#` honestly, and the drawing loop
+  -- reads its length.
+  local owners = trackmap.assign(circle(1, 5), {})
+  eq(#owners, 5)
+  eq(owners[3], false)
+end)
