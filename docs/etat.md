@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (161 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (197 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -191,11 +191,16 @@ pense-bête en bas qui liste ce qui manque encore.
 - **La valeur se glisse** pour scrubber et **se tape** au clavier.
 - Couleur saturée en accent d'en-tête seulement ; pastilles en teinte légère.
 
+**Compatibilité de sauvegarde — tranché par Théo** : une sauvegarde CamTool 3
+n'a **pas** à être relisible par CamTool 2. On écrit le format v1 sans se
+soucier du retour en arrière.
+
 **Ordre convenu pour la suite** (proposé par le designer UX, validé) :
 
-1. Le composant paramètre — fait — et **le point d'entrée unique de
-   modification**, à écrire *avant* de câbler quoi que ce soit. CamTool 2 a
-   150 gestionnaires de clic faute de l'avoir fait.
+1. ✅ Le composant paramètre et **le point d'entrée unique de modification**
+   (`core/edit.lua`) — faits. Chaque modification rend un enregistrement
+   réversible, donc l'annuler/refaire est une pile et rien d'autre. Le
+   losange et les flèches sont câblés ; **glisser et taper restent à faire**.
 2. L'ISO : ce qui manque encore, les keyframes, la sauvegarde et le
    chargement.
 3. L'annuler / refaire, presque gratuit si 1 est fait.
