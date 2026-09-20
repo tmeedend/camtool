@@ -94,6 +94,8 @@ end
 ---  keyframe      a keyframe of the selected camera they clicked on
 ---  move          { position, gesture } while a camera start is dragged
 ---  rename        { index, name } when a name is committed
+---  seekTo        a lap position to bring the car to
+---  hint          what to say in the status line while the pointer is here
 ---  addCamera     a lap position to put a new camera at
 ---  removeCamera  the index of one to take away
 ---
@@ -114,6 +116,9 @@ function band.draw(state, width)
   -- to its plus.
   local menu = nil
   ui.itemPopup('##bandMenu', ui.MouseButton.Right, function()
+    if menuAt ~= nil and ui.selectable('Bring the car here') then
+      menu = { seekTo = menuAt }
+    end
     if menuAt ~= nil and ui.selectable('Add a camera here') then
       menu = { addCamera = menuAt }
     end
@@ -125,6 +130,16 @@ function band.draw(state, width)
 
   ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
     theme.mapBackground, theme.rounding)
+
+  -- The pointer says the ribbon does something, and the line at the bottom of
+  -- the panel says what. Between them they cost no height at all, which is
+  -- the whole reason for putting it there.
+  local hint = nil
+  if hovered then
+    ui.setMouseCursor(ui.MouseCursor.Hand)
+    hint = 'Click: select the camera and bring the car here.  ' ..
+      'Shift+click: select only.  Right click: more.'
+  end
 
   local segments = trackmap.segments(state.cameras)
   local spans = trackmap.bandSpans(segments)
@@ -253,6 +268,7 @@ function band.draw(state, width)
 
   if menu ~= nil then
     ui.setCursor(vec2(origin.x, origin.y + height))
+    menu.hint = hint
     return menu
   end
 
@@ -351,7 +367,7 @@ function band.draw(state, width)
       dragging, dragToken = true, dragToken + 1
     end
     if dragging then
-      return { rename = renamed,
+      return { hint = hint, rename = renamed,
         move = { position = at, gesture = 'band:' .. dragToken } }
     end
   elseif dragging then
@@ -378,12 +394,12 @@ function band.draw(state, width)
         renameBuffer = state.sectionNameAt(camera.camera_in) or ''
       end
 
-      return { rename = renamed }
+      return { hint = hint, rename = renamed }
     end
   end
 
   if not clicked or not hovered or at == nil then
-    return { rename = renamed }
+    return { hint = hint, rename = renamed }
   end
 
   if type(keyframes) == 'table' then
@@ -398,10 +414,21 @@ function band.draw(state, width)
         end
       end
     end
-    if best ~= nil then return { keyframe = best, rename = renamed } end
+    if best ~= nil then return { hint = hint, keyframe = best, rename = renamed } end
   end
 
-  return { camera = trackmap.ownerAt(segments, at), rename = renamed }
+  -- A plain click does both: picks the camera and takes the replay to the
+  -- spot. Shift holds the replay still, for choosing a camera without losing
+  -- the moment being watched.
+  --
+  -- Moving the replay is not an edit. Nothing here reaches camera data, and
+  -- nothing here belongs on the undo stack.
+  return {
+    hint = hint,
+    camera = trackmap.ownerAt(segments, at),
+    seekTo = (not ui.hotkeyShift()) and at or nil,
+    rename = renamed,
+  }
 end
 
 ---Give up any drag in progress. For tests.

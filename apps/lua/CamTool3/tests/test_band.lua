@@ -700,3 +700,79 @@ test('the wrapped tail is not a hand-over and gets no tick', function()
   local _, _, drawn = draw({ cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 })
   eq(ticks(drawn), 2, 'two cameras, two starts, and no third mark')
 end)
+
+--------------------------------------------------------------------------
+-- Click to bring the car here
+--------------------------------------------------------------------------
+
+---Click the ribbon, optionally with shift held.
+local function clickBand(state, mouseX, shift)
+  band.reset()
+  local handle = fakes.install({
+    clicks = { ['##trackBand'] = true },
+    itemHovered = true, shiftHeld = shift == true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  local did = band.draw(state, WIDTH)
+  handle.restoreIo()
+  band.reset()
+  return did
+end
+
+test('a plain click selects the camera and asks for the car', function()
+  local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.3)
+  eq(did.camera, 1, 'the camera whose stretch was clicked')
+  near(did.seekTo, 0.3, 0.01, 'and the exact spot within it')
+end)
+
+test('shift selects without touching the replay', function()
+  -- For picking a camera without losing the moment being watched.
+  local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.7, true)
+  eq(did.camera, 2)
+  eq(did.seekTo, nil)
+end)
+
+test('the spot asked for is where the click landed, not the camera start', function()
+  local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.85)
+  eq(did.camera, 2, 'the second camera starts at half a lap')
+  near(did.seekTo, 0.85, 0.01, 'but the car goes where the pointer was')
+end)
+
+test('hovering the ribbon says what clicking it will do', function()
+  -- The status line at the bottom of the panel, which costs no height.
+  local _, _, drawn = draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.3, false)
+  local handle = fakes.install({ itemHovered = true, mouseX = ORIGIN_X + 10,
+    mouseY = ORIGIN_Y + 10 })
+  local did = band.draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 }, WIDTH)
+  handle.restoreIo()
+
+  eq(type(did.hint), 'string')
+  eq(did.hint:find('Shift', 1, true) ~= nil, true, 'and names the modifier')
+end)
+
+test('the pointer changes over the ribbon', function()
+  local handle = fakes.install({ itemHovered = true, mouseX = ORIGIN_X + 10,
+    mouseY = ORIGIN_Y + 10 })
+  band.draw({ cameras = cameras({ 0 }), cameraIndex = 1 }, WIDTH)
+  handle.restoreIo()
+  eq(handle.cursor, ui.MouseCursor.Hand)
+end)
+
+test('nothing is said or pointed at when the mouse is elsewhere', function()
+  local handle = fakes.install({ itemHovered = false })
+  local did = band.draw({ cameras = cameras({ 0 }), cameraIndex = 1 }, WIDTH)
+  handle.restoreIo()
+  eq(did.hint, nil)
+  eq(handle.cursor, nil)
+end)
+
+test('the menu offers to bring the car, in so many words', function()
+  local did = pickFromMenu({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.4, 'Bring the car here')
+  near(did.seekTo, 0.4, 0.01)
+  eq(did.addCamera, nil, 'and not the entry beside it')
+end)

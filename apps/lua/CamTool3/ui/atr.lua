@@ -643,6 +643,8 @@ function atr.draw(state)
   if band.keyframe ~= nil then actions.selectKeyframe = band.keyframe end
   if band.move ~= nil then actions.moveCameraIn = band.move end
   if band.rename ~= nil then actions.renameCamera = band.rename end
+  if band.seekTo ~= nil then actions.seekTo = band.seekTo end
+  if band.hint ~= nil then actions.hint = band.hint end
   if band.addCamera ~= nil then actions.addCameraAt = band.addCamera end
   if band.removeCamera ~= nil then actions.removeCameraAt = band.removeCamera end
   ui.newLine(2)
@@ -786,9 +788,12 @@ function atr.draw(state)
     end
     ui.popStyleColor()
   else
+    -- Whatever the pointer is over: a parameter, or the ribbon, which has
+    -- gestures of its own worth saying out loud.
     local label, help = parameter.hovered()
     ui.pushStyleColor(ui.StyleColor.Text, theme.statusLine)
     ui.text(label ~= nil and (label .. '  --  ' .. (help or ''))
+      or actions.hint
       or 'Hover a value to read what it does.')
     ui.popStyleColor()
   end

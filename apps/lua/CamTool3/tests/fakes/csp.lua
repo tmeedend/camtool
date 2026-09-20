@@ -133,6 +133,17 @@ function fakes.install(opts)
 
     setReplayPosition = function(frame, counter)
       handle.replayPositions[#handle.replayPositions + 1] = { frame, counter }
+
+      -- With opts.framesPerLap the fake becomes a replay rather than a
+      -- recording device: the car's position is a function of the frame, the
+      -- way it is in a real one. That is what makes "bring the car here"
+      -- testable out of game at all -- the search can actually converge, and
+      -- a test can ask where it landed.
+      if opts.framesPerLap ~= nil and opts.framesPerLap > 0 then
+        sim.replayCurrentFrame = frame
+        handle.car.splinePosition = (frame % opts.framesPerLap)
+          / opts.framesPerLap
+      end
     end,
     getAudioVolume = function() return 1 end,
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
@@ -222,7 +233,7 @@ function fakes.install(opts)
     KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27 },
     -- The pointer shape over a draggable value. A plain table because the
     -- catch-all below answers with a function, and indexing a function raises.
-    MouseCursor = { Arrow = 0, ResizeEW = 6 },
+    MouseCursor = { Arrow = 0, ResizeEW = 6, Hand = 8 },
     setMouseCursor = function(shape) handle.cursor = shape end,
 
     -- The pointer, for the drag and the double click. These answer the same
@@ -347,7 +358,7 @@ function fakes.install(opts)
     end,
     hotkeyCtrl = function() return false end,
     hotkeyAlt = function() return false end,
-    hotkeyShift = function() return false end,
+    hotkeyShift = function() return opts.shiftHeld == true end,
   }, {
     __index = function() return function() return nil end end,
   })

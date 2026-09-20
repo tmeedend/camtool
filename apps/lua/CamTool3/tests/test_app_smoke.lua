@@ -450,3 +450,93 @@ test('the probe reads the lap at eight points as well as at the car', function()
   eq(#asked >= 8, true, 'got ' .. #asked .. ' readings')
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- Bringing the car somewhere
+--------------------------------------------------------------------------
+
+---Load the app, load a file, then click the ribbon at `at` of the way along.
+---@return table handle, number frames @how many frames were run after the click
+local function clickRibbon(at, opts)
+  opts = opts or {}
+  opts.cameraFile = rawFile
+  opts.framesPerLap = opts.framesPerLap or 6000
+  opts.clicks = {
+    ['no file###fileName'] = true,
+    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+  }
+  local handle = fakes.install(opts)
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Watch a while, so the index has something in it, then load the file.
+  for _ = 1, 5 do handle.tick(0.016) end
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks['no file###fileName'] = nil
+  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+
+  -- The click: hovering the ribbon, at a known fraction of its width.
+  opts.clicks['##trackBand'] = true
+  opts.itemHovered = true
+  opts.mouseX = 17 + at * 360
+  opts.mouseY = 23 + 10
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks['##trackBand'] = nil
+
+  -- And the frames the search runs in.
+  for _ = 1, 12 do handle.tick(0.016) end
+  return handle
+end
+
+test('the index fills as the replay plays, and moves nothing', function()
+  -- The whole cost of the feature in the hot path: watching asks the game for
+  -- nothing at all.
+  local handle = fakes.install({ cameraFile = rawFile, framesPerLap = 6000 })
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  local moves = 0
+  local real = ac.setReplayPosition
+  ac.setReplayPosition = function(...) moves = moves + 1 return real(...) end
+
+  for _ = 1, 20 do handle.tick(0.016) end
+  eq(moves, 0, 'watching a replay moves nothing')
+
+  handle.restoreIo()
+end)
+
+test('clicking the ribbon brings the car to that point of the track', function()
+  -- End to end through the app: the click, the search, the landing. The fake
+  -- replay puts the car where the frame says, so where it ends up is the
+  -- answer to the question asked.
+  local handle = clickRibbon(0.62)
+
+  runner.near(handle.car.splinePosition, 0.62, 0.01,
+    'the car is where the ribbon was clicked')
+  handle.restoreIo()
+end)
+
+test('the search stops once it has arrived', function()
+  local handle = clickRibbon(0.62)
+
+  local moves = #handle.replayPositions
+  for _ = 1, 20 do handle.tick(0.016) end
+  eq(#handle.replayPositions, moves, 'no more jumping once it is there')
+
+  handle.restoreIo()
+end)
+
+test('a target the replay never reaches gives up and says so', function()
+  -- A replay of a third of a lap: two thirds of the track were never played,
+  -- and no amount of probing will find them. What matters is that it stops.
+  local handle = clickRibbon(0.8, { framesPerLap = 6000, replayFrames = 2000 })
+
+  local moves = #handle.replayPositions
+  eq(moves <= 8, true, 'five probes and an end to it, got ' .. moves)
+
+  for _ = 1, 20 do handle.tick(0.016) end
+  eq(#handle.replayPositions, moves, 'and it really did stop')
+
+  handle.restoreIo()
+end)

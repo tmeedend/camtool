@@ -235,12 +235,17 @@ test('a correction converges on the target', function()
   near((frame % framesPerLap) / framesPerLap, target, 1e-6)
 end)
 
-test('a correction stays inside the replay', function()
-  -- Note which way each of these goes. Landing at 0.9 and wanting 0.1 means
-  -- carrying on forwards over the line, not winding back eight tenths of a
-  -- lap -- so it is that one that runs past the end and gets clamped.
-  eq(seek.refine(100, 0.1, 0.9, 6000, 30000) >= 0, true, 'never before the start')
-  eq(seek.refine(29900, 0.9, 0.1, 6000, 30000), 30000, 'never past the end')
+test('a correction never lands outside the replay', function()
+  -- Whichever way round it goes, and whatever it is asked, the answer is a
+  -- frame the replay actually has.
+  for _, case in ipairs({
+    { 100, 0.1, 0.9 }, { 29900, 0.9, 0.1 }, { 0, 0.5, 0.5001 },
+    { 30000, 0.2, 0.8 }, { 15000, 0.99, 0.01 },
+  }) do
+    local next_ = seek.refine(case[1], case[2], case[3], 6000, 30000)
+    eq(next_ >= 0 and next_ <= 30000, true,
+      string.format('frame %d gave %s', case[1], tostring(next_)))
+  end
 end)
 
 test('a correction with nothing to go on gives nothing', function()
@@ -275,4 +280,68 @@ test('a stop or a pit stop makes gaps longer, never shorter', function()
   seek.record(index, 0.25, 7000)
   seek.record(index, 0.25, 40000)
   eq(seek.framesPerLap(index), 6000)
+end)
+
+--------------------------------------------------------------------------
+-- Measuring the pace from two probes
+--------------------------------------------------------------------------
+
+test('two probes give the length of a lap', function()
+  -- The fallback for a replay too short to have a bucket with two passes in
+  -- it: there is nothing to subtract, so the pace is measured instead.
+  eq(seek.paceFrom(1000, 0.10, 1600, 0.20), 6000)
+end)
+
+test('a measurement across the start line is still a measurement', function()
+  near(seek.paceFrom(1000, 0.95, 1600, 0.05), 6000, 1e-9)
+end)
+
+test('going backwards through the replay measures the same lap', function()
+  near(seek.paceFrom(1600, 0.20, 1000, 0.10), 6000, 1e-9)
+end)
+
+test('a measurement over too short a distance is refused', function()
+  -- A hundredth of a lap is a few frames of travel, and dividing by it turns
+  -- one frame of noise into a pace out by a factor of ten.
+  eq(seek.paceFrom(1000, 0.200, 1005, 0.2005), nil)
+end)
+
+test('two probes at the same frame, or the same place, measure nothing', function()
+  eq(seek.paceFrom(1000, 0.1, 1000, 0.3), nil)
+  eq(seek.paceFrom(1000, 0.2, 1600, 0.2), nil)
+end)
+
+test('a pace measured backwards in one axis only is refused', function()
+  -- Frames forward, position backward: the car cannot have done that, so the
+  -- pair is noise and a negative lap length would poison every correction.
+  eq(seek.paceFrom(1000, 0.30, 1600, 0.20), nil)
+end)
+
+test('nonsense measures nothing', function()
+  eq(seek.paceFrom(0 / 0, 0.1, 1600, 0.2), nil)
+  eq(seek.paceFrom(1000, 0.1, 1600, 0 / 0), nil)
+end)
+
+test('when the short way leaves the replay, it goes the long way round', function()
+  -- Found by a test of the whole thing, not by reading: near the start of a
+  -- replay the nearer pass is often before frame zero, and clamping to zero
+  -- leaves the search stuck against the wall repeating itself.
+  --
+  -- Frame 100, a sixtieth of the way round, wanting two thirds. The short way
+  -- is backwards, out of the replay; the long way is forwards, inside it.
+  local next_ = seek.refine(100, 0.0167, 0.62, 6000, 30000)
+  eq(next_ > 100, true, 'forwards, got ' .. tostring(next_))
+  near(next_, 100 + (0.62 - 0.0167) * 6000, 1)
+end)
+
+test('and the long way round at the end of a replay goes backwards', function()
+  local next_ = seek.refine(29900, 0.9, 0.1, 6000, 30000)
+  eq(next_ < 29900, true, 'backwards, got ' .. tostring(next_))
+end)
+
+test('with nowhere to go it stays inside the replay', function()
+  -- A replay of half a lap: neither way round reaches, so it clamps and the
+  -- caller runs out of tries and says so.
+  local next_ = seek.refine(100, 0.05, 0.60, 6000, 200)
+  eq(next_ >= 0 and next_ <= 200, true)
 end)

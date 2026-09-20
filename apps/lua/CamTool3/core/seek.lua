@@ -236,12 +236,56 @@ function seek.refine(frame, observed, target, framesPerLap, lastFrame)
   if delta > 0.5 then delta = delta - 1 end
   if delta < -0.5 then delta = delta + 1 end
 
-  local next_ = frame + delta * framesPerLap
+  local last = isFinite(lastFrame) and lastFrame or nil
+  local short_ = frame + delta * framesPerLap
 
-  if next_ < 0 then next_ = 0 end
-  if isFinite(lastFrame) and next_ > lastFrame then next_ = lastFrame end
+  -- The short way round is not always available. A replay has a beginning and
+  -- an end, and the nearer of two passes can be on the other side of one of
+  -- them: asking to go back four hundredths of a lap from frame 100 asks for
+  -- a frame that was never recorded, and clamping it to zero leaves the
+  -- search stuck against the wall repeating itself.
+  --
+  -- So when the short way leaves the replay, try the long way round the lap,
+  -- which is the same place one lap later or earlier.
+  local inside = short_ >= 0 and (last == nil or short_ <= last)
+  if not inside then
+    local other = delta > 0 and (delta - 1) or (delta + 1)
+    local long_ = frame + other * framesPerLap
+    if long_ >= 0 and (last == nil or long_ <= last) then return long_ end
+  end
 
-  return next_
+  if short_ < 0 then short_ = 0 end
+  if last ~= nil and short_ > last then short_ = last end
+
+  return short_
+end
+
+---How many frames a lap takes, measured from two probes.
+---
+---The fallback for when the index cannot say -- a replay played for less than
+---a lap has no bucket with two passes in it, so there is nothing to subtract.
+---Two jumps and where they landed give the same number: frames travelled over
+---lap travelled.
+---
+---Refuses a measurement taken over too short a distance. A hundredth of a lap
+---is a few frames of travel, and dividing by it turns a frame of noise into a
+---pace that is out by a factor of ten.
+---@return number|nil
+function seek.paceFrom(frameA, positionA, frameB, positionB)
+  if not isFinite(frameA) or not isFinite(frameB) then return nil end
+  if not isFinite(positionA) or not isFinite(positionB) then return nil end
+
+  local frames = frameB - frameA
+  if frames == 0 then return nil end
+
+  local travelled = (positionB % 1) - (positionA % 1)
+  if travelled > 0.5 then travelled = travelled - 1 end
+  if travelled < -0.5 then travelled = travelled + 1 end
+  if math.abs(travelled) < 0.01 then return nil end
+
+  local pace = frames / travelled
+  if pace <= 0 then return nil end
+  return pace
 end
 
 ---How far apart two lap positions are, the short way round. 0 to 1, where

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (483 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (531 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -141,8 +141,11 @@ rien.
 | 18 | **Interrupteur `[strips]`** | Masquer les bandes numérotées et **travailler une vraie session** avec le seul ruban. La question à te poser : est-ce qu'elles manquent ? |
 | 19 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
 | 20 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
-| 21 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 22 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 21 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
+| 22 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
+| 23 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
+| 24 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 25 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -594,6 +597,48 @@ diagnostic.
   `docs/ui-inventory.md`).
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
+
+## 🎯 Amener la voiture depuis le ruban — branche `replay-seek`
+
+Clic simple sur le ruban : sélectionne la caméra **et** déplace le replay pour
+que la voiture soit à l'endroit cliqué. **Maj+clic** sélectionne sans toucher
+au replay. Le menu du clic droit porte « Bring the car here » en toutes
+lettres, et la ligne de statut annonce les deux gestes au survol — sans coûter
+un pixel de hauteur.
+
+**Le pont entre les deux mondes.** Le ruban parle en positions de piste, un
+replay s'adresse par numéro de frame, et rien dans le jeu ne convertit. Mais
+l'app lit déjà les deux côte à côte à chaque frame : `core/seek.lua` écrit la
+correspondance au fil de l'eau. Un casier par position quantifiée (1024, soit
+≈ 6,8 m sur Spa), les dernières frames où la voiture y est passée. Coût par
+frame : un multiply, un floor, une écriture. **Aucune allocation**, taille qui
+ne peut pas croître, index vidé si le replay ou la voiture change.
+
+**Plusieurs frames par casier, et c'est tout l'enjeu.** Un replay, ce sont des
+tours sur les mêmes positions : « amener la voiture ici » veut dire le passage
+**le plus proche dans le temps**, jamais le premier tour. Une frame par casier
+répondrait toujours le premier — ce qui a l'air juste sur un replay d'un tour
+et renvoie au début sur tous les vrais.
+
+**Zone jamais jouée** : estimer, sauter, lire l'écart, corriger, cinq essais au
+plus. Chaque sondage enrichit l'index. Sans convergence, on reste **au plus
+proche atteint** et la ligne de statut le dit — jamais de saut silencieux.
+
+**Deux pièges trouvés par les tests, pas par la lecture :**
+
+- **Le plus court chemin n'est pas toujours disponible.** Près du début d'un
+  replay, le passage le plus proche est souvent *avant* la frame zéro ; borner
+  à zéro laissait la recherche collée contre le mur à se répéter. Quand le
+  court chemin sort du replay, on prend le long, qui est le même endroit un
+  tour plus tard.
+- **Une voiture à l'arrêt** occupe des milliers de frames dans un casier : un
+  seul passage, une seule entrée, sinon elle chasse tous les vrais tours.
+
+**Ce que ça ne fait pas** : aucune entrée d'annulation. Déplacer le replay
+n'est pas une modification de données.
+
+Le son est coupé pendant les sauts (CamTool 2 avait des artefacts sur les
+changements de position), sauf si la sonde audio tient déjà le volume.
 
 ## Idées notées, pas tranchées
 

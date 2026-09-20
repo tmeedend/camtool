@@ -27,6 +27,7 @@ local edit = require('core/edit')
 local atrParameter = require('ui/parameter')
 local angles = require('core/angles')
 local spline = require('core/spline')
+local seek = require('core/seek')
 local playbackCore = require('core/playback')
 local dataModule = require('core/data')
 
@@ -351,6 +352,181 @@ local replayDriveOn = false
 local replayRate = 1
 local replayCursor = 0
 
+--------------------------------------------------------------------------------
+-- Bringing the car to a point of the track
+--------------------------------------------------------------------------------
+-- The ribbon says "here" and means a place on the track; a replay is
+-- addressed by frame. core/seek holds the arithmetic and the index; what is
+-- left here is everything that can only happen against a running game.
+--
+-- WHY THIS IS A STATE MACHINE AND NOT A LOOP. Moving the replay does not
+-- report back until the next frame: ac.setReplayPosition is a request, and
+-- where the car ended up can only be read once the game has drawn again. So a
+-- correction is spread over frames, one probe each, and the whole thing lives
+-- between them.
+
+local seekIndex = nil
+---What the index is an index OF. Frames mean nothing across a different
+---replay or a different car, so the key changing empties it.
+local seekKey = nil
+---The seek in progress: target, how many probes are left, the best landing so
+---far, and what the volume was before we started jumping.
+local seekJob = nil
+---Something for the panel to say once the seek is over. Kept here rather than
+---written straight into the panel's status: that local is declared hundreds of
+---lines below, and assigning it from here would quietly make a global that
+---nothing ever reads.
+local seekMessage = nil
+
+---How close counts as arrived: half a bucket, which is a few metres.
+local SEEK_TOLERANCE = 0.5 / seek.BUCKETS
+---Probes before giving up and keeping the closest landing. Three to five was
+---the estimate; five is the ceiling.
+local SEEK_TRIES = 5
+
+local function seekKeyNow()
+  return string.format('%s/%s/%d/%d', ac.getTrackID(), ac.getTrackLayout(),
+    sim.focusedCar or -1, sim.replayFrames or 0)
+end
+
+---Note where the car is, every frame, for nothing.
+---
+---This is the whole cost of the feature in the hot path: a key comparison, a
+---multiply and a store. No allocation, and the index cannot grow.
+local function seekRecord(position)
+  if not sim.isReplayActive or position == nil then return end
+
+  local key = seekKeyNow()
+  if key ~= seekKey then
+    seekKey = key
+    if seekIndex == nil then seekIndex = seek.new() else seek.clear(seekIndex) end
+  end
+
+  seek.record(seekIndex, position, sim.replayCurrentFrame)
+end
+
+---Put the replay at a frame, and keep the app's own cursor with it.
+---
+---The diagnostic panel can drive the replay itself, advancing replayCursor a
+---frame at a time. Leaving it behind would have it drag the replay straight
+---back to where it was on the next frame.
+local function seekGoTo(frame)
+  if frame < 0 then frame = 0 end
+  local last = math.max((sim.replayFrames or 1) - 1, 0)
+  if frame > last then frame = last end
+
+  local whole = math.floor(frame)
+  replayCursor = frame
+  ac.setReplayPosition(whole, frame - whole)
+  return frame
+end
+
+---Quieten the game while the replay is jumping about.
+---
+---CamTool 2 had audio artefacts on replay position changes. Skipped when the
+---audio probe owns the volume: two things writing it would fight.
+local function seekMuffle(on)
+  if audioProbeOn then return end
+
+  if on then
+    if seekJob ~= nil and seekJob.volume == nil then
+      seekJob.volume = ac.getAudioVolume(ac.AudioChannel.Main, -1, 1)
+      ac.setAudioVolume(ac.AudioChannel.Main, 0)
+    end
+  elseif seekJob ~= nil and seekJob.volume ~= nil then
+    ac.setAudioVolume(ac.AudioChannel.Main, seekJob.volume)
+    seekJob.volume = nil
+  end
+end
+
+---Begin bringing the car to a lap position. Not an edit: nothing here touches
+---camera data, so nothing here goes on the undo stack.
+---@param target number @0..1
+---@return string|nil @what to tell the user, when there is something to say
+local function seekBegin(target)
+  if not sim.isReplayActive then return 'no replay to move' end
+  if type(target) ~= 'number' or target ~= target then return nil end
+  if seekIndex == nil then seekIndex = seek.new() end
+
+  local from = sim.replayCurrentFrame or 0
+  local guess = seek.nearest(seekIndex, target, from, 8)
+
+  -- Nothing recorded anywhere near: start from where we are and correct. The
+  -- first probe is what makes the second one informed.
+  if guess == nil then guess = from end
+
+  seekJob = {
+    target = target,
+    tries = SEEK_TRIES,
+    bestFrame = nil,
+    bestGap = nil,
+    lastFrame = nil,
+    lastPosition = nil,
+    pace = seek.framesPerLap(seekIndex),
+  }
+  seekMuffle(true)
+  seekJob.lastFrame = seekGoTo(guess)
+  return nil
+end
+
+---One probe: read where the last jump landed, and decide what to do about it.
+local function seekStep(position)
+  if seekJob == nil then return end
+
+  if not sim.isReplayActive or position == nil then
+    seekMuffle(false)
+    seekJob = nil
+    return
+  end
+
+  local gap = seek.gap(position, seekJob.target)
+
+  -- Every landing teaches the index something, including the ones that missed.
+  seek.record(seekIndex, position, sim.replayCurrentFrame)
+
+  if seekJob.bestGap == nil or gap < seekJob.bestGap then
+    seekJob.bestGap, seekJob.bestFrame = gap, sim.replayCurrentFrame
+  end
+
+  if gap <= SEEK_TOLERANCE then
+    seekMuffle(false)
+    seekJob = nil
+    return
+  end
+
+  -- Two landings are a measurement of the lap, for a replay too short for the
+  -- index to have measured one.
+  if seekJob.pace == nil and seekJob.lastPosition ~= nil then
+    seekJob.pace = seek.paceFrom(seekJob.lastFrame, seekJob.lastPosition,
+      sim.replayCurrentFrame, position)
+  end
+  if seekJob.pace == nil then seekJob.pace = math.max(sim.replayFrames or 1, 1) end
+
+  seekJob.tries = seekJob.tries - 1
+  if seekJob.tries <= 0 then
+    -- Out of tries: sit at the closest we managed and say so, rather than
+    -- leave the replay wherever the last guess happened to land.
+    if seekJob.bestFrame ~= nil then seekGoTo(seekJob.bestFrame) end
+    seekMessage = string.format(
+      'the car never passes there in this replay -- closest is %.0f m away',
+      (seekJob.bestGap or 0) * (sim.trackLengthM or 0))
+    seekMuffle(false)
+    seekJob = nil
+    return
+  end
+
+  seekJob.lastFrame, seekJob.lastPosition = sim.replayCurrentFrame, position
+  local next_ = seek.refine(sim.replayCurrentFrame, position, seekJob.target,
+    seekJob.pace, math.max((sim.replayFrames or 1) - 1, 0))
+  if next_ == nil then
+    seekMuffle(false)
+    seekJob = nil
+    return
+  end
+  seekGoTo(next_)
+end
+
+
 local function replayStart()
   if not sim.isReplayActive then
     log('replay: not in replay mode, ignored')
@@ -499,7 +675,19 @@ local function perFrame(dt)
   playbackDofDistance = nil
   playbackDofFactor = nil
 
-  if replayDriveOn and sim.isReplayActive and sim.replayFrames > 1 then
+  -- Where the car is, noted for nothing, so the ribbon can ask later. Before
+  -- the early return below: the index has to build whether or not the camera
+  -- is held, since it is the watching that fills it in.
+  local carAt = focusedTrackPosition()
+  seekRecord(carAt)
+
+  -- And a seek in progress reads where its last jump landed. Also before the
+  -- return: bringing the car somewhere has nothing to do with holding the
+  -- camera.
+  if seekJob ~= nil then seekStep(carAt) end
+
+  if replayDriveOn and seekJob == nil
+      and sim.isReplayActive and sim.replayFrames > 1 then
     local framesPerSecond = 1000 / math.max(sim.replayFrameMs, 0.001)
     replayCursor = replayCursor + rt * framesPerSecond * replayRate
     if replayCursor < 0 then replayCursor = 0 end
@@ -1190,6 +1378,20 @@ function script.windowAtr(dt)
   -- a new one even on the same parameter.
   if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil then
     openDrag = nil
+  end
+
+  -- Bringing the car to a point of the track. NOT an edit: it moves the
+  -- replay, touches no camera data, and so never reaches the undo stack.
+  if actions.seekTo ~= nil then
+    local why = seekBegin(actions.seekTo)
+    if why ~= nil then atrStatus = why end
+  end
+
+  -- Whatever the seek had to say once it finished, said here because the
+  -- machine runs between frames and the panel is drawn in them.
+  if seekMessage ~= nil then
+    atrStatus = seekMessage
+    seekMessage = nil
   end
 
   -- Adding and removing a camera from the ribbon's menu. Same edits as the
