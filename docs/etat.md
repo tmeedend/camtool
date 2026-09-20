@@ -595,6 +595,20 @@ diagnostic.
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
 
+## Idées notées, pas tranchées
+
+- **Une voiture par caméra.** `ACTIVE CAR` est aujourd'hui une ligne *runtime* :
+  elle montre `sim.focusedCar`, la voiture que le replay suit globalement, et
+  aucun fichier n'en mémorise une — c'est l'état de session hérité de
+  CamTool 2, remis à la voiture 0 à chaque lancement.
+
+  La question s'est posée en spécifiant « amener la voiture à l'endroit
+  cliqué » : viser « la voiture de la caméra sélectionnée » supposerait ce
+  champ. Théo a retenu la voiture focalisée, qui revient au même aujourd'hui,
+  **en notant qu'on pourra regarder la voiture par caméra plus tard**. Ce
+  serait une vraie fonctionnalité : un champ de plus dans le fichier, donc une
+  version de schéma, et une ligne de plus dans le panneau.
+
 ## Décisions tranchées (ne pas rouvrir seul)
 
 Ces quatre-là ont été listées comme ouvertes, puis fermées par Théo. Gardées
