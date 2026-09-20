@@ -28,6 +28,9 @@ local atrParameter = require('ui/parameter')
 local angles = require('core/angles')
 local spline = require('core/spline')
 local seek = require('core/seek')
+local navigate = require('core/navigate')
+local playstate = require('core/playstate')
+local shortcuts = require('adapters/shortcuts')
 local playbackCore = require('core/playback')
 local dataModule = require('core/data')
 
@@ -378,6 +381,16 @@ local seekJob = nil
 ---nothing ever reads.
 local seekMessage = nil
 
+---Whether the replay is running, steadily. Read, never set: Assetto Corsa has
+---no call to pause a replay, so the panel says what is happening and does not
+---pretend to decide it.
+local playing = playstate.new()
+
+---Set later, once the panel's own state exists to act on. A shortcut has to
+---work with the window closed, so it is handled in the frame loop -- which is
+---written above everything it needs.
+local handleShortcuts = nil
+
 ---How close counts as arrived: half a bucket, which is a few metres.
 local SEEK_TOLERANCE = 0.5 / seek.BUCKETS
 ---Probes before giving up and keeping the closest landing. Three to five was
@@ -674,6 +687,12 @@ local function perFrame(dt)
   playbackFov = nil
   playbackDofDistance = nil
   playbackDofFactor = nil
+
+  -- Is it running? One reading, and Assetto Corsa's own: getGameDeltaT is
+  -- zero when the sim OR the replay is paused, whoever paused it.
+  playstate.update(playing, ac.getGameDeltaT ~= nil and ac.getGameDeltaT() or nil)
+
+  if handleShortcuts ~= nil then handleShortcuts() end
 
   -- Where the car is, noted for nothing, so the ribbon can ask later. Before
   -- the early return below: the index has to build whether or not the camera
@@ -1188,6 +1207,74 @@ local atrShowHelp = false
 ---rather than every frame.
 local atrOutlineReason = nil
 
+---What the arrow keys do, now that the panel's own state exists to move.
+---
+---In the frame loop rather than the panel, because a shortcut has to work
+---with the window closed -- which is the whole point of LAZY = PARTIAL. The
+---forward declaration above is what lets a function written here be called
+---from a loop written above it.
+---
+---Nothing here is an edit: stepping through cameras changes what is selected
+---and where the replay is, and neither belongs on the undo stack.
+handleShortcuts = function()
+  shortcuts.install()
+
+  local fired = shortcuts.pressed()
+  if fired == nil then return end
+
+  local quiet = shortcuts.QUIET[fired] ~= nil
+  local action = shortcuts.QUIET[fired] or fired
+
+  local cameras = doc ~= nil and doc[pb.options.listName] or nil
+  if cameras == nil or #cameras == 0 then
+    atrStatus = 'no cameras to step through'
+    return
+  end
+
+  local camera = atrCamera ~= nil and cameras[atrCamera] or nil
+  local target = nil
+
+  if action == 'cameraNext' or action == 'cameraPrevious' then
+    local next_ = action == 'cameraNext'
+      and navigate.nextCamera(cameras, atrCamera)
+      or navigate.previousCamera(cameras, atrCamera)
+
+    -- Ends stop rather than wrap: see core/navigate for why.
+    if next_ == nil then return end
+
+    atrCamera, atrKeyframe = next_, 1
+    atrParameter.cancelEditing()
+    target = navigate.positionOf(cameras[next_], nil)
+  else
+    if camera == nil then
+      atrStatus = 'pick a camera first'
+      return
+    end
+
+    local count = type(camera.keyframes) == 'table' and #camera.keyframes or 0
+    if count == 0 then
+      atrStatus = 'this camera has no keyframes'
+      return
+    end
+
+    local next_ = action == 'keyframeNext'
+      and navigate.nextKeyframe(camera, atrKeyframe)
+      or navigate.previousKeyframe(camera, atrKeyframe)
+    if next_ == nil then return end
+
+    atrKeyframe = next_
+    atrParameter.cancelEditing()
+    target = navigate.positionOf(camera, next_)
+  end
+
+  -- Stepping brings the car with it, by the same route a click on the ribbon
+  -- takes. Shift is the escape hatch here exactly as it is there.
+  if not quiet and target ~= nil then
+    local why = seekBegin(target)
+    if why ~= nil then atrStatus = why end
+  end
+end
+
 -- Reset asks once. CamTool 2 does not, and it is the one button that can
 -- throw away an afternoon in a single click.
 local atrConfirmReset = false
@@ -1334,6 +1421,7 @@ function script.windowAtr(dt)
     showMap = atrShowMap,
     showHelp = atrShowHelp,
     confirmReset = atrConfirmReset,
+    paused = playing.paused,
     -- Offered when naming a camera that has none: see ui/band.
     sectionNameAt = trackAdapter.sectionNameAt,
     dt = dt,

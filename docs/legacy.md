@@ -36,6 +36,17 @@ Les statuts ci-dessus restent « à investiguer » : ils concernent le remplacem
 | `GetHeading` | `.transform.look` (vecteur, plus d'angle) | ✅ via la même orbite |
 | `GetRoll` | `.transform.up` (vecteur, plus d'`asin`) | ✅ via la même orbite |
 | `SetReplaySpeed` | **pas d'équivalent** : `ac.setReplayPosition(frame, playCounter)` piloté par frame | ✅ ralenti et accéléré fluides |
+
+⚠️ **Et toujours pas d'équivalent pour la PAUSE.** Vérifié en balayant les
+quatre-vingts `ac.set*` du SDK : rien ne met un replay en pause.
+`ui.setKeyboardButtonDown` ne dépanne pas non plus — « affects current IMGUI
+context only », elle ne parle pas au jeu. Le seul contournement serait le même
+que ci-dessus, CamTool pilotant le curseur en permanence, ce qui changerait le
+comportement du replay pour tout le monde — **écarté par Théo**.
+
+En revanche **lire** l'état est documenté et fiable : `ac.getGameDeltaT()`
+rend zéro « if sim **or replay** are paused », donc quelle que soit l'origine
+de la pause. D'où un indicateur, et pas un bouton.
 | `GetVolume` / `SetVolume` | `ac.getAudioVolume` / `ac.setAudioVolume` | ✅ rampes sans artefact sonore |
 
 Également validé en jeu : `.fov` (degrés, direct), `.dofFactor`/`.dofDistance`,

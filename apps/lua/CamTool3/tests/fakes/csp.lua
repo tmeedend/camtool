@@ -45,6 +45,7 @@ function fakes.install(opts)
     -- was actually drawn in rather than what the theme merely offers.
     styles = {},
     tooltips = {},
+    controlButtons = {},
     grabbed = false,
     disposed = false,
     replayPositions = {},
@@ -109,7 +110,18 @@ function fakes.install(opts)
 
   _G.ac = {
     getSim = function() return sim end,
-    getUI = function() return { dt = 0.016, mouseDelta = { x = 0, y = 0 }, mousePos = { x = 0, y = 0 } } end,
+    getUI = function()
+      return { dt = 0.016, mouseDelta = { x = 0, y = 0 },
+        mousePos = { x = 0, y = 0 },
+        -- The one flag every shortcut has to respect: a field is being typed
+        -- into, so Space is a space and the arrows move the caret.
+        wantCaptureKeyboard = opts.typingSomewhere == true }
+    end,
+    ---Zero when the sim or the replay is paused, which is how the panel knows.
+    getGameDeltaT = function()
+      if opts.gameDeltaT ~= nil then return opts.gameDeltaT end
+      return 0.016
+    end,
     log = function(m) handle.logs[#handle.logs + 1] = tostring(m) end,
     warn = function() end,
     error = function() end,
@@ -149,6 +161,24 @@ function fakes.install(opts)
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
 
     isKeyDown = function() return false end,
+
+    -- Bindings, the way CSP hands them over: the app asks to be told when one
+    -- fires rather than watching the keyboard. opts.pressedShortcut names the
+    -- one that fired this frame, by a piece of the label CamTool gave it.
+    ControlButton = function(id, defaults)
+      handle.controlButtons[#handle.controlButtons + 1] =
+        { id = id, defaults = defaults }
+      local button = { id = id }
+      function button:pressed()
+        return opts.pressedShortcut ~= nil
+          and id:find(opts.pressedShortcut, 1, true) ~= nil
+      end
+      function button:boundTo() return opts.boundTo or 'Space' end
+      function button:control()
+        handle.controlsDrawn = (handle.controlsDrawn or 0) + 1
+      end
+      return button
+    end,
 
     -- Handing the view to one of Assetto Corsa's own cameras. CamTool 2 had
     -- to press F1 the right number of times; these are what CSP added.
@@ -230,7 +260,8 @@ function fakes.install(opts)
     arrowButton = function(label) return clicked(label) end,
     invisibleButton = function(label) return clicked(label) end,
     keyboardButtonPressed = function(key) return opts.keyPressed == key end,
-    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27 },
+    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27,
+      Left = 37, Up = 38, Right = 39, Down = 40, Space = 32 },
     -- The pointer shape over a draggable value. A plain table because the
     -- catch-all below answers with a function, and indexing a function raises.
     MouseCursor = { Arrow = 0, ResizeEW = 6, Hand = 8 },
@@ -298,6 +329,10 @@ function fakes.install(opts)
       handle.drawn[#handle.drawn + 1] = { op = 'label', text = tostring(text),
         x = posMin.x, y = posMin.y, x2 = posMax.x, y2 = posMax.y,
         colour = colour }
+    end,
+    drawTriangleFilled = function(a, b, c, colour)
+      handle.drawn[#handle.drawn + 1] = { op = 'drawTriangleFilled',
+        x = a.x, y = a.y, colour = colour }
     end,
     drawQuadFilled = function(a, b, c, d, colour)
       -- Recorded by its centre, which is what a test wants to know: the four

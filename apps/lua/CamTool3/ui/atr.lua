@@ -23,6 +23,7 @@ local theme = require('ui/theme')
 local parameter = require('ui/parameter')
 local trackMap = require('ui/map')
 local trackBand = require('ui/band')
+local shortcuts = require('adapters/shortcuts')
 local evaluate = require('core/evaluate')
 
 local atr = {}
@@ -249,6 +250,13 @@ atr.LEGEND = {
     'Double click a segment to name it. Right click for more.',
   'Map   the same cameras on the circuit. Click and Shift+click do what they ' ..
     'do on the ribbon; the handle drags there too.',
+  "Arrows   left and right step through this camera's keyframes, up and " ..
+    'down through the cameras, and each brings the car with it. Hold Shift ' ..
+    'to step without moving the replay. They stop at the ends. Rebind them ' ..
+    'below.',
+  'Playing   the triangle beside the distance says the replay is running, ' ..
+    'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
+    'and cannot change it: Assetto Corsa has no call to pause a replay.',
   'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
     'moving the replay is not an edit at all.',
   'Save   writes over the file it came from, keeping one copy of what was ' ..
@@ -451,14 +459,40 @@ function atr.draw(state)
   ui.popStyleColor()
 
   ------------------------------------------------------------------
-  -- Header
+  -- Header: is it running, and where is the car
   ------------------------------------------------------------------
-  -- Only the car's position. The name of the app is already on the window
-  -- title bar, and saying it twice used a line that the panel would rather
-  -- give to the cameras.
+  -- The icon answers a question the panel could not: with a slow car or a
+  -- fixed camera, nothing on screen moves and there is no telling whether the
+  -- replay is playing. It READS the state and does not set it -- Assetto
+  -- Corsa has no call to pause a replay, so a button pretending to would be
+  -- worse than none. Drawn as shapes rather than glyphs, which no font has to
+  -- have.
+  --
+  -- It shares the line with the metres, so the panel is no taller for it.
+  local iconAt = ui.getCursor()
+  local mid = iconAt.y + 10
+
+  if state.paused then
+    ui.drawRectFilled(vec2(iconAt.x + 2, mid - 6), vec2(iconAt.x + 6, mid + 6),
+      theme.label)
+    ui.drawRectFilled(vec2(iconAt.x + 9, mid - 6), vec2(iconAt.x + 13, mid + 6),
+      theme.label)
+  else
+    ui.drawTriangleFilled(vec2(iconAt.x + 3, mid - 6),
+      vec2(iconAt.x + 13, mid), vec2(iconAt.x + 3, mid + 6), theme.label)
+  end
+
+  ui.dummy(vec2(18, 20))
+  if ui.itemHovered() then
+    ui.setTooltip(state.paused and 'The replay is paused.'
+      or 'The replay is playing.')
+  end
+  ui.sameLine(0, 4)
+
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
   local metres = (state.trackPos or 0) * (state.trackLength or 0)
-  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5), vec2(width, 20))
+  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5),
+    vec2(width - 22, 20))
   ui.popStyleColor()
 
   ------------------------------------------------------------------
@@ -735,6 +769,27 @@ function atr.draw(state)
       ui.text(line)
     end
     ui.popStyleColor()
+
+    -- Rebinding, beside the legend rather than in a settings panel of its
+    -- own: this is where someone reads what a key does, so it is where they
+    -- will want to change it. The widget is CSP's, and what it writes goes to
+    -- controls.ini where every other binding in the game lives.
+    ui.newLine(4)
+    ui.pushStyleColor(ui.StyleColor.Text, theme.columns.camera.accent)
+    ui.text('SHORTCUTS')
+    ui.popStyleColor()
+
+    for _, definition in ipairs(shortcuts.DEFINITIONS) do
+      ui.pushStyleColor(ui.StyleColor.Text, theme.label)
+      ui.textAligned(definition.label, vec2(0, 0.5), vec2(240, theme.rowHeight))
+      ui.popStyleColor()
+      ui.sameLine(0, 6)
+      if not shortcuts.control(definition.id, 150) then
+        ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
+        ui.text('not available in this build')
+        ui.popStyleColor()
+      end
+    end
   else
     -- Whatever the pointer is over: a parameter, or the ribbon, which has
     -- gestures of its own worth saying out loud.

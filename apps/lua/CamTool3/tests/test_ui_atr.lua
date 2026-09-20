@@ -19,6 +19,7 @@ local fakes = require('tests/fakes/csp')
 local trackAdapter = require('adapters/track')
 local trackMap = require('ui/map')
 local trackBand = require('ui/band')
+local trackShortcuts = require('adapters/shortcuts')
 local data = require('core/data')
 local theme = require('ui/theme')
 local atr = require('ui/atr')
@@ -1800,4 +1801,77 @@ test('the status line shows the sentence, not just the label', function()
   eq(type(help), 'string', 'the sentence reached the widget')
 
   handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- The play indicator, and the shortcuts it sits beside
+--------------------------------------------------------------------------
+
+test('the header says whether the replay is running', function()
+  -- The question the panel could not answer: with a slow car or a fixed
+  -- camera nothing on screen moves, and there was no telling.
+  local function shapes(paused)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    atr.draw({
+      cameraCount = 0, keyframeCount = 0, listName = 'pos',
+      trackPos = 0, trackLength = 1000, showMap = false, paused = paused,
+    })
+    local bars, triangles = 0, 0
+    for i = 1, #handle.drawn do
+      local call = handle.drawn[i]
+      if call.op == 'drawRectFilled' and call.y2 ~= nil
+        and call.y2 - call.y <= 14 then bars = bars + 1 end
+      if call.op == 'drawTriangleFilled' then triangles = triangles + 1 end
+    end
+    handle.restoreIo()
+    return bars, triangles
+  end
+
+  local _, playingTriangles = shapes(false)
+  eq(playingTriangles, 1, 'a triangle while it runs')
+
+  local pausedBars, pausedTriangles = shapes(true)
+  eq(pausedTriangles, 0)
+  eq(pausedBars >= 2, true, 'and two bars while it does not')
+end)
+
+test('the indicator says what it means when hovered', function()
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  atr.draw({
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false, paused = true,
+  })
+
+  local said = table.concat(handle.tooltips, ' | ')
+  eq(said:find('paused', 1, true) ~= nil, true, 'got: ' .. said:sub(1, 80))
+  handle.restoreIo()
+end)
+
+test('the legend explains that the panel reads the state and cannot set it', function()
+  -- An icon that looked like a button would promise something Assetto Corsa
+  -- has no call for.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('cannot change it', 1, true) ~= nil, true)
+  eq(all:find('arrows', 1, true) ~= nil, true, 'and the arrows are in there')
+  eq(all:find('rebind', 1, true) ~= nil, true, 'with a word on rebinding them')
+end)
+
+test('the legend offers a rebinding widget for every shortcut', function()
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+  trackShortcuts.reset()
+  trackShortcuts.install()
+
+  atr.draw({
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false, showHelp = true,
+  })
+
+  eq(handle.controlsDrawn, #trackShortcuts.DEFINITIONS,
+    'one row per shortcut, drawn by CSP itself')
+  handle.restoreIo()
+  trackShortcuts.reset()
 end)
