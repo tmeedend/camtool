@@ -176,6 +176,28 @@ de plus de complexité. À trancher si le besoin apparaît.
 
 Hypothèses issues de la lecture du code, **à confirmer par un test** avant toute correction :
 
+- **#34 latence des touches — CAUSE CONFIRMÉE par l'auteur.** Théo dans le fil :
+  « I had to add a library to manage the new keyboard shortcuts I have added ».
+  C'est `classes/hotkey.py`, qui appelle `keyboard.add_hotkey`, et la
+  bibliothèque `keyboard/` vendorisée installe un **hook bas niveau global**
+  (`WH_KEYBOARD_LL`). Toutes les touches de la machine y passent avant
+  d'atteindre leur destinataire, et le callback tourne dans le Python 3.3
+  embarqué d'AC, déjà occupé par `acUpdate`.
+
+  Le rapporteur d'origine ne pouvait plus jouer au clavier ; un second
+  (`xNAPx`) confirme la gêne **sans jouer au clavier du tout** — caméra libre,
+  pilote IA, bascule de ReShade. Cohérent : le hook est dans le chemin de
+  toutes les touches, pas seulement des raccourcis de l'app.
+
+  ⚠️ **Le fil mélange deux problèmes.** La seconde moitié du message de
+  `xNAPx` — « the app starts acting weirdly after a while not allowing to
+  access free camera anymore » — n'est pas le hook : c'est la comptabilité de
+  `CamMode.changeCamModeZero`, qui appuie sur F1 un certain nombre de fois
+  depuis un décalage mémorisé (`last_cam_offset`) et se désynchronise dès que
+  quelqu'un touche aux caméras autrement. Les deux ont disparu en Lua, mais
+  par des moyens différents : pas de hook d'un côté,
+  `ac.setCurrentDrivableCamera` de l'autre.
+
 - **#38 artefacts à petit FOV** : l'ancien `set_fov` ajustait le near clipping (`near = clamp(2 - fov/50, 0.1, 2)`, lignes commentées dans `CamToolTool.set_fov`) ; la version CSP ne le fait plus → z-fighting probable.
 - **#37 interpolation** : chaque paramètre est interpolé indépendamment. Position/rotation : Bézier cubique par canal (`interpolate`) avec corrections spéciales sur le premier et le dernier segment ; FOV, shake, offsets/forces de tracking : easing sinus (`interpolate_sin`) qui marque un arrêt à chaque keyframe ; splines enregistrées : linéaire (`interpolate_spline`). Rotations en angles d'Euler séparés, sans normalisation ±π visible dans l'interpolation des keyframes (contrairement au tracking dans `Camera.py`).
 - Voir aussi le **registre des bizarreries** plus haut dans ce fichier : six comportements confirmés, chacun reproduit et épinglé par un

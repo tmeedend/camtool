@@ -689,9 +689,9 @@ d'habitude et nous dit qu'une affectation qu'il connaît déjà s'est déclench�
 Notre coût est une poignée de comparaisons **dans notre frame**, pas dans celle
 du clavier.
 
-⚠️ **Le rattachement à l'issue #34 vient du brief de Théo, pas du dépôt** : le
-registre d'issues de `docs/legacy.md` ne la documente pas, et je n'ai pas son
-texte. Le raisonnement sur les hooks tient indépendamment du numéro. Les touches sont des **défauts** : elles vivent dans
+C'est bien l'issue **#34**, et sa cause est confirmée par l'auteur lui-même
+dans le fil. Le registre de `docs/legacy.md` la documente maintenant, avec le
+second problème que le fil mélange au premier. Les touches sont des **défauts** : elles vivent dans
 `controls.ini` et se réaffectent depuis le panneau `?`, section SHORTCUTS,
 avec le widget de CSP.
 
