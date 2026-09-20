@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (593 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (656 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -135,14 +135,14 @@ rien.
 | 12 | **Caméras AC** | Sur `le_lancone`, la caméra 5 demande la vue **volant**. CamTool 3 doit passer la main : la vue devient celle d'AC, et revient quand la caméra suivante reprend. Onze caméras de référence sont dans ce cas. |
 | 13 | Session autonome | Ouvrir **seulement** la fenêtre ATR et travailler sans jamais ouvrir le panneau de sondes. |
 | 14 | **Barre d'actions** | Rétrécir la fenêtre : les boutons doivent **passer à la ligne**, jamais sortir par la droite. Tous restent cliquables. |
-| 15 | **Bande de piste** | Le ruban sous les bandes numérotées : une teinte par caméra, les losanges de la caméra éditée, le trait blanc de la voiture. Cliquer une portion sélectionne sa caméra, cliquer un losange sélectionne le keyframe. |
+| 15 | **Bande de piste** | Le ruban sous les bandes numérotées : une teinte par caméra, les losanges de la caméra éditée, la tête de lecture. Cliquer une portion sélectionne sa caméra — et **ne doit rien déplacer** —, cliquer un losange sélectionne le keyframe. |
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Infobulles** | Rester sur une valeur : la phrase apparaît après un instant. Elles **ne marchaient pas du tout** — le panneau reconstruisait la ligne et laissait la phrase en route. |
 | 19 | **Champs en caméra libre** | Voler en caméra libre : `X`, `Y`, `Z`, `PITCH`, `HEADING`, `FOV` doivent afficher la valeur **en gris**, et le losange l'épingler telle quelle. `ROLL` et `FOCUS POINT` restent à `--`, c'est voulu. |
 | 20 | **Créer un fichier** | Session neuve, **double-clic sur « no file »**, taper un nom, Entrée. Puis `+cam` doit marcher. Le fichier doit apparaître dans la liste avec le préfixe de la piste. |
 | 21 | **Sauver sous un nom** | Fichier d'ATR chargé, **double-clic sur son nom** : le champ doit s'ouvrir **et rester ouvert** (il se refermait aussitôt). Taper, Entrée. L'original ne doit pas changer de date. |
-| 22 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la voiture suit. **Maj** ne déplace pas le replay. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. |
+| 22 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la tête de lecture suit — comme les touches de saut d'un point de montage à l'autre. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. Les variantes **Maj** n'existent plus : si elles sont restées dans `controls.ini`, elles ne doivent rien faire. |
 | 23 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
 | 24 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
 | 25 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
@@ -150,11 +150,17 @@ rien.
 | 27 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
 | 28 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
 | 29 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
-| 30 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
+| 30 | **Règle = amener la voiture** | Cliquer **la règle** doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. Le son ne doit pas claquer. |
 | 31 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
-| 32 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
+| 32 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer la règle : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
 | 33 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
 | 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 35 | **La règle** | Le bandeau du haut se distingue du reste au premier coup d'œil. Les distances sont lisibles et ne se chevauchent pas ; **redimensionner la fenêtre** doit en ajouter ou en retirer, jamais les entasser. Sur Spa, « Kemmel Straight » et « Eau Rouge » doivent s'afficher à leur place. |
+| 36 | **Scrub** | Presser la règle et **glisser sans lâcher** : l'image doit suivre la main, un peu en retard mais en continu, sans à-coup ni saut en arrière. Au relâchement, la voiture se pose **exactement** où le trait a été lâché. |
+| 37 | **Le son pendant un scrub** | Le son se coupe **au début** du glissé et revient **une fois** à la fin — pas de hachis, pas de retour du son au milieu du geste. |
+| 38 | **Curseurs des deux zones** | Le pointeur change de forme au-dessus de la règle (flèche horizontale) et au-dessus des segments (main). La ligne de statut dit deux choses différentes selon la zone. |
+| 39 | **Sélection sans déplacement** | Cliquer un segment pendant que le replay tourne : la caméra change dans le panneau et **l'image ne bouge pas**. Même chose sur la carte. Avec Maj aussi : Maj ne doit plus rien changer. |
+| 40 | **Circuit sans `sections.ini`** | Sur un circuit ou un layout mod qui n'en a pas, la règle doit montrer les distances seules, sans erreur ni trou dans le panneau. |
 
 ## ⏳ En attente de Théo
 
@@ -380,9 +386,11 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    ne fait rien de toute façon.
 
 5. ✅ **La bande de piste — faite, jamais vue en jeu.** Un ruban 0 → ligne
-   d'arrivée (`ui/band.lua`), teinté par caméra, les keyframes de la caméra
-   éditée en losanges, la voiture en trait vertical. Cliquer une portion
-   sélectionne sa caméra, cliquer un losange sélectionne le keyframe.
+   d'arrivée (`ui/band.lua`), en **deux zones** : une règle fine en haut
+   (distances, noms de portions, tête de lecture) et en dessous les segments,
+   teintés par caméra, avec les keyframes de la caméra éditée en losanges.
+   Cliquer une portion sélectionne sa caméra — sans rien déplacer —, cliquer
+   un losange sélectionne le keyframe. Voir « Le ruban navigable » plus bas.
 
    Même propriété que la carte, projetée sur une ligne — d'où
    `trackmap.bandSpans`, qui ne diffère que sur le bouclage : la caméra qui
@@ -398,7 +406,7 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    manqué. Rien n'a été retiré sur un argument.
 
    Où est passé ce qu'elles portaient : **sélectionner** une caméra ou un
-   keyframe est un clic sur le ruban, **ajouter et supprimer une caméra** est
+   keyframe est un clic sur les segments du ruban, **ajouter et supprimer une caméra** est
    son menu au **clic droit** — il n'y a plus de bouton, et Théo ne l'a pas
    trouvé, parce que la légende et la ligne de statut disaient « right click
    for more », ce qui ne nomme rien. Elles nomment les trois entrées
@@ -621,15 +629,59 @@ diagnostic.
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
 
-## 🎯 Amener la voiture depuis le ruban — branche `replay-seek`
+## 🎯 Le ruban navigable — branche `replay-seek`
 
-Clic simple sur le ruban **ou sur la carte** : sélectionne la caméra **et**
-déplace le replay pour que la voiture soit à l'endroit cliqué. Sur la carte ça
-ne coûte rien de plus — chaque point du tracé **est** une position de piste,
-ce que le choix de la spline IA plutôt qu'une image avait acheté. **Maj+clic** sélectionne sans toucher
-au replay. Le menu du clic droit porte « Bring the car here » en toutes
-lettres, et la ligne de statut annonce les deux gestes au survol — sans coûter
-un pixel de hauteur.
+**Deux zones, et le fond les distingue.** Une règle fine en haut — distances
+sur le tour, noms des portions quand le circuit en donne — et en dessous les
+segments de caméra comme avant. Le fond de la règle est ce qui fait le
+travail : il rend la coupure évidente sans un mot, ce qu'une coupure expliquée
+n'obtient jamais. Elle fait 16 px et non la dizaine demandée, parce qu'une
+ligne de texte en fait 13 et qu'une règle où l'on ne peut pas écrire une
+distance est une rangée de marques qui ne mesurent rien.
+
+**Un nom l'emporte sur un chiffre.** Les deux ne tiennent pas sur la même
+ligne : là où le circuit a nommé la portion, la distance abandonne son
+étiquette et garde sa marque. On lit le chiffre sur les marques voisines,
+c'est à ça qu'une règle sert.
+
+**Les noms viennent du fichier, pas d'une sonde.** `ac.getTrackSectorName`
+répond position par position ; la règle dessine un nom **en travers** de la
+portion qu'il couvre, donc il lui faut les bornes. `core/sections` fait le
+ménage dans ce que `ac.INIConfig.trackData('sections.ini')` rend : bornes à
+l'envers, nom fait de trois espaces, portion à cheval sur la ligne (coupée en
+deux, comme la caméra qui tient la ligne), valeur qui n'est pas un nombre.
+Fichier lu une fois par circuit.
+
+**La tête de lecture** traverse les deux zones, avec une poignée triangulaire
+dans la règle. Elle suit le replay toute seule. On la déplace en cliquant ou
+en glissant **n'importe où sur la règle** — viser cinq pixels de triangle
+avant que quoi que ce soit ne bouge est une épreuve d'adresse, pas un geste.
+Un clic est un glissé d'une frame, donc les deux sont le même code.
+
+**Le glissé est volontairement grossier** : un saut toutes les 100 ms, une
+seule sonde, aucune convergence. La recherche ordinaire sonde à **chaque
+frame** jusqu'à tomber juste — soit soixante repositionnements par seconde
+pendant un glissé, et pour rien, puisque le pointeur a bougé entre temps. Un
+atterrissage faux reste en place jusqu'au tick suivant ; d'ici là la boucle de
+frame a noté où on avait atterri, donc la correction est mieux informée qu'une
+seconde sonde ne l'aurait été. **L'atterrissage exact a lieu une fois, au
+relâchement.** Le son est coupé pour tout le geste, pas par saut — ce pour
+quoi le volume est sorti du `seekJob`.
+
+**Le clic ne déplace plus le replay, et Maj non plus.** L'état antérieur
+faisait clic = sélectionner *et* amener la voiture, Maj+clic pour s'en
+abstenir. Tranché par Théo : déplacer le replay à chaque sélection gêne la
+création de caméras — choisir une caméra à éditer n'est pas demander à aller
+la regarder — et un modificateur caché n'est connu que de son auteur. La
+carte suit la même règle : elle doit dire la même chose que le ruban ou
+aucune des deux ne peut être crue. « Bring the car here » reste au menu du
+clic droit, en toutes lettres.
+
+**Le double-clic garde partout le même sens : éditer le texte de l'élément.**
+Sur un champ, la valeur ; sur un segment, le nom. C'est la convention
+universelle, du gestionnaire de fichiers aux calques de Photoshop — donc pas
+de « double-clic = aller au début de la caméra », d'autant que le geste est
+déjà couvert deux fois, par Haut/Bas et par le menu du clic droit.
 
 **Le pont entre les deux mondes.** Le ruban parle en positions de piste, un
 replay s'adresse par numéro de frame, et rien dans le jeu ne convertit. Mais
@@ -676,10 +728,17 @@ changements de position), sauf si la sonde audio tient déjà le volume.
 ## ⌨️ Raccourcis clavier et indicateur de lecture
 
 **Les flèches** parcourent les keyframes (gauche/droite) et les caméras
-(haut/bas), et **amènent la voiture** par le même chemin qu'un clic sur le
-ruban. **Maj** est l'échappatoire, partout pareil. Aux extrémités ça
-**s'arrête** — boucler ferait repartir un tour en arrière sous une touche
+(haut/bas), et **déplacent la tête de lecture** — exactement les touches de
+saut d'un point de montage à l'autre de Premiere et de Resolve. Aux extrémités
+ça **s'arrête** — boucler ferait repartir un tour en arrière sous une touche
 maintenue, et l'ordre est la seule chose qu'un set de caméras possède.
+
+⚠️ **Les quatre variantes Maj ont été supprimées.** Elles parcouraient sans
+déplacer le replay : la moitié clavier du Maj+clic du ruban. Le clic ne
+déplace plus rien, elles n'avaient donc plus de quoi s'abstenir. Qui les avait
+affectées garde quatre entrées mortes dans `controls.ini` — sans effet, et
+moins coûteux que de traîner un raccourci qui fait ce que fait la touche
+seule.
 
 **Par `ac.ControlButton`, jamais par un hook clavier.** Le mécanisme de
 CamTool 2 est vérifiable dans son code : `classes/hotkey.py` appelle
@@ -754,23 +813,22 @@ raison qu'un clic compte dans un geste fait quarante fois. Donc : boutons pour
 
 ## ❓ À demander au designer d'ATR
 
-`docs/ui-interactions.md` est le contrat, et il **ne parle ni du ruban ni de la
-carte** : il a été écrit avant qu'ils existent. Il couvre les champs de
-paramètres, leurs gestes et la couche d'aide, rien d'autre.
+`docs/ui-interactions.md` **a maintenant sa section « Le ruban »** : les deux
+zones, chaque geste, et la raison de ceux qui ont été discutés. Elle a été
+écrite sur les arbitrages de Théo, pas inventée — et elle le dit en tête de
+section.
 
-Ce qui manque donc au contrat, et qu'il faudrait lui faire écrire plutôt que
-d'inventer à sa place :
+Reste à lui faire confirmer, puisque le document est le sien :
 
-- les gestes du ruban et de la carte (clic, Maj+clic, glisser la poignée,
-  double-clic pour renommer, clic droit) ;
-- lequel des deux est le navigateur principal — il avait dit le ruban, en
-  conversation, mais ce n'est écrit nulle part ;
+- que le ruban est bien **le navigateur principal** — il l'avait dit en
+  conversation, c'est maintenant écrit, mais par nous ;
 - que la bande numérotée a été **supprimée**, l'usage ayant tranché comme il
   l'avait proposé.
 
-En attendant, la **légende du `?` les couvre tous** — c'est ce que le contrat
-exige d'elle (« seul endroit où l'aide est exhaustive »), et un test échoue si
-un geste existe sans y figurer.
+La **légende du `?` couvre tous les gestes** — c'est ce que le contrat exige
+d'elle (« seul endroit où l'aide est exhaustive »), et deux tests échouent : un
+si un geste existe sans y figurer, un autre si elle promet encore un geste
+retiré.
 
 ## Idées notées, pas tranchées
 
