@@ -1006,3 +1006,64 @@ test('the ruler is drawn whether or not there are cameras', function()
   eq(#inColour(drawn, theme.bandRulerBackground), 1)
   eq(#textsIn(drawn, theme.bandRulerLabel) > 0, true)
 end)
+
+--------------------------------------------------------------------------
+-- The playhead
+--------------------------------------------------------------------------
+
+local function playheadLine(drawn)
+  for i = #drawn, 1, -1 do
+    if drawn[i].op == 'drawLine' and drawn[i].colour == theme.mapPlayhead then
+      return drawn[i]
+    end
+  end
+  return nil
+end
+
+local function playheadGrip(drawn)
+  for i = #drawn, 1, -1 do
+    if drawn[i].op == 'drawTriangleFilled'
+      and drawn[i].colour == theme.mapPlayhead then return drawn[i] end
+  end
+  return nil
+end
+
+test('the playhead crosses both zones and grips in the ruler', function()
+  -- The line has to cross the cameras, which is what it is read against. The
+  -- triangle is the part anyone would think to take hold of, and it sits in
+  -- the zone where taking hold of things is what happens.
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.4, trackLength = LAP_M })
+
+  local line = playheadLine(drawn)
+  eq(line ~= nil, true)
+  near(line.y, ORIGIN_Y, 0.001, 'from the top of the ruler')
+  near(line.y2, BAND_BOTTOM, 0.001, 'to the bottom of the ribbon')
+
+  local grip = playheadGrip(drawn)
+  eq(grip ~= nil, true)
+  near(grip.x, line.x, 0.001, 'the point of the triangle is on the line')
+  near(grip.y, BAND_TOP, 0.001, 'and it sits at the foot of the ruler')
+end)
+
+test('the playhead follows the replay without being asked', function()
+  for _, at in ipairs({ 0, 0.25, 0.9 }) do
+    local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+      trackPos = at, trackLength = LAP_M })
+    near(playheadLine(drawn).x, ORIGIN_X + WIDTH * at, 0.001)
+  end
+end)
+
+test('nothing is drawn for a car the game cannot place', function()
+  -- Out of a replay, or before one settles, there is no position. A playhead
+  -- at zero would be a lie told with a straight face.
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M })
+
+  eq(playheadLine(drawn), nil)
+  eq(playheadGrip(drawn), nil)
+
+  local _, _, nan = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0 / 0, trackLength = LAP_M })
+  eq(playheadLine(nan), nil)
+end)

@@ -82,6 +82,18 @@ local function positionOf(x, width)
   return p
 end
 
+---Where the playhead belongs this frame, 0..1, or nil when there is nothing
+---to draw.
+---
+---A function of its own because it is about to have a second answer: while
+---the ribbon is being scrubbed the head belongs to the pointer, not to a
+---replay still catching up with it.
+local function playheadAt(state)
+  local at = state.trackPos
+  if type(at) ~= 'number' or at ~= at then return nil end
+  return at
+end
+
 ---Draw one keyframe marker.
 local function diamond(originX, originY, x, y, size, colour)
   local cx, cy = originX + x, originY + y
@@ -473,11 +485,30 @@ function band.draw(state, width)
   end
 
   ------------------------------------------------------------------
-  -- The car
+  -- The playhead
   ------------------------------------------------------------------
-  if type(state.trackPos) == 'number' and state.trackPos == state.trackPos then
-    local x = origin.x + xOf(state.trackPos, width)
+  -- Where the replay is, which on a ribbon measured in track position is
+  -- where the car is. It follows the replay on its own and needs nobody to
+  -- move it.
+  --
+  -- A LINE ACROSS BOTH ZONES, WITH A GRIP IN THE RULER. The line has to cross
+  -- the cameras -- reading it against them is the whole point of having it --
+  -- but a line is not something anyone thinks to take hold of, and one two
+  -- pixels wide is not something anyone could. The triangle in the ruler is
+  -- the part that says "pull me", and it sits in the zone where pulling is
+  -- what happens.
+  local playAt = playheadAt(state)
+  if playAt ~= nil then
+    local x = origin.x + xOf(playAt, width)
     ui.drawLine(vec2(x, origin.y), vec2(x, bottom), theme.mapPlayhead, 1.5)
+
+    -- Apex down, at the foot of the ruler, so the point of the triangle and
+    -- the line it belongs to are the same place.
+    local grip = theme.bandPlayheadGrip
+    ui.drawTriangleFilled(
+      vec2(x, bandTop),
+      vec2(x - grip, bandTop - grip),
+      vec2(x + grip, bandTop - grip), theme.mapPlayhead)
   end
 
   ui.setCursor(vec2(origin.x, origin.y + height))

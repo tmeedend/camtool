@@ -204,6 +204,11 @@ theme.bandRulerTick = rgbm(0.62, 0.62, 0.62, 1)
 theme.bandRulerLabel = rgbm(0.78, 0.78, 0.78, 1)
 theme.bandRulerName = rgbm(0.92, 0.92, 0.92, 1)
 
+---Half the width of the playhead's grip, the triangle in the ruler. Five
+---pixels each way is a target a pointer finds without aiming, which a line
+---the width of the playhead itself is not.
+theme.bandPlayheadGrip = 5
+
 ---The rename field is never narrower than this, however thin the segment.
 theme.bandRenameWidth = 150
 ---A diamond is four pixels across and nobody hits four pixels.

@@ -1853,7 +1853,10 @@ test('the header says whether the replay is running', function()
       local call = handle.drawn[i]
       if call.op == 'drawRectFilled' and call.y2 ~= nil
         and call.y2 - call.y <= 14 then bars = bars + 1 end
-      if call.op == 'drawTriangleFilled' then triangles = triangles + 1 end
+      -- Not the playhead's grip, which is a triangle too and is drawn
+      -- whatever the replay is doing. This is about the indicator alone.
+      if call.op == 'drawTriangleFilled'
+        and call.colour ~= theme.mapPlayhead then triangles = triangles + 1 end
     end
     handle.restoreIo()
     return bars, triangles
