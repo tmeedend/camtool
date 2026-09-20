@@ -16,6 +16,42 @@ contraintes et la carte du code — ce qui ne bouge pas. Le reste vit à côté.
 qui périme à chaque commit n'a rien à faire dans un fichier chargé partout.
 Inversement, une règle ou une contrainte dure reste ici.
 
+### Une fonctionnalité non documentée n'est qu'à moitié livrée
+
+Un geste que seul son auteur connaît n'existe pas pour l'utilisateur. Dans le
+**même commit** que la fonctionnalité, et pas dans un passage de rattrapage :
+
+| Ce qu'on ajoute | Ce qu'il faut écrire avec |
+|---|---|
+| Un geste sur une surface (ruban, carte, champ…) | La **légende du `?`** (`atr.LEGEND`) — le contrat en fait *le seul endroit où l'aide est exhaustive* — et la **ligne de statut** au survol |
+| Un paramètre | Sa **phrase d'infobulle**, une seule, disant ce qu'il *fait* avant ce qu'on peut lui faire |
+| Un comportement notable | Les **grandes lignes** dans `docs/ui-interactions.md` |
+
+Deux tests tiennent la première ligne de ce tableau : l'un échoue si un geste
+existe sans figurer dans la légende, l'autre si un paramètre n'a pas de phrase.
+Ils sont là parce que la légende avait déjà silencieusement pourri d'un lot à
+l'autre — et parce que les 32 phrases d'infobulle ont vécu un temps sans jamais
+atteindre l'écran, chaque moitié testée et la jointure non.
+
+### Maintenir la spécification, sans la gonfler
+
+`docs/ui-interactions.md` dit **ce que l'UI doit faire** ; `docs/etat.md` dit où
+on en est. Les deux se périment différemment, ne pas les mélanger.
+
+L'application est petite : la spécification n'a pas à être un catalogue
+exhaustif. Elle doit tenir **les grandes lignes et les choix, avec leur
+raison** — pourquoi la molette ne modifie jamais une valeur, pourquoi un glissé
+ne vaut qu'une entrée d'annulation. Une règle sans sa raison se fait annuler par
+le premier qui la trouve gênante.
+
+- Un **écart** avec elle s'écrit **dedans**, avec la raison et qui l'a tranché.
+  Exemple en place : Échap, que le contrat demandait et que le jeu utilise pour
+  quitter le replay.
+- Une **surface nouvelle** (le ruban, la carte) a besoin d'une section : quels
+  gestes, et lequel est le navigateur principal. Le document est celui du
+  designer d'ATR — les questions de structure lui reviennent, on ne répond pas
+  à sa place.
+
 ## ⛔ Périmètre — règle absolue
 
 Ce dépôt est extrait **dans le dossier d'installation d'Assetto Corsa**.
