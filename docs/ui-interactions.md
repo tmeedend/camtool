@@ -40,9 +40,20 @@ Anatomie d'une ligne :
 | Clic sur une flèche | un pas |
 | Glisser horizontalement sur la valeur | variation continue |
 | Double-clic sur la valeur | saisie clavier |
-| Échap pendant un glissé ou une saisie | annule, restaure la valeur d'avant |
+| Clic droit pendant un glissé | annule, restaure la valeur d'avant |
+| Clic ailleurs pendant une saisie | abandonne ce qui était tapé |
 | Ctrl maintenu | pas ÷ 4 |
 | Shift maintenu | pas × 4 |
+
+> ⚠️ **Écart assumé avec le contrat d'origine, tranché par Théo en jeu.** Le
+> contrat demandait Échap pour annuler un glissé ou une saisie. Dans Assetto
+> Corsa, **Échap quitte le replay** : l'app peut retenir la touche pendant
+> qu'un champ est ouvert (`ui.captureKeyboard`), et ça marche, mais ça
+> entraîne la main à chercher Échap dans une application où la même touche,
+> un instant plus tard sans champ ouvert, met fin à la session **avec toutes
+> les caméras non sauvegardées**. Un geste d'annulation ne vaut pas ça. Échap
+> est donc laissé au jeu, et l'annulation passe par le clic droit (glissé) ou
+> le clic ailleurs (saisie).
 
 **La molette ne modifie jamais une valeur.** Elle est réservée au défilement de la fenêtre. Un scroll ne permet pas de distinguer l'intention, et comme les champs défilent sous le curseur pendant le geste, un seul coup de molette pourrait modifier plusieurs paramètres sans que rien ne le signale. Aucune exception, même derrière un modificateur.
 

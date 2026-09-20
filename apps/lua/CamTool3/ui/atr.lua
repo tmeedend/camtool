@@ -237,8 +237,10 @@ atr.LEGEND = {
   'Diamond   filled = keyframed here, hollow = keyframed elsewhere in this ' ..
     'camera, empty = never keyframed. A tinted field is animated.',
   'Camera strip   red = the camera being edited, pale = the camera on screen.',
-  'Values   arrows step, drag scrubs, double click types, Escape cancels. ' ..
-    'Ctrl quarters the step, Shift quadruples it. The wheel never edits.',
+  'Values   arrows step, drag scrubs, double click types. Right click during ' ..
+    'a drag abandons it; click away to abandon a typed one. Ctrl quarters ' ..
+    'the step, Shift quadruples it. The wheel never edits, and Escape is the ' ..
+    "game's own key for leaving the replay.",
   'Ribbon   the lap from the start line to the finish, tinted by camera, ' ..
     "with this camera's keyframes above it and the car as a white line.",
   'Ribbon   click to select that camera AND bring the car there. ' ..
@@ -287,61 +289,6 @@ local function valueOf(camera, key, keyframeIndex)
   end
 
   return camera[key], anywhere and 'elsewhere' or 'none'
-end
-
----Draw a row of numbered buttons with an add and a remove at the end.
----
----The left side of CamTool 2 is two such columns, cameras and keyframes. ATR's
----mockup turns the camera one on its side and drops the other; both are here,
----because losing the keyframe list would leave no way to make a camera move.
----Leaves the cursor on the same line, so the caller can put something to the
----right of it -- which is where the action buttons live.
----@return number|nil picked, boolean added, boolean removed
-local function strip(id, count, active, width, colour, live)
-  local picked, added, removed = nil, false, false
-  local perRow = 20
-  local cell = math.floor((width - (perRow - 1)) / perRow)
-
-  for i = 1, count do
-    -- Two different things, and CamTool 2 keeps them apart too: the camera
-    -- being edited (__active_cam) and the one the car's position has made
-    -- live (data.active_cam). Red is the one you are editing; the paler tint
-    -- is the one on screen.
-    local fill = colour
-    if i == live then fill = theme.stripLive end
-    if i == active then fill = theme.stripActive end
-    ui.pushStyleColor(ui.StyleColor.Button, fill)
-    ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
-    ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-    if ui.button(tostring(i) .. '###' .. id .. i,
-        vec2(cell, theme.stripHeight)) then
-      picked = i
-    end
-    ui.popStyleColor(3)
-    if i % perRow ~= 0 then ui.sameLine(0, 1) end
-  end
-
-  ui.pushStyleColor(ui.StyleColor.Button, colour)
-  ui.pushStyleColor(ui.StyleColor.ButtonHovered, theme.stripActive)
-  ui.pushStyleColor(ui.StyleColor.ButtonActive, theme.stripActive)
-  if ui.button('+##' .. id .. 'add', vec2(cell, theme.stripHeight)) then
-    added = true
-  end
-  ui.sameLine(0, 1)
-  if ui.button('-##' .. id .. 'del', vec2(cell, theme.stripHeight)) then
-    removed = true
-  end
-  ui.popStyleColor(3)
-
-  -- How wide the LAST line of the strip ended up. Whatever is put beside it
-  -- needs this to know how much room is left, and counting the cells is the
-  -- only way to know: the strip wraps at twenty and the plus and minus follow
-  -- the last one.
-  local onLastLine = count % perRow + 2
-  if count % perRow == 0 and count > 0 then onLastLine = 2 end
-  local usedWidth = onLastLine * cell + (onLastLine - 1)
-
-  return picked, added, removed, usedWidth
 end
 
 ---Decide where a row of buttons has to break.
@@ -407,6 +354,12 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
   local action, payload = parameter.draw(section .. spec.key, {
     label = spec.label,
     text = text,
+    -- The sentence, and what kind of row this is so the gestures offered
+    -- match what the row actually allows. Both were missing: the help was
+    -- written into atr.COLUMNS and stopped here, so not one tooltip ever
+    -- appeared. Each half was tested and the join between them was not.
+    help = spec.help,
+    runtime = spec.runtime,
     raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
     noDiamond = spec.plain == true or spec.runtime == true
       or spec.cameraLevel == true,
@@ -515,33 +468,15 @@ function atr.draw(state)
   -- previous and next, and ATR's mockup replaces that with the whole set at
   -- a glance -- on a 48-camera file that is the difference between a click
   -- and forty.
-  -- TEMPORARY SWITCH, and it is meant to disappear.
+  -- The two numbered strips that used to sit here are gone. They gave every
+  -- camera a cell, twenty to a row, and the ribbon below does the same job at
+  -- any size -- which is issue #6. They were put behind a temporary switch for
+  -- a session of real work first, and were not missed.
   --
-  -- The ribbon below now does everything these two do, and better on a long
-  -- set. Whether they still earn their place is not an argument to have, it
-  -- is a session of real work to try: hide them, cut a video, see whether
-  -- they are missed. Shipping them and removing them later would make people
-  -- learn the panel twice, which is the one sequence to avoid.
-  --
-  -- It goes away afterwards, one way or the other. It must not settle in as
-  -- an option, or the panel has two interfaces to maintain for ever.
+  -- Where what they carried went: selecting a camera or a keyframe is a click
+  -- on the ribbon, adding and removing a camera is its right-click menu, and
+  -- the keyframe pair moved into the row of actions below.
   local stripWidth = 0
-  if state.showStrips ~= false then
-    actions.selectCamera, actions.addCamera, actions.removeCamera =
-      strip('cam', state.cameraCount or 0, state.cameraIndex, width, theme.strip,
-        state.liveCameraIndex)
-  end
-
-  -- And the keyframes of that camera. This is the second column of CamTool 2's
-  -- left side, which the mockup has no place for -- without it a camera can
-  -- hold a pose but never move.
-  if state.showStrips ~= false then
-    ui.newLine(2)
-    actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe,
-      stripWidth =
-      strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
-        theme.stripKeyframe)
-  end
 
   -- The actions sit to the right of the keyframe strip, which is where the
   -- room is: a camera rarely has twenty keyframes, and these were previously
@@ -578,10 +513,12 @@ function atr.draw(state)
       label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
     { id = 'toggleHelp', width = 30,
       label = (state.showHelp and '[?]' or ' ? ') .. '###showHelp' },
-    -- Temporary: see the note above the camera strip.
-    { id = 'toggleStrips', width = 62,
-      label = (state.showStrips ~= false and '[strips]' or ' strips ')
-        .. '###showStrips' },
+    -- The keyframe pair, which the strip used to carry. A keyframe is born at
+    -- the playhead and belongs to the selected camera, so neither button
+    -- needs somewhere to point at -- unlike a camera, which is added where
+    -- the right click landed on the ribbon.
+    { id = 'addKeyframe', width = 34, gap = 10, label = '+kf##kfadd' },
+    { id = 'removeKeyframe', width = 34, label = '-kf##kfdel' },
     -- Position or time, and which curve maths the file gets. The second is
     -- not a preference: a CamTool 2 file is loaded as legacy and has to
     -- behave as CamTool 2 did, or footage already cut would change. Shown so
@@ -626,7 +563,8 @@ function atr.draw(state)
   if clicked.reset then actions.reset = true end
   if clicked.toggleMap then actions.toggleMap = true end
   if clicked.toggleHelp then actions.toggleHelp = true end
-  if clicked.toggleStrips then actions.toggleStrips = true end
+  if clicked.addKeyframe then actions.addKeyframe = true end
+  if clicked.removeKeyframe then actions.removeKeyframe = true end
   if clicked.posList then actions.listName = 'pos' end
   if clicked.timeList then actions.listName = 'time' end
   if clicked.maths then actions.mode = legacy and 'fixed' or 'legacy' end

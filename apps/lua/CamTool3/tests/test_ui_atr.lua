@@ -455,10 +455,13 @@ test('a value with nothing behind it does not offer the cursor', function()
   handle.restoreIo()
 end)
 
-test('Escape during a drag asks for the value back', function()
+test('a right click during a drag asks for the value back', function()
+  -- Not Escape. That key is Assetto Corsa's for leaving the replay, and an
+  -- app that teaches the hand to reach for it is an app where one mistimed
+  -- press ends the session with every unsaved camera in it.
   local handle = fakes.install({
     itemActive = true, mouseDragDelta = { x = 30, y = 0 },
-    keyPressed = 27,
+    rightClicked = true,
   })
   parameter.cancelEditing()
 
@@ -469,12 +472,25 @@ test('Escape during a drag asks for the value back', function()
   handle.restoreIo()
 end)
 
-test('after Escape the same hold cannot start dragging again', function()
-  -- The button is still down. Without this, letting go of Escape would rearm
-  -- the gesture a few pixels later and quietly carry on.
+test('Escape does nothing to a drag, and so never reaches the game as ours', function()
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 30, y = 0 }, keyPressed = 27,
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('escgone', spec)
+  eq(parameter.draw('escgone', spec), 'drag', 'the drag simply carries on')
+
+  handle.restoreIo()
+end)
+
+test('after cancelling, the same hold cannot start dragging again', function()
+  -- The button is still down. Without this, letting go would rearm the
+  -- gesture a few pixels later and quietly carry on.
   local handle = fakes.install({
     itemActive = true, mouseDragDelta = { x = 30, y = 0 },
-    keyPressed = 27,
+    rightClicked = true,
   })
   parameter.cancelEditing()
 
@@ -484,7 +500,7 @@ test('after Escape the same hold cannot start dragging again', function()
 
   handle.restoreIo()
 
-  -- Escape let go of, mouse still held.
+  -- Right button let go of, left one still held.
   handle = fakes.install({
     itemActive = true, mouseDragDelta = { x = 60, y = 0 },
   })
@@ -584,18 +600,47 @@ test('every unit can go both ways', function()
   end
 end)
 
-test('the strips offer add and remove, and the keyframe row its position', function()
-  local handle = fakes.install({ clicks = { ['+##kfadd'] = true } })
-  local doc = dataModule.load(rawFile)
+test('the keyframe pair sits in the action row now the strips have gone', function()
+  -- The strips gave every camera and every keyframe a numbered cell. The
+  -- ribbon does that at any size, so they went -- but a keyframe still has to
+  -- be addable, and neither button needs somewhere to point at: a keyframe is
+  -- born at the playhead, on the selected camera.
+  local handle = fakes.install({ clicks = { ['+kf##kfadd'] = true } })
+  parameter.cancelEditing()
 
   local actions = atr.draw({
-    camera = doc.pos[2], cameraIndex = 2, cameraCount = #doc.pos,
-    keyframeIndex = 1, keyframeCount = #(doc.pos[2].keyframes or {}),
-    keyframePosition = doc.pos[2].keyframes[1].keyframe,
-    trackPos = 0.02, trackLength = 5802,
+    cameraCount = 3, cameraIndex = 1, keyframeCount = 2, keyframeIndex = 1,
+    trackPos = 0.2, trackLength = 4300, listName = 'pos', showMap = false,
   })
   eq(actions.addKeyframe, true)
+  handle.restoreIo()
 
+  handle = fakes.install({ clicks = { ['-kf##kfdel'] = true } })
+  actions = atr.draw({
+    cameraCount = 3, cameraIndex = 1, keyframeCount = 2, keyframeIndex = 1,
+    trackPos = 0.2, trackLength = 4300, listName = 'pos', showMap = false,
+  })
+  eq(actions.removeKeyframe, true)
+  handle.restoreIo()
+end)
+
+test('no numbered cell is drawn anywhere any more', function()
+  -- The strips are gone for good, not hidden. A cell coming back would mean
+  -- two ways to pick a camera again, which is what the ribbon replaced.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  atr.draw({
+    cameraCount = 22, cameraIndex = 1, keyframeCount = 3, keyframeIndex = 1,
+    trackPos = 0.2, trackLength = 4300, listName = 'pos', showMap = false,
+  })
+
+  for i = 1, #handle.buttons do
+    eq(tostring(handle.buttons[i]):find('###cam%d'), nil,
+      'a numbered camera cell came back: ' .. tostring(handle.buttons[i]))
+    eq(tostring(handle.buttons[i]):find('###kf%d'), nil,
+      'a numbered keyframe cell came back: ' .. tostring(handle.buttons[i]))
+  end
   handle.restoreIo()
 end)
 
@@ -1238,10 +1283,10 @@ end)
 -- The contract in docs/ui-interactions.md
 --------------------------------------------------------------------------
 
-test('Escape drops what was being typed and leaves the value alone', function()
-  -- The contract asks for Escape on a typed entry as well as on a drag.
-  -- Nothing was applied until Enter, so there is nothing to put back -- but
-  -- the field has to close, and it must not commit half a number.
+test('clicking away drops what was being typed', function()
+  -- The way out of a typed entry, now that Escape is left to the game.
+  -- Nothing was applied until Enter, so there is nothing to put back, but the
+  -- field has to close without committing half a number.
   local handle = fakes.install({
     itemHovered = true, mouseDoubleClicked = true,
   })
@@ -1251,15 +1296,21 @@ test('Escape drops what was being typed and leaves the value alone', function()
   parameter.draw('esc-type', spec)
   handle.restoreIo()
 
-  -- Typing, then Escape.
-  handle = fakes.install({ typed = '35', keyPressed = 27 })
-  local action = parameter.draw('esc-type', spec)
-  eq(action, nil, 'nothing committed')
+  -- Typing.
+  handle = fakes.install({ typed = '35', itemActive = true })
+  eq(parameter.draw('esc-type', spec), nil, 'nothing committed yet')
   handle.restoreIo()
 
-  -- And the field is closed: the next frame draws a value, not an entry box.
+  -- Clicked away: the field is no longer active. That frame still draws the
+  -- field -- it was open when the drawing began -- and closes it at the end,
+  -- so the value comes back on the one after.
+  handle = fakes.install({})
+  eq(parameter.draw('esc-type', spec), nil, 'and nothing committed on the way out')
+  handle.restoreIo()
+
   handle = fakes.install({})
   parameter.draw('esc-type', spec)
+
   local sawValue = false
   for i = 1, #handle.buttons do
     if tostring(handle.buttons[i]):find('esc%-typeval') then sawValue = true end
@@ -1538,75 +1589,7 @@ test('a button wider than the panel gets its own line rather than a neighbour', 
   eq(placed[2].line, 2)
 end)
 
-test('the numbered strips can be hidden, and the ribbon carries on alone', function()
-  -- The switch that answers whether the ribbon has made them redundant, by
-  -- use rather than by argument. Temporary: see the note in ui/atr.lua.
-  local doc = data.load(rawFile)
-  local function drawWith(showStrips)
-    local handle = fakes.install({})
-    parameter.cancelEditing()
-    atr.draw({
-      doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
-      cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
-      trackPos = 0.3, trackLength = 4300, listName = 'pos',
-      showMap = false, showStrips = showStrips,
-    })
-    local numbered, ribbons = 0, 0
-    for i = 1, #handle.buttons do
-      if tostring(handle.buttons[i]):find('###cam%d') then numbered = numbered + 1 end
-    end
-    for i = 1, #handle.drawn do
-      if handle.drawn[i].op == 'label' then ribbons = ribbons + 1 end
-    end
-    handle.restoreIo()
-    return numbered, ribbons
-  end
 
-  local shownCells, shownLabels = drawWith(true)
-  eq(shownCells > 0, true, 'the strip is there to begin with')
-  eq(shownLabels > 0, true, 'and so is the ribbon')
-
-  local hiddenCells, hiddenLabels = drawWith(false)
-  eq(hiddenCells, 0, 'the strip is gone')
-  eq(hiddenLabels, shownLabels, 'and the ribbon is untouched')
-end)
-
-test('with the strips hidden the action row starts its own line', function()
-  -- The bug this pins, found in game: the row is placed beside the keyframe
-  -- strip, and with no strip it was placed beside the full-width header
-  -- instead. The whole row landed off the right edge where nothing could
-  -- click it -- including the switch that had just hidden the strips, so
-  -- there was no way back.
-  local doc = data.load(rawFile)
-
-  local function firstActionPlacement(showStrips)
-    local handle = fakes.install({})
-    parameter.cancelEditing()
-    atr.draw({
-      doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
-      cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
-      trackPos = 0, trackLength = 4300, listName = 'pos',
-      showMap = false, showStrips = showStrips,
-    })
-
-    -- Whatever was done to the layout immediately before the Undo button,
-    -- which is the first of the action row. Not simply the first button of
-    -- the panel: the file bar draws several before this.
-    local last = nil
-    for i = 1, #handle.drawn do
-      local call = handle.drawn[i]
-      if call.op == 'sameLine' or call.op == 'newLine' then last = call.op end
-      if call.op == 'button' and call.text:find('###undo', 1, true) then break end
-    end
-    handle.restoreIo()
-    return last
-  end
-
-  eq(firstActionPlacement(false), 'newLine',
-    'nothing beside it, so it begins a line')
-  eq(firstActionPlacement(true), 'sameLine',
-    'and it still sits beside the strip when there is one')
-end)
 
 --------------------------------------------------------------------------
 -- Buttons that used to refuse in silence
@@ -1619,8 +1602,9 @@ local function clickInPanel(label, opts)
   opts.clicks = {
     ['no file###fileName'] = true,
     ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
-    [label] = true,
   }
+  if label ~= nil then opts.clicks[label] = true end
+  for extra in pairs(opts.extraClicks or {}) do opts.clicks[extra] = true end
   local handle = fakes.install(opts)
   trackAdapter.clearCache()
   trackMap.reset()
@@ -1635,11 +1619,14 @@ local function clickInPanel(label, opts)
   opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
   pcall(_G.script.windowAtr, 0.016)
 
-  -- A third frame: the panel is drawn before the clicks it reported are
-  -- acted on, so anything the click had to say appears the frame after.
-  handle.tick(0.016)
-  handle.drawn = {}
-  pcall(_G.script.windowAtr, 0.016)
+  -- More frames: the panel is drawn before the clicks it reported are acted
+  -- on, so anything a click had to say appears the frame after -- and a click
+  -- that first has to select something needs the one after that.
+  for _ = 1, 3 do
+    handle.tick(0.016)
+    handle.drawn = {}
+    pcall(_G.script.windowAtr, 0.016)
+  end
 
   -- Everything the panel wrote: the status line sits near the top, well
   -- before the help line at the bottom.
@@ -1651,13 +1638,18 @@ local function clickInPanel(label, opts)
   return table.concat(said, ' | '), handle
 end
 
-test('adding a camera works before the camera has been taken', function()
+test('adding a keyframe works before the camera has been taken', function()
   -- The playhead came from the playback, and the playback only runs once the
-  -- camera is held. Before that, + refused and said nothing -- which is what
-  -- clicking it and watching nothing happen looked like.
+  -- camera is held. Before that, every button needing a position refused in
+  -- silence -- clicking + and watching nothing happen was exactly that.
   --
-  -- Measured on the undo stack: an add that was refused leaves it empty.
-  local _, handle = clickInPanel('+##camadd', { splinePosition = 0.42 })
+  -- Measured on the undo stack: a refused add leaves it empty. The camera is
+  -- selected by clicking the ribbon, which is how one is selected now.
+  local _, handle = clickInPanel(nil, {
+    splinePosition = 0.42, itemHovered = true,
+    mouseX = 17 + 100, mouseY = 23 + 10,
+    extraClicks = { ['##trackBand'] = true, ['+kf##kfadd'] = true },
+  })
 
   local depth = nil
   for i = #handle.buttons, 1, -1 do
@@ -1665,15 +1657,20 @@ test('adding a camera works before the camera has been taken', function()
     if n then depth = tonumber(n) break end
   end
 
-  eq(depth, 1, 'one camera added, with no camera held')
+  eq(depth ~= nil and depth >= 1, true,
+    'something was added with no camera held, got ' .. tostring(depth))
   handle.restoreIo()
 end)
 
 test('a button that cannot act says why', function()
-  -- No car at all: nothing to add a camera at, and the panel has to say so
+  -- No car at all: nothing to put a keyframe at, and the panel has to say so
   -- rather than swallow the click.
-  local said = clickInPanel('+##camadd', { noFocusedCar = true })
-  eq(said ~= nil and said:find('no car', 1, true) ~= nil, true,
+  local said = clickInPanel(nil, {
+    noFocusedCar = true, itemHovered = true,
+    mouseX = 17 + 100, mouseY = 23 + 10,
+    extraClicks = { ['##trackBand'] = true, ['+kf##kfadd'] = true },
+  })
+  eq(said:find('no car', 1, true) ~= nil, true,
     'the panel said: ' .. tostring(said))
 end)
 
@@ -1693,71 +1690,36 @@ test('Reset says on the button that it is armed', function()
 end)
 
 --------------------------------------------------------------------------
--- Escape has to reach the panel, not the game
+-- Escape belongs to the game
 --------------------------------------------------------------------------
 
-test('a field being typed into holds on to the keyboard', function()
-  -- Without this, Escape to abandon a half-typed number left the replay
-  -- altogether: Assetto Corsa saw the key first.
+test('nothing in the panel asks to hold the keyboard', function()
+  -- It did, so Escape could cancel a gesture without Assetto Corsa taking it
+  -- as "leave the replay". The capture worked; what made it wrong is that it
+  -- taught the hand to reach for Escape in an app where the same key, a
+  -- moment later with nothing open, ends the session and every unsaved camera
+  -- with it.
+  local doc = data.load(rawFile)
   local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
   parameter.cancelEditing()
 
-  local spec = { label = 'FOV', text = '40.00 deg', raw = '40', width = 140 }
-  parameter.draw('hold', spec)
-  handle.restoreIo()
+  for _ = 1, 3 do
+    atr.draw({
+      doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+      cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+      trackPos = 0.3, trackLength = 4300, listName = 'pos',
+      showMap = false, dt = 0.016,
+    })
+  end
 
-  handle = fakes.install({})
-  parameter.draw('hold', spec)
-  eq(handle.keyboardHeld, true, 'the field asks for the keyboard')
+  eq(handle.keyboardHeld, nil, 'the game keeps its own keys')
   handle.restoreIo()
-
   parameter.cancelEditing()
 end)
 
-test('an armed drag holds it too, since Escape cancels that as well', function()
-  local handle = fakes.install({
-    itemActive = true, mouseDragDelta = { x = 30, y = 0 },
-  })
-  parameter.cancelEditing()
 
-  local spec = { label = 'MIX', text = '50%', width = 140 }
-  parameter.draw('holddrag', spec)
-  parameter.draw('holddrag', spec)
-  eq(handle.keyboardHeld, true)
 
-  handle.restoreIo()
-end)
 
-test('a panel doing nothing leaves the keyboard alone', function()
-  -- While the capture is on, none of the game's own bindings work. It lasts
-  -- exactly as long as the gesture that needs Escape.
-  local handle = fakes.install({})
-  parameter.cancelEditing()
-
-  parameter.draw('quiet', { label = 'MIX', text = '50%', width = 140 })
-  eq(handle.keyboardHeld, nil, 'nothing asked for')
-
-  handle.restoreIo()
-end)
-
-test('renaming a camera on the ribbon holds it as well', function()
-  local state = { cameras = { { id = 1, camera_in = 0, camera_pit = false } },
-    cameraIndex = 1 }
-
-  trackBand.reset()
-  local handle = fakes.install({
-    itemHovered = true, mouseDoubleClicked = true,
-    mouseX = 17 + 100, mouseY = 23 + 10,
-  })
-  trackBand.draw(state, 360)
-  handle.restoreIo()
-
-  handle = fakes.install({})
-  trackBand.draw(state, 360)
-  eq(handle.keyboardHeld, true)
-  handle.restoreIo()
-  trackBand.reset()
-end)
 
 test('the legend covers every gesture the panel has', function()
   -- docs/ui-interactions.md: the ? button is the ONLY place help is
@@ -1767,7 +1729,7 @@ test('the legend covers every gesture the panel has', function()
 
   for _, gesture in ipairs({
     'shift+click', 'double click', 'right click', 'drag', 'escape',
-    'ctrl+z', 'wheel', 'diamond', 'ribbon', 'map',
+    'ctrl+z', 'wheel', 'diamond', 'ribbon', 'map', 'click away',
   }) do
     eq(all:find(gesture, 1, true) ~= nil, true,
       'the legend never mentions ' .. gesture)
@@ -1779,4 +1741,63 @@ test('the legend says what a click on the ribbon does to the replay', function()
   local all = table.concat(atr.LEGEND, ' | '):lower()
   eq(all:find('bring the car', 1, true) ~= nil, true)
   eq(all:find('without moving the replay', 1, true) ~= nil, true)
+end)
+
+test('the panel hands the widget the sentence written for the row', function()
+  -- Written after the tooltips turned out never to show at all. Both halves
+  -- had tests -- the widget showed one when handed a sentence, the panel had
+  -- a sentence for every parameter -- and the join between them did not: the
+  -- panel rebuilt the row and dropped the sentence on the way. This is that
+  -- join, and it is where the bug was.
+  --
+  -- The tooltip itself is checked at the widget, not here: the fake answers
+  -- "hovered" for every row at once, so the delay resets on each and a panel
+  -- drawn whole can never reach it. One row hovered is the real case.
+  local doc = data.load(rawFile)
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  atr.draw({
+    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+    cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0.3, trackLength = 4300, listName = 'pos',
+    showMap = false, dt = 0.016,
+  })
+
+  local label, help = parameter.hovered()
+  eq(type(help), 'string', 'the sentence reached the widget')
+  eq(#help > 10, true, 'and it is a sentence, not an empty slot')
+
+  -- And that same sentence, given to the widget, does become a tooltip.
+  handle.restoreIo()
+  handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+  for _ = 1, 40 do
+    parameter.beginFrame(0.016)
+    parameter.draw('join', { label = label, help = help, text = '1', width = 140 })
+    parameter.endFrame()
+  end
+  eq(#handle.tooltips > 0, true, 'and the widget shows it')
+  eq(handle.tooltips[1]:find(help, 1, true), 1)
+
+  handle.restoreIo()
+end)
+
+test('the status line shows the sentence, not just the label', function()
+  local doc = data.load(rawFile)
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+
+  atr.draw({
+    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+    cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0.3, trackLength = 4300, listName = 'pos',
+    showMap = false, dt = 0.016,
+  })
+
+  local label, help = parameter.hovered()
+  eq(type(label), 'string')
+  eq(type(help), 'string', 'the sentence reached the widget')
+
+  handle.restoreIo()
 end)

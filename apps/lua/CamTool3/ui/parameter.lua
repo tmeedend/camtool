@@ -187,28 +187,21 @@ end
 ---  badgeOn   whether that marker is lit
 ---  width     the row's width in pixels
 ---@return ParameterAction|nil
----Hold on to the keyboard while a field is open or a drag is armed.
+---Nothing here holds the keyboard any more.
 ---
----Escape is ours only if Assetto Corsa does not get it first -- and it does:
----pressing it to abandon a half-typed number left the replay altogether. This
----is the call that stops that, and it has to be made every frame the capture
----is wanted, not once when the field opens.
+---It did, so that Escape could cancel a gesture without Assetto Corsa taking
+---it as "leave the replay". The capture worked. What made it the wrong answer
+---is that it trained the hand: press Escape to abandon a field, press it again
+---a moment later with nothing open, and the session goes -- with every unsaved
+---camera in it. A cancel gesture is not worth that.
 ---
----Narrow on purpose. While it is on, none of the game's own bindings work, so
----it lasts exactly as long as the gesture that needs Escape and not a moment
----more.
-local function holdKeyboard()
-  if type(ui.captureKeyboard) == 'function' or ui.captureKeyboard ~= nil then
-    pcall(ui.captureKeyboard, true)
-  end
-end
+---So a drag is abandoned with a right click, a typed value by clicking away,
+---and Escape is left to mean what the game has always meant by it.
 
 function parameter.draw(id, spec)
   local width = spec.width or 100
 
-  if editing == id or (dragId == id and dragState == 'armed') then
-    holdKeyboard()
-  end
+
   -- Worked out here rather than written into every row: what a row allows is
   -- already described by the flags it carries.
   if spec.gestures == nil then
@@ -307,11 +300,6 @@ function parameter.draw(id, spec)
     if entered then
       action, payload = 'commit', tonumber(buffer)
       editing, editingWasActive = nil, false
-    elseif ui.keyboardButtonPressed(ui.KeyIndex.Escape) then
-      -- The same escape hatch as the drag, and the contract asks for both:
-      -- what was typed is dropped and the value stays where it was. Nothing
-      -- to restore, since nothing was applied until Enter.
-      editing, editingWasActive = nil, false
     elseif ui.itemActive() then
       editingWasActive = true
     elseif editingWasActive then
@@ -363,9 +351,18 @@ function parameter.draw(id, spec)
           ui.resetMouseDragDelta(0)
         end
       elseif dragState == 'armed' then
-        if ui.keyboardButtonPressed(ui.KeyIndex.Escape) then
-          -- Blender's escape hatch, and the reason a drag is safe to try: the
-          -- value goes back to what it was before the gesture started.
+        if ui.mouseClicked(ui.MouseButton.Right) then
+          -- Right click to abandon, not Escape.
+          --
+          -- Escape is Assetto Corsa's key for leaving the replay. Holding the
+          -- keyboard while a gesture is running stops it reaching the game --
+          -- but it also teaches the hand to reach for Escape in an app where,
+          -- a moment later with no field open, that same key ends the session
+          -- and takes every unsaved camera with it. A cancel is not worth
+          -- training that.
+          --
+          -- Right click is Blender's, it means nothing else during a drag,
+          -- and pressing it by mistake costs one abandoned gesture.
           action, dragState = 'dragCancel', 'cancelled'
         elseif dx ~= 0 then
           action, payload = 'drag', dx / PIXELS_PER_STEP
