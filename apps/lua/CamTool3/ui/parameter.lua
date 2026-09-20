@@ -270,8 +270,12 @@ function parameter.draw(id, spec)
   ui.pushStyleColor(ui.StyleColor.Button, pill)
   ui.pushStyleColor(ui.StyleColor.ButtonHovered, column.pillHover)
   ui.pushStyleColor(ui.StyleColor.ButtonActive, column.pillHover)
+  -- A live reading is not this camera's value yet, and says so by being
+  -- dimmer. Pinning it with the diamond is what makes it one.
   ui.pushStyleColor(ui.StyleColor.Text,
-    spec.present == false and theme.absent or theme.text)
+    (spec.present == false and theme.absent)
+      or (spec.live and theme.muted)
+      or theme.text)
 
   -- Held arrows repeat, as they do in CamTool 2.
   ui.pushButtonRepeat(true)

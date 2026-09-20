@@ -1287,15 +1287,58 @@ local KEYFRAME_STEP_M = 10
 ---What the camera is doing right now, for seeding a new keyframe. This is the
 ---gesture the whole tool is built on: put the view where you want it, then
 ---pin it.
+---What the camera is doing right now.
+---
+---Two sources, and the second is the one that was missing. While CamTool is
+---driving, pbOut is what it decided. While it is not -- free camera, cockpit,
+---anything -- the camera still exists and can be read straight from the game,
+---and THAT is the number someone flying a free camera around wants to see
+---before pinning it.
+---
+---It is the gesture the whole tool is built on: put the view where you want
+---it, then pin it. Without the reading, the panel showed `--` and you were
+---pinning something you could not see.
 local function liveValue(key)
-  if key == 'loc_x' then return pbOut.x end
-  if key == 'loc_y' then return pbOut.y end
-  if key == 'loc_z' then return pbOut.z end
-  if key == 'rot_x' then return pbOut.pitch end
-  if key == 'rot_y' then return pbOut.roll end
-  if key == 'rot_z' then return pbOut.heading end
-  if key == 'camera_fov' then return pbOut.fov end
-  if key == 'camera_focus_point' then return pbOut.dofDistance end
+  if key == 'loc_x' and pbOut.x ~= nil then return pbOut.x end
+  if key == 'loc_y' and pbOut.y ~= nil then return pbOut.y end
+  if key == 'loc_z' and pbOut.z ~= nil then return pbOut.z end
+  if key == 'rot_x' and pbOut.pitch ~= nil then return pbOut.pitch end
+  if key == 'rot_y' and pbOut.roll ~= nil then return pbOut.roll end
+  if key == 'rot_z' and pbOut.heading ~= nil then return pbOut.heading end
+  if key == 'camera_fov' and pbOut.fov ~= nil then return pbOut.fov end
+  if key == 'camera_focus_point' and pbOut.dofDistance ~= nil then
+    return pbOut.dofDistance
+  end
+
+  -- Nothing from the playback: read the game's own camera. Positions come
+  -- back in AC space and CamTool stores Z-up, the same swap as everywhere
+  -- else; the angles come from the look vector, through the same conversion
+  -- the playback seeds itself with.
+  if key == 'loc_x' or key == 'loc_y' or key == 'loc_z' then
+    local p = ac.getCameraPosition and ac.getCameraPosition() or nil
+    if p == nil then return nil end
+    if key == 'loc_x' then return p.x end
+    if key == 'loc_y' then return p.z end
+    return p.y
+  end
+
+  if key == 'rot_x' or key == 'rot_z' then
+    local look = ac.getCameraForward and ac.getCameraForward() or nil
+    if look == nil then return nil end
+    -- fromLook takes an AC look vector as it comes, Y-up, and answers in
+    -- CamTool convention. No swapping here: doing it anyway gives angles that
+    -- look plausible and are wrong, which is worse than showing nothing.
+    local heading, pitch = angles.fromLook(look.x, look.y, look.z)
+    return key == 'rot_x' and pitch or heading
+  end
+
+  if key == 'camera_fov' then
+    return ac.getCameraFOV and ac.getCameraFOV() or nil
+  end
+
+  -- Roll and the focus distance have no reading of their own: AC gives a look
+  -- vector rather than an angle, and nothing reports what the lens is focused
+  -- on. Saying nothing is better than saying zero.
   return nil
 end
 
@@ -1427,6 +1470,8 @@ function script.windowAtr(dt)
     dt = dt,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
+    -- What the camera is doing, for every field that has no value of its own.
+    live = liveValue,
     trackedCarA = sim.focusedCar,
     trackedCarB = nil,
   })
@@ -1708,6 +1753,35 @@ function script.windowAtr(dt)
   elseif atrConfirmReset and next(actions) ~= nil then
     -- Anything else clicked means they thought better of it.
     atrConfirmReset = false
+  end
+
+  -- Saving under a name of your own. The file is written into CamTool 3's
+  -- folder like every other save, so this never touches a CamTool 2 original
+  -- whatever it is called.
+  if type(actions.saveAs) == 'string' and doc ~= nil then
+    local name = actions.saveAs:gsub('^%s+', ''):gsub('%s+$', '')
+    if name == '' then
+      atrStatus = 'a file needs a name'
+    else
+      if not name:lower():find('%.json$') then name = name .. '.json' end
+      local saved, err = storage.saveCameraFile(name, doc)
+      if saved then
+        docName = name
+        atrStatus = 'saved ' .. name
+        undoStack, redoStack = {}, {}
+        -- The new file has to appear in the list, and the list is only rescanned
+        -- when the track changes. Forgetting what was scanned is what asks for
+        -- a fresh look; emptying the list itself would leave the panel indexing
+        -- a nil.
+        scannedPrefix = nil
+        log('saved as ' .. name)
+      else
+        atrStatus = 'SAVE FAILED: ' .. tostring(err)
+        log(atrStatus)
+      end
+    end
+  elseif actions.saveAs ~= nil then
+    atrStatus = 'nothing loaded to save'
   end
 
   if actions.save then

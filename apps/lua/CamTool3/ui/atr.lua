@@ -28,6 +28,11 @@ local evaluate = require('core/evaluate')
 
 local atr = {}
 
+-- Naming the file being saved. One at a time, like the value being typed into
+-- and the camera being renamed, so a plain pair rather than a table.
+local renamingFile = false
+local fileNameBuffer = ''
+
 --------------------------------------------------------------------------------
 -- What each column holds
 --------------------------------------------------------------------------------
@@ -248,10 +253,11 @@ atr.LEGEND = {
     'Shift+click selects without moving the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
     'Double click a segment to name it.',
-  'Ribbon   RIGHT CLICK to add a camera where you clicked, to remove the one ' ..
-    'under the pointer, or to bring the car there. There is no button for ' ..
-    'adding a camera: the menu knows where you meant, and a button would ' ..
-    'have to guess.',
+  'Cameras   +cam adds one where the car is, -cam removes the selected one. ' ..
+    '+kf and -kf do the same for keyframes of that camera.',
+  'Ribbon   RIGHT CLICK to add a camera at that exact spot, to remove the ' ..
+    'one under the pointer, or to bring the car there. The buttons are for ' ..
+    'here and now; the menu is for somewhere in particular.',
   'Map   the same cameras on the circuit. Click and Shift+click do what they ' ..
     'do on the ribbon; the handle drags there too.',
   "Arrows   left and right step through this camera's keyframes, up and " ..
@@ -264,7 +270,8 @@ atr.LEGEND = {
   'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
     'moving the replay is not an edit at all.',
   'Save   writes over the file it came from, keeping one copy of what was ' ..
-    'there before CamTool 3 first touched it. Reset asks first.',
+    'there before CamTool 3 first touched it. DOUBLE CLICK THE FILE NAME to ' ..
+    'save under a different one. Reset asks first.',
 }
 
 --------------------------------------------------------------------------------
@@ -350,6 +357,22 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     value, keyframe = valueOf(state.camera, spec.key, state.keyframeIndex)
   end
 
+  -- Nothing stored for this parameter: show what the camera is doing instead.
+  --
+  -- This is the gesture the tool is built on -- put the view where you want
+  -- it, then pin it with the diamond -- and without the reading the panel
+  -- said `--` and you were pinning something you could not see. CamTool 2
+  -- shows the live value the same way.
+  --
+  -- It is drawn in the muted colour, because it is not this camera's value
+  -- yet. The diamond is what makes it one.
+  local live = false
+  if value == nil and not spec.plain and not spec.runtime
+      and type(state.live) == 'function' then
+    value = state.live(spec.key)
+    live = value ~= nil
+  end
+
   -- camera_in is a track position: stored as a fraction of a lap, shown in
   -- metres, exactly as CamTool 2 shows it.
   local shown = value
@@ -379,6 +402,7 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     column = colour,
     keyframe = keyframe,
     present = value ~= nil or spec.plain == true,
+    live = live,
     width = colWidth,
     badge = spec.badge,
     badgeOn = spec.badge ~= nil and state.camera ~= nil
@@ -440,9 +464,38 @@ function atr.draw(state)
     actions.prevFile = true
   end
   ui.sameLine(0, 2)
-  if ui.button((state.fileName or 'no file') .. '###fileName',
-      vec2(nameWidth, theme.barHeight)) then
-    actions.loadFile = true
+
+  -- Double click the name to save under another one.
+  --
+  -- The same gesture that renames a camera on the ribbon, on the thing whose
+  -- name it changes. There was no way to name a file at all: Save wrote over
+  -- whatever had been loaded, so a set could never become a set of your own.
+  if renamingFile then
+    ui.setNextItemWidth(nameWidth)
+    local text, _, entered = ui.inputText('##fileNameEntry', fileNameBuffer,
+      ui.InputTextFlags.AutoSelectAll)
+    fileNameBuffer = text or fileNameBuffer
+
+    if entered then
+      actions.saveAs = fileNameBuffer
+      renamingFile = false
+    elseif not ui.itemActive() and fileNameBuffer ~= '' then
+      renamingFile = false
+    end
+  else
+    if ui.button((state.fileName or 'no file') .. '###fileName',
+        vec2(nameWidth, theme.barHeight)) then
+      actions.loadFile = true
+    end
+    if ui.itemHovered() then
+      ui.setTooltip('Click to load another file.  ' ..
+        'Double click to save this one under a new name.')
+      if ui.mouseDoubleClicked(0) then
+        renamingFile = true
+        fileNameBuffer = state.loadedName or ''
+        actions.loadFile = nil
+      end
+    end
   end
   ui.sameLine(0, 2)
   if ui.arrowButton('##fileNext', ui.Direction.Right, vec2(arrow, arrow)) then
@@ -555,7 +608,16 @@ function atr.draw(state)
     -- the playhead and belongs to the selected camera, so neither button
     -- needs somewhere to point at -- unlike a camera, which is added where
     -- the right click landed on the ribbon.
-    { id = 'addKeyframe', width = 34, gap = 10, label = '+kf##kfadd' },
+    -- Cameras and keyframes, added and removed without a detour.
+    --
+    -- The right-click menu on the ribbon came first and it is still there,
+    -- because it knows WHERE you meant. But it costs a click for the common
+    -- case -- one more camera, here, now -- and Théo is right that a click is
+    -- a real cost in work you do forty times an afternoon. So: buttons for
+    -- "at the playhead", menu for "at that exact spot".
+    { id = 'addCamera', width = 40, gap = 10, label = '+cam##camadd' },
+    { id = 'removeCamera', width = 40, label = '-cam##camdel' },
+    { id = 'addKeyframe', width = 34, gap = 6, label = '+kf##kfadd' },
     { id = 'removeKeyframe', width = 34, label = '-kf##kfdel' },
     -- Position or time, and which curve maths the file gets. The second is
     -- not a preference: a CamTool 2 file is loaded as legacy and has to
@@ -601,6 +663,8 @@ function atr.draw(state)
   if clicked.reset then actions.reset = true end
   if clicked.toggleMap then actions.toggleMap = true end
   if clicked.toggleHelp then actions.toggleHelp = true end
+  if clicked.addCamera then actions.addCamera = true end
+  if clicked.removeCamera then actions.removeCamera = true end
   if clicked.addKeyframe then actions.addKeyframe = true end
   if clicked.removeKeyframe then actions.removeKeyframe = true end
   if clicked.posList then actions.listName = 'pos' end

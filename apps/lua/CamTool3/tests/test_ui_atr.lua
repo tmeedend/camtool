@@ -1897,3 +1897,175 @@ test('the ribbon says it too, while the pointer is on it', function()
   eq(did.hint:lower():find('add a camera', 1, true) ~= nil, true,
     'got: ' .. tostring(did.hint))
 end)
+
+test('cameras can be added and removed without the menu', function()
+  -- The right-click menu knows where you meant, and costs a click for the
+  -- common case. Both exist now: buttons for here and now, menu for a spot.
+  local function click(label)
+    local handle = fakes.install({ clicks = { [label] = true } })
+    parameter.cancelEditing()
+    local actions = atr.draw({
+      cameraCount = 3, cameraIndex = 1, keyframeCount = 2, keyframeIndex = 1,
+      trackPos = 0.2, trackLength = 4300, listName = 'pos', showMap = false,
+    })
+    handle.restoreIo()
+    return actions
+  end
+
+  eq(click('+cam##camadd').addCamera, true)
+  eq(click('-cam##camdel').removeCamera, true)
+end)
+
+--------------------------------------------------------------------------
+-- Seeing what you are about to pin
+--------------------------------------------------------------------------
+
+test('a field with nothing stored shows what the camera is doing', function()
+  -- The gesture the tool is built on: put the view where you want it, then
+  -- pin it. The panel used to say `--` for anything unkeyframed, so you were
+  -- pinning a value you could not see.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  local camera = { camera_in = 0, keyframes = { { keyframe = 0, interpolation = {} } } }
+  atr.draw({
+    camera = camera, cameraIndex = 1, cameraCount = 1, cameras = { camera },
+    keyframeIndex = 1, keyframeCount = 1,
+    trackPos = 0, trackLength = 4300, listName = 'pos', showMap = false,
+    live = function(key) return key == 'camera_fov' and 37.5 or nil end,
+  })
+
+  local shown = nil
+  for i = 1, #handle.buttons do
+    local label = tostring(handle.buttons[i])
+    if label:find('camera_fovval', 1, true) then shown = label end
+  end
+  handle.restoreIo()
+
+  eq(shown ~= nil and shown:find('37.50', 1, true) ~= nil, true,
+    'the live field of view, got: ' .. tostring(shown))
+end)
+
+test('a stored value wins over the live one', function()
+  -- Once a parameter is keyframed, the keyframe is what the camera does. The
+  -- reading is only for the empty ones.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  local camera = {
+    camera_in = 0,
+    keyframes = { { keyframe = 0, interpolation = { camera_fov = 22 } } },
+  }
+  atr.draw({
+    camera = camera, cameraIndex = 1, cameraCount = 1, cameras = { camera },
+    keyframeIndex = 1, keyframeCount = 1,
+    trackPos = 0, trackLength = 4300, listName = 'pos', showMap = false,
+    live = function() return 99 end,
+  })
+
+  local shown = nil
+  for i = 1, #handle.buttons do
+    local label = tostring(handle.buttons[i])
+    if label:find('camera_fovval', 1, true) then shown = label end
+  end
+  handle.restoreIo()
+
+  eq(shown:find('22.00', 1, true) ~= nil, true, 'got: ' .. tostring(shown))
+end)
+
+test('a live reading is drawn dimmer than a value of its own', function()
+  local function colourOf(live)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    parameter.draw('dim' .. tostring(live), {
+      label = 'FOV', text = '37.50 deg', width = 140,
+      column = theme.columns.camera, live = live,
+    })
+    local colour = nil
+    for i = 1, #handle.styles do
+      if handle.styles[i].which == ui.StyleColor.Text then
+        colour = handle.styles[i].colour
+      end
+    end
+    handle.restoreIo()
+    return colour
+  end
+
+  eq(rawequal(colourOf(true), theme.muted), true,
+    'not this camera\'s value yet')
+  eq(rawequal(colourOf(false), theme.text), true)
+end)
+
+test('a parameter with no reading available still says nothing', function()
+  -- Roll and the focus distance have none: AC gives a look vector rather than
+  -- an angle, and nothing reports what the lens is focused on. Saying zero
+  -- would be inventing.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  local camera = { camera_in = 0, keyframes = { { keyframe = 0, interpolation = {} } } }
+  atr.draw({
+    camera = camera, cameraIndex = 1, cameraCount = 1, cameras = { camera },
+    keyframeIndex = 1, keyframeCount = 1,
+    trackPos = 0, trackLength = 4300, listName = 'pos', showMap = false,
+    live = function() return nil end,
+  })
+
+  local shown = nil
+  for i = 1, #handle.buttons do
+    local label = tostring(handle.buttons[i])
+    if label:find('rot_yval', 1, true) then shown = label end
+  end
+  handle.restoreIo()
+  eq(shown:find('--', 1, true) ~= nil, true, 'got: ' .. tostring(shown))
+end)
+
+--------------------------------------------------------------------------
+-- Saving under a name of your own
+--------------------------------------------------------------------------
+
+test('double clicking the file name opens it for typing', function()
+  -- The same gesture that renames a camera on the ribbon, on the thing whose
+  -- name it changes.
+  local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
+  parameter.cancelEditing()
+
+  local state = {
+    fileName = 'spa_-ATR.json', loadedName = 'spa_-ATR.json',
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false,
+  }
+  atr.draw(state)
+  handle.restoreIo()
+
+  -- The field is drawn on the next frame, and Enter commits what is in it.
+  handle = fakes.install({ typed = 'my set', enterPressed = true })
+  local actions = atr.draw(state)
+  handle.restoreIo()
+
+  eq(actions.saveAs, 'my set')
+end)
+
+test('a double click does not also load the file', function()
+  -- A single click loads. Without this, naming a file would reload it first
+  -- and throw away what was being named.
+  local handle = fakes.install({
+    itemHovered = true, mouseDoubleClicked = true,
+    clicks = { ['spa_-ATR.json###fileName'] = true },
+  })
+  parameter.cancelEditing()
+
+  local actions = atr.draw({
+    fileName = 'spa_-ATR.json', loadedName = 'spa_-ATR.json',
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false,
+  })
+  handle.restoreIo()
+
+  eq(actions.loadFile, nil)
+end)
+
+test('the legend says how to name a file', function()
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('double click the file name', 1, true) ~= nil, true)
+end)

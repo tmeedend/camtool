@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (577 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (585 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -139,19 +139,21 @@ rien.
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Infobulles** | Rester sur une valeur : la phrase apparaît après un instant. Elles **ne marchaient pas du tout** — le panneau reconstruisait la ligne et laissait la phrase en route. |
-| 19 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la voiture suit. **Maj** ne déplace pas le replay. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. |
-| 20 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
-| 21 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
-| 22 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
-| 23 | **Annuler un geste** | **Clic droit** pendant un glissé remet la valeur de départ. **Cliquer ailleurs** abandonne une saisie. Échap ne doit **plus rien** faire dans le panneau — il quitte le replay, comme toujours. |
-| 24 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
-| 25 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
-| 26 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
-| 27 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
-| 28 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
-| 29 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
-| 30 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 31 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 19 | **Champs en caméra libre** | Voler en caméra libre : `X`, `Y`, `Z`, `PITCH`, `HEADING`, `FOV` doivent afficher la valeur **en gris**, et le losange l'épingler telle quelle. `ROLL` et `FOCUS POINT` restent à `--`, c'est voulu. |
+| 20 | **Sauver sous un nom** | **Double-clic sur le nom de fichier** en haut, taper, Entrée. Le fichier doit apparaître dans la liste, et l'original de CamTool 2 ne pas changer de date. |
+| 21 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la voiture suit. **Maj** ne déplace pas le replay. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. |
+| 22 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
+| 23 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
+| 24 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
+| 25 | **Annuler un geste** | **Clic droit** pendant un glissé remet la valeur de départ. **Cliquer ailleurs** abandonne une saisie. Échap ne doit **plus rien** faire dans le panneau — il quitte le replay, comme toujours. |
+| 26 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
+| 27 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
+| 28 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
+| 29 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
+| 30 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
+| 31 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
+| 32 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 33 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -713,6 +715,33 @@ icône qui clignote est le même mensonge dit plus vite.
 `docs/legacy.md` : aucune API CSP ne met un replay en pause. Le seul
 contournement — CamTool pilotant le curseur en permanence — changerait le
 comportement du replay pour tout le monde. Écarté par Théo.
+
+## 🔎 Trois manques trouvés par l'usage
+
+Aucun n'était visible hors jeu, et tous les trois venaient d'un geste de
+CamTool 2 qu'on avait perdu sans s'en rendre compte.
+
+**Les champs montrent la caméra vivante.** Un paramètre sans valeur affichait
+`--`, y compris en caméra libre — donc on épinglait avec le losange quelque
+chose qu'on ne voyait pas. C'est pourtant *le* geste sur lequel l'outil est
+bâti : placer la vue, puis l'épingler. `liveValue` lit maintenant la caméra du
+jeu (`ac.getCameraPosition`, `getCameraForward`, `getCameraFOV`) quand la
+lecture n'a rien à dire, et le champ l'affiche **en gris** : ce n'est pas
+encore la valeur de cette caméra, le losange est ce qui la fait devenir.
+
+Roulis et distance de mise au point n'ont pas de lecture : AC donne un vecteur
+et non un angle, et rien ne dit sur quoi l'objectif fait le point. Ils restent
+à `--` plutôt que d'inventer un zéro.
+
+**Sauvegarder sous un nom** : il n'y en avait aucun moyen. `Save` écrasait le
+fichier chargé, donc un set ne pouvait jamais devenir le vôtre. **Double-clic
+sur le nom de fichier** — le même geste que renommer une caméra sur le ruban,
+appliqué à la chose dont il change le nom.
+
+**Les boutons `+cam` / `-cam` sont revenus.** Le menu au clic droit reste : il
+sait *où* on visait. Mais il coûte un clic pour le cas courant, et Théo a
+raison qu'un clic compte dans un geste fait quarante fois. Donc : boutons pour
+« ici et maintenant », menu pour « à cet endroit précis ».
 
 ## ❓ À demander au designer d'ATR
 
