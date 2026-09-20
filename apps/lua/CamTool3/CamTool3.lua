@@ -955,6 +955,10 @@ local atrStatus = nil
 local atrShowMap = true
 ---Whether the ? legend is open instead of the status line. Session state too.
 local atrShowHelp = false
+---The numbered strips, behind a temporary switch while we find out whether
+---the ribbon has made them redundant. See the note in ui/atr.lua: it is not
+---meant to become an option.
+local atrShowStrips = true
 ---The last reason the map had nothing to draw, so a change is said once
 ---rather than every frame.
 local atrOutlineReason = nil
@@ -1101,6 +1105,7 @@ function script.windowAtr(dt)
     outlineReason = outlineReason,
     showMap = atrShowMap,
     showHelp = atrShowHelp,
+    showStrips = atrShowStrips,
     dt = dt,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
@@ -1185,6 +1190,7 @@ function script.windowAtr(dt)
 
   if actions.toggleMap then atrShowMap = not atrShowMap end
   if actions.toggleHelp then atrShowHelp = not atrShowHelp end
+  if actions.toggleStrips then atrShowStrips = not atrShowStrips end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
     atrParameter.cancelEditing()

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (466 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (468 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -138,9 +138,10 @@ rien.
 | 15 | **Bande de piste** | Le ruban sous les bandes numérotées : une teinte par caméra, les losanges de la caméra éditée, le trait blanc de la voiture. Cliquer une portion sélectionne sa caméra, cliquer un losange sélectionne le keyframe. |
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
-| 18 | **Ruban, édition** | Glisser un losange le déplace. **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Chaque geste = **une** entrée d'`Undo`. |
-| 19 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 20 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 18 | **Interrupteur `[strips]`** | Masquer les bandes numérotées et **travailler une vraie session** avec le seul ruban. La question à te poser : est-ce qu'elles manquent ? |
+| 19 | **Ruban, édition** | Glisser un losange le déplace. **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Chaque geste = **une** entrée d'`Undo`. |
+| 20 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 21 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -378,9 +379,19 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    Passe à l'échelle de l'issue **#6** : un ruban se moque du nombre de
    caméras là où la grille donne une cellule à chacune, vingt par ligne.
 
-   ⚠️ **Elle ne remplace encore rien.** Les deux bandes numérotées,
-   `Starting point` et la barre de keyframe sont toujours là. Ce qu'elle
-   remplace se décide devant un replay, pas en supprimant d'abord.
+   ⚠️ **Un interrupteur temporaire, `[strips]`, masque les deux bandes
+   numérotées.** Ce n'est pas une option et ça ne doit pas le devenir : c'est
+   l'outil pour répondre par l'usage à « le ruban les a-t-il rendues
+   inutiles ». Marche à suivre, proposée par le designer d'ATR et retenue :
+   les masquer, **préparer les caméras d'une vraie vidéo**, et voir si elles
+   manquent. Puis l'interrupteur disparaît, dans un sens ou dans l'autre —
+   le garder voudrait dire maintenir deux interfaces pour toujours.
+
+   La raison de ne pas sortir une version puis retirer les bandes à la
+   suivante : ça ferait apprendre le panneau deux fois.
+
+   `Starting point` et la ligne `KEYFRAME` restent, et c'est voulu : le ruban
+   donne le geste, ces champs donnent la valeur au mètre près.
 6. ✅ **Éditer depuis la carte et depuis la bande — fait, jamais vu en jeu.**
    La caméra sélectionnée porte une **poignée** là où elle prend le relais :
    un point sur le tracé, un trait sur le ruban. La glisser déplace son

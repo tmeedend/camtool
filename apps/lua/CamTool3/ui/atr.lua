@@ -507,19 +507,33 @@ function atr.draw(state)
   -- previous and next, and ATR's mockup replaces that with the whole set at
   -- a glance -- on a 48-camera file that is the difference between a click
   -- and forty.
-  actions.selectCamera, actions.addCamera, actions.removeCamera =
-    strip('cam', state.cameraCount or 0, state.cameraIndex, width, theme.strip,
-      state.liveCameraIndex)
+  -- TEMPORARY SWITCH, and it is meant to disappear.
+  --
+  -- The ribbon below now does everything these two do, and better on a long
+  -- set. Whether they still earn their place is not an argument to have, it
+  -- is a session of real work to try: hide them, cut a video, see whether
+  -- they are missed. Shipping them and removing them later would make people
+  -- learn the panel twice, which is the one sequence to avoid.
+  --
+  -- It goes away afterwards, one way or the other. It must not settle in as
+  -- an option, or the panel has two interfaces to maintain for ever.
+  local stripWidth = 0
+  if state.showStrips ~= false then
+    actions.selectCamera, actions.addCamera, actions.removeCamera =
+      strip('cam', state.cameraCount or 0, state.cameraIndex, width, theme.strip,
+        state.liveCameraIndex)
+  end
 
   -- And the keyframes of that camera. This is the second column of CamTool 2's
   -- left side, which the mockup has no place for -- without it a camera can
   -- hold a pose but never move.
-  ui.newLine(2)
-  local stripWidth
-  actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe,
-    stripWidth =
-    strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
-      theme.stripKeyframe)
+  if state.showStrips ~= false then
+    ui.newLine(2)
+    actions.selectKeyframe, actions.addKeyframe, actions.removeKeyframe,
+      stripWidth =
+      strip('kf', state.keyframeCount or 0, state.keyframeIndex, width,
+        theme.stripKeyframe)
+  end
 
   -- The actions sit to the right of the keyframe strip, which is where the
   -- room is: a camera rarely has twenty keyframes, and these were previously
@@ -552,6 +566,10 @@ function atr.draw(state)
       label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
     { id = 'toggleHelp', width = 30,
       label = (state.showHelp and '[?]' or ' ? ') .. '###showHelp' },
+    -- Temporary: see the note above the camera strip.
+    { id = 'toggleStrips', width = 62,
+      label = (state.showStrips ~= false and '[strips]' or ' strips ')
+        .. '###showStrips' },
     -- Position or time, and which curve maths the file gets. The second is
     -- not a preference: a CamTool 2 file is loaded as legacy and has to
     -- behave as CamTool 2 did, or footage already cut would change. Shown so
@@ -590,6 +608,7 @@ function atr.draw(state)
   if clicked.reset then actions.reset = true end
   if clicked.toggleMap then actions.toggleMap = true end
   if clicked.toggleHelp then actions.toggleHelp = true end
+  if clicked.toggleStrips then actions.toggleStrips = true end
   if clicked.posList then actions.listName = 'pos' end
   if clicked.timeList then actions.listName = 'time' end
   if clicked.maths then actions.mode = legacy and 'fixed' or 'legacy' end

@@ -1536,3 +1536,53 @@ test('a button wider than the panel gets its own line rather than a neighbour', 
   eq(placed[1].line, 1)
   eq(placed[2].line, 2)
 end)
+
+test('the numbered strips can be hidden, and the ribbon carries on alone', function()
+  -- The switch that answers whether the ribbon has made them redundant, by
+  -- use rather than by argument. Temporary: see the note in ui/atr.lua.
+  local doc = data.load(rawFile)
+  local function drawWith(showStrips)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    atr.draw({
+      doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+      cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+      trackPos = 0.3, trackLength = 4300, listName = 'pos',
+      showMap = false, showStrips = showStrips,
+    })
+    local numbered, ribbons = 0, 0
+    for i = 1, #handle.buttons do
+      if tostring(handle.buttons[i]):find('###cam%d') then numbered = numbered + 1 end
+    end
+    for i = 1, #handle.drawn do
+      if handle.drawn[i].op == 'label' then ribbons = ribbons + 1 end
+    end
+    handle.restoreIo()
+    return numbered, ribbons
+  end
+
+  local shownCells, shownLabels = drawWith(true)
+  eq(shownCells > 0, true, 'the strip is there to begin with')
+  eq(shownLabels > 0, true, 'and so is the ribbon')
+
+  local hiddenCells, hiddenLabels = drawWith(false)
+  eq(hiddenCells, 0, 'the strip is gone')
+  eq(hiddenLabels, shownLabels, 'and the ribbon is untouched')
+end)
+
+test('hiding the strips does not push the action row off the window', function()
+  -- The row is laid out from what the keyframe strip took, and with no strip
+  -- it takes nothing.
+  local doc = data.load(rawFile)
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  local ok = pcall(atr.draw, {
+    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+    cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0, trackLength = 4300, listName = 'pos',
+    showMap = false, showStrips = false,
+  })
+  eq(ok, true)
+  handle.restoreIo()
+end)
