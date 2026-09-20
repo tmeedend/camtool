@@ -237,10 +237,18 @@ atr.LEGEND = {
   'Diamond   filled = keyframed here, hollow = keyframed elsewhere in this ' ..
     'camera, empty = never keyframed. A tinted field is animated.',
   'Camera strip   red = the camera being edited, pale = the camera on screen.',
-  'Map   each camera tints the stretch of lap it covers. Click to select one.',
-  'Gestures   arrows step, drag scrubs, double click types, Escape cancels. ' ..
+  'Values   arrows step, drag scrubs, double click types, Escape cancels. ' ..
     'Ctrl quarters the step, Shift quadruples it. The wheel never edits.',
-  'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry.',
+  'Ribbon   the lap from the start line to the finish, tinted by camera, ' ..
+    "with this camera's keyframes above it and the car as a white line.",
+  'Ribbon   click to select that camera AND bring the car there. ' ..
+    'Shift+click selects without moving the replay.',
+  'Ribbon   drag the red handle to move where a camera takes over. ' ..
+    'Double click a segment to name it. Right click for more.',
+  'Map   the same cameras on the circuit. Click and Shift+click do what they ' ..
+    'do on the ribbon; the handle drags there too.',
+  'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
+    'moving the replay is not an edit at all.',
   'Save   writes over the file it came from, keeping one copy of what was ' ..
     'there before CamTool 3 first touched it. Reset asks first.',
 }

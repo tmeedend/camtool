@@ -18,6 +18,7 @@ local runner = require('tests/runner')
 local fakes = require('tests/fakes/csp')
 local trackAdapter = require('adapters/track')
 local trackMap = require('ui/map')
+local trackBand = require('ui/band')
 local data = require('core/data')
 local theme = require('ui/theme')
 local atr = require('ui/atr')
@@ -1689,4 +1690,93 @@ test('Reset says on the button that it is armed', function()
   end
   eq(armed, true, 'the button asks the question itself')
   handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- Escape has to reach the panel, not the game
+--------------------------------------------------------------------------
+
+test('a field being typed into holds on to the keyboard', function()
+  -- Without this, Escape to abandon a half-typed number left the replay
+  -- altogether: Assetto Corsa saw the key first.
+  local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
+  parameter.cancelEditing()
+
+  local spec = { label = 'FOV', text = '40.00 deg', raw = '40', width = 140 }
+  parameter.draw('hold', spec)
+  handle.restoreIo()
+
+  handle = fakes.install({})
+  parameter.draw('hold', spec)
+  eq(handle.keyboardHeld, true, 'the field asks for the keyboard')
+  handle.restoreIo()
+
+  parameter.cancelEditing()
+end)
+
+test('an armed drag holds it too, since Escape cancels that as well', function()
+  local handle = fakes.install({
+    itemActive = true, mouseDragDelta = { x = 30, y = 0 },
+  })
+  parameter.cancelEditing()
+
+  local spec = { label = 'MIX', text = '50%', width = 140 }
+  parameter.draw('holddrag', spec)
+  parameter.draw('holddrag', spec)
+  eq(handle.keyboardHeld, true)
+
+  handle.restoreIo()
+end)
+
+test('a panel doing nothing leaves the keyboard alone', function()
+  -- While the capture is on, none of the game's own bindings work. It lasts
+  -- exactly as long as the gesture that needs Escape.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+
+  parameter.draw('quiet', { label = 'MIX', text = '50%', width = 140 })
+  eq(handle.keyboardHeld, nil, 'nothing asked for')
+
+  handle.restoreIo()
+end)
+
+test('renaming a camera on the ribbon holds it as well', function()
+  local state = { cameras = { { id = 1, camera_in = 0, camera_pit = false } },
+    cameraIndex = 1 }
+
+  trackBand.reset()
+  local handle = fakes.install({
+    itemHovered = true, mouseDoubleClicked = true,
+    mouseX = 17 + 100, mouseY = 23 + 10,
+  })
+  trackBand.draw(state, 360)
+  handle.restoreIo()
+
+  handle = fakes.install({})
+  trackBand.draw(state, 360)
+  eq(handle.keyboardHeld, true)
+  handle.restoreIo()
+  trackBand.reset()
+end)
+
+test('the legend covers every gesture the panel has', function()
+  -- docs/ui-interactions.md: the ? button is the ONLY place help is
+  -- exhaustive. A gesture that exists and is not in here is undiscoverable
+  -- for anyone who did not watch it being built.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+
+  for _, gesture in ipairs({
+    'shift+click', 'double click', 'right click', 'drag', 'escape',
+    'ctrl+z', 'wheel', 'diamond', 'ribbon', 'map',
+  }) do
+    eq(all:find(gesture, 1, true) ~= nil, true,
+      'the legend never mentions ' .. gesture)
+  end
+end)
+
+test('the legend says what a click on the ribbon does to the replay', function()
+  -- The one Théo found missing: a click moves the replay, and nothing said so.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('bring the car', 1, true) ~= nil, true)
+  eq(all:find('without moving the replay', 1, true) ~= nil, true)
 end)

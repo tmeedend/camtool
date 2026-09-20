@@ -235,6 +235,11 @@ function fakes.install(opts)
     -- catch-all below answers with a function, and indexing a function raises.
     MouseCursor = { Arrow = 0, ResizeEW = 6, Hand = 8 },
     setMouseCursor = function(shape) handle.cursor = shape end,
+    -- Asking Assetto Corsa to keep its hands off the keyboard. Recorded, so a
+    -- test can check it is asked for exactly while a gesture needs Escape.
+    captureKeyboard = function(want)
+      handle.keyboardHeld = want ~= false
+    end,
 
     -- The pointer, for the drag and the double click. These answer the same
     -- for every widget, so a test that wants to be sure which one reacted

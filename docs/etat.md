@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (539 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (545 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -649,11 +649,38 @@ proche atteint** et la ligne de statut le dit — jamais de saut silencieux.
 - **Une voiture à l'arrêt** occupe des milliers de frames dans un casier : un
   seul passage, une seule entrée, sinon elle chasse tous les vrais tours.
 
+**Échap devait être repris au jeu.** `ui.captureKeyboard(true)` — « Stops rest
+of Assetto Corsa from responding to keyboard events » — sans quoi Échap pour
+abandonner une saisie **quittait le replay** : AC voyait la touche en premier.
+L'appel se fait à **chaque frame** tant qu'un champ est ouvert ou un glissé
+armé, et pas une frame de plus : pendant la capture, aucun raccourci du jeu ne
+fonctionne.
+
 **Ce que ça ne fait pas** : aucune entrée d'annulation. Déplacer le replay
 n'est pas une modification de données.
 
 Le son est coupé pendant les sauts (CamTool 2 avait des artefacts sur les
 changements de position), sauf si la sonde audio tient déjà le volume.
+
+## ❓ À demander au designer d'ATR
+
+`docs/ui-interactions.md` est le contrat, et il **ne parle ni du ruban ni de la
+carte** : il a été écrit avant qu'ils existent. Il couvre les champs de
+paramètres, leurs gestes et la couche d'aide, rien d'autre.
+
+Ce qui manque donc au contrat, et qu'il faudrait lui faire écrire plutôt que
+d'inventer à sa place :
+
+- les gestes du ruban et de la carte (clic, Maj+clic, glisser la poignée,
+  double-clic pour renommer, clic droit) ;
+- lequel des deux est le navigateur principal — il avait dit le ruban, en
+  conversation, mais ce n'est écrit nulle part ;
+- ce que devient la bande numérotée, qui est aujourd'hui derrière un
+  interrupteur temporaire.
+
+En attendant, la **légende du `?` les couvre tous** — c'est ce que le contrat
+exige d'elle (« seul endroit où l'aide est exhaustive »), et un test échoue si
+un geste existe sans y figurer.
 
 ## Idées notées, pas tranchées
 

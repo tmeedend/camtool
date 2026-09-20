@@ -187,8 +187,28 @@ end
 ---  badgeOn   whether that marker is lit
 ---  width     the row's width in pixels
 ---@return ParameterAction|nil
+---Hold on to the keyboard while a field is open or a drag is armed.
+---
+---Escape is ours only if Assetto Corsa does not get it first -- and it does:
+---pressing it to abandon a half-typed number left the replay altogether. This
+---is the call that stops that, and it has to be made every frame the capture
+---is wanted, not once when the field opens.
+---
+---Narrow on purpose. While it is on, none of the game's own bindings work, so
+---it lasts exactly as long as the gesture that needs Escape and not a moment
+---more.
+local function holdKeyboard()
+  if type(ui.captureKeyboard) == 'function' or ui.captureKeyboard ~= nil then
+    pcall(ui.captureKeyboard, true)
+  end
+end
+
 function parameter.draw(id, spec)
   local width = spec.width or 100
+
+  if editing == id or (dragId == id and dragState == 'armed') then
+    holdKeyboard()
+  end
   -- Worked out here rather than written into every row: what a row allows is
   -- already described by the flags it carries.
   if spec.gestures == nil then

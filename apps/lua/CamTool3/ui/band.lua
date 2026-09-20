@@ -320,6 +320,11 @@ function band.draw(state, width)
       local fieldX = math.min(span.x1, origin.x + width - fieldWidth)
       if fieldX < origin.x then fieldX = origin.x end
 
+      -- Escape has to reach us rather than Assetto Corsa, which would take it
+      -- as "leave the replay". See ui/parameter for the same call and why it
+      -- is made every frame.
+      if ui.captureKeyboard ~= nil then pcall(ui.captureKeyboard, true) end
+
       ui.setCursor(vec2(fieldX, origin.y + height - theme.bandRibbon))
       ui.setNextItemWidth(fieldWidth)
       local text, _, entered = ui.inputText('##bandRename', renameBuffer,
