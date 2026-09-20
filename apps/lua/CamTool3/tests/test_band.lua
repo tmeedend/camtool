@@ -479,106 +479,49 @@ test('a camera deleted while being renamed closes the field', function()
 end)
 
 --------------------------------------------------------------------------
--- Dragging a keyframe
+-- The diamonds stay put
 --------------------------------------------------------------------------
 
-test('pressing a diamond and moving reports a new position', function()
+test('a diamond cannot be dragged from the ribbon', function()
+  -- They could for one round, and it came straight back out: four pixels on a
+  -- ribbon you also click to select cameras means a slightly missed click
+  -- moves a keyframe, and that is only noticed in the edit. The KEYFRAME
+  -- field moves them instead.
   band.reset()
   local state = {
-    cameras = cameras({ 0, 0.5 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.2, 0.8 }) }, keyframeIndex = 1,
+    cameras = cameras({ 0 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
   }
 
   local handle = fakes.install({
     itemActive = true, itemHovered = true,
     mouseX = ORIGIN_X + WIDTH * 0.2, mouseY = ORIGIN_Y + 10,
   })
-  local move = band.draw(state, WIDTH).moveKeyframe
+  local did = band.draw(state, WIDTH)
   handle.restoreIo()
 
-  eq(move ~= nil, true, 'the press landed on a diamond')
-  eq(rawequal(move.keyframe, state.camera.keyframes[1]), true,
-    'and it is holding the keyframe itself, not its place in the list')
+  eq(did.moveKeyframe, nil)
+  eq(state.camera.keyframes[1].keyframe, 0.2, 'and nothing moved')
   band.reset()
 end)
 
----Press somewhere and hand back the keyframe move, if any.
-local function pressKeyframe(state, mouseX)
+test('the camera handle is still draggable', function()
+  -- A deliberate grab on a marked grip is not a stray click, and this is the
+  -- gesture the ribbon is for.
+  band.reset()
+  local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
+
   local handle = fakes.install({
     itemActive = true, itemHovered = true,
-    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+    mouseX = ORIGIN_X + WIDTH * 0.25, mouseY = ORIGIN_Y + 10,
   })
-  local move = band.draw(state, WIDTH).moveKeyframe
+  local did = band.draw(state, WIDTH)
   handle.restoreIo()
-  return move
-end
 
-test('the drag follows the pointer along the lap', function()
-  band.reset()
-  local state = {
-    cameras = cameras({ 0 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
-  }
-
-  eq(pressKeyframe(state, WIDTH * 0.2) ~= nil, true)
-  local move = pressKeyframe(state, WIDTH * 0.65)
-  near(move.position, 0.65, 0.01)
+  eq(did.move ~= nil, true)
   band.reset()
 end)
 
-test('a whole keyframe drag is one gesture', function()
-  band.reset()
-  local state = {
-    cameras = cameras({ 0 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
-  }
-
-  local first = pressKeyframe(state, WIDTH * 0.2)
-  local later = pressKeyframe(state, WIDTH * 0.5)
-  eq(first.gesture, later.gesture)
-
-  local released = fakes.install({ itemActive = false })
-  band.draw(state, WIDTH)
-  released.restoreIo()
-
-  eq(pressKeyframe(state, WIDTH * 0.2).gesture ~= first.gesture, true)
-  band.reset()
-end)
-
-test('a diamond wins over the camera handle underneath it', function()
-  -- Four pixels wide and drawn on top: anything else would make it
-  -- impossible to grab, since the handle spans the full height of the band.
-  band.reset()
-  local state = {
-    cameras = cameras({ 0.3, 0.8 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.3 }) }, keyframeIndex = 1,
-  }
-
-  local move = pressKeyframe(state, WIDTH * 0.3)
-  eq(move ~= nil, true, 'the keyframe, not the camera start')
-  band.reset()
-end)
-
-test('a press away from any diamond drags no keyframe', function()
-  band.reset()
-  local state = {
-    cameras = cameras({ 0 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
-  }
-  eq(pressKeyframe(state, WIDTH * 0.7), nil)
-  band.reset()
-end)
-
-test('a drag passing over a diamond does not pick it up', function()
-  band.reset()
-  local state = {
-    cameras = cameras({ 0 }), cameraIndex = 1,
-    camera = { keyframes = keyframesAt({ 0.5 }) }, keyframeIndex = 1,
-  }
-  eq(pressKeyframe(state, WIDTH * 0.1), nil, 'pressed away from it')
-  eq(pressKeyframe(state, WIDTH * 0.5), nil, 'and crossing it changes nothing')
-  band.reset()
-end)
 
 --------------------------------------------------------------------------
 -- Adding and removing from the ribbon
@@ -715,4 +658,45 @@ test('a panel with no track to ask still renames', function()
   eq(renameSuggestion({
     cameras = named({ { 0, nil } }), cameraIndex = 1,
   }, WIDTH * 0.5), '', 'no suggestion to be had, and no error either')
+end)
+
+--------------------------------------------------------------------------
+-- Counting cameras a segment is too thin to name
+--------------------------------------------------------------------------
+
+local function ticks(drawn)
+  local n = 0
+  for i = 1, #drawn do
+    if drawn[i].op == 'drawLine' and drawn[i].colour == theme.bandTick then
+      n = n + 1
+    end
+  end
+  return n
+end
+
+test('every hand-over gets a tick, however thin the segment', function()
+  -- ATR's Spa file: 22 cameras, the last starting at 0.99579 -- five pixels
+  -- of ribbon, too thin for a digit. The ribbon read as 21 cameras until
+  -- these went in.
+  local starts = {
+    0.0, 0.05506, 0.09675, 0.13821, 0.20548, 0.26144, 0.31154, 0.36234,
+    0.39924, 0.44898, 0.5222, 0.57312, 0.63371, 0.65591, 0.69876, 0.71364,
+    0.72721, 0.7869, 0.82752, 0.90536, 0.93002, 0.99579,
+  }
+  local _, _, drawn = draw({ cameras = cameras(starts), cameraIndex = 1 })
+
+  -- One per camera except the first, which begins at the start line and
+  -- needs no mark to say so.
+  eq(ticks(drawn), 21, 'so 22 cameras can be counted off the ribbon')
+end)
+
+test('a camera starting at the line needs no tick of its own', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 })
+  eq(ticks(drawn), 1)
+end)
+
+test('the wrapped tail is not a hand-over and gets no tick', function()
+  -- It is the same camera as the one at the end of the lap, drawn twice.
+  local _, _, drawn = draw({ cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 })
+  eq(ticks(drawn), 2, 'two cameras, two starts, and no third mark')
 end)

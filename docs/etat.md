@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (481 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (483 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -139,7 +139,7 @@ rien.
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Interrupteur `[strips]`** | Masquer les bandes numérotées et **travailler une vraie session** avec le seul ruban. La question à te poser : est-ce qu'elles manquent ? |
-| 19 | **Ruban, édition** | Glisser un losange le déplace. **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Chaque geste = **une** entrée d'`Undo`. |
+| 19 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
 | 20 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
 | 21 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
 | 22 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
@@ -432,8 +432,14 @@ le rang sous le champ, et un renommage qui suivrait le rang atterrirait sur la
 mauvaise caméra. Un test le prouve. Échap abandonne, comme partout ailleurs
 dans le panneau.
 
-**Les losanges se glissent** le long du ruban, et **le clic droit ouvre un
-menu** : « ajouter une caméra ici », « supprimer cette caméra ». La position
+**Les losanges ne se glissent PAS** — retiré à la demande de Théo après essai.
+Un losange fait quatre pixels sur un ruban qu'on clique aussi pour sélectionner
+une caméra : un clic légèrement raté déplaçait un keyframe, et un keyframe
+déplacé par mégarde ne se voit qu'au montage. Ils se déplacent depuis le champ
+`KEYFRAME`, où le geste ne peut pas être confondu. La poignée de caméra, elle,
+reste glissable : c'est une prise délibérée sur un repère marqué.
+
+**Le clic droit ouvre un menu** : « ajouter une caméra ici », « supprimer cette caméra ». La position
 vient de l'endroit du clic droit, pas de la tête de lecture — un `+` doit
 décider à ta place où va la caméra, un clic droit l'a déjà dit. Et une
 suppression derrière un menu ne s'atteint pas par mégarde, ce qui compte plus

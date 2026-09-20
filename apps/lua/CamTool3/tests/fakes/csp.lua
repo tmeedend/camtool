@@ -72,7 +72,9 @@ function fakes.install(opts)
     -- What the game says its drivable camera actually is, which is not
     -- always what was asked for.
     driveableCameraMode = opts.driveableCameraMode,
-    focusedCar = 0,
+    -- A session with nothing to follow: a free camera far from every car, or
+    -- a replay not yet started.
+    focusedCar = opts.noFocusedCar and -1 or 0,
     carsCount = 1,
     dt = 0.016,
     -- Render frame index, used by the app to run its per-frame work once even

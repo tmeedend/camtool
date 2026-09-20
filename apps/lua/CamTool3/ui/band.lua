@@ -17,6 +17,14 @@
 
   What it shows, bottom to top: each camera's stretch of the lap in its own
   tint, the selected camera's keyframes as diamonds, and the car.
+
+  THE DIAMONDS DO NOT MOVE, and that is deliberate. They were draggable for
+  one round and Théo asked for it back out: a diamond is four pixels on a
+  ribbon you also click to select cameras, so a slightly missed click moves a
+  keyframe instead of selecting something -- and a keyframe that moved by
+  accident is only noticed in the edit. The KEYFRAME field moves them, where
+  the gesture cannot be mistaken for anything else. The camera handle stays
+  draggable: it is a deliberate grab on a marked grip, not a stray click.
 ]]
 
 local theme = require('ui/theme')
@@ -37,11 +45,6 @@ local dragToken = 0
 local renaming = nil
 local renameBuffer = ''
 
--- The keyframe being dragged, held by its TABLE and not its index. Moving a
--- keyframe re-sorts the camera's list, so the index under the hand changes
--- mid-drag -- the same trap the rename avoids by holding an id.
-local draggingKeyframe = nil
-local keyframeToken = 0
 
 -- Where the right click landed, kept from the moment the menu opens. By the
 -- time an item is chosen the pointer is on the menu, nowhere near the place
@@ -90,7 +93,6 @@ end
 ---  camera        a camera they clicked on
 ---  keyframe      a keyframe of the selected camera they clicked on
 ---  move          { position, gesture } while a camera start is dragged
----  moveKeyframe  { keyframe, position, gesture } while a diamond is dragged
 ---  rename        { index, name } when a name is committed
 ---  addCamera     a lap position to put a new camera at
 ---  removeCamera  the index of one to take away
@@ -150,6 +152,26 @@ function band.draw(state, width)
 
     ui.drawRectFilled(vec2(x1, top), vec2(x2, origin.y + height), colour)
     span.x1, span.x2 = x1, x2
+  end
+
+  ------------------------------------------------------------------
+  -- Where one camera hands over to the next
+  ------------------------------------------------------------------
+  -- A tick at every start, drawn after the segments so it survives being a
+  -- fraction of a pixel wide.
+  --
+  -- This is what makes a set countable. ATR's Spa file has 22 cameras and the
+  -- last of them starts at 0.99579 -- 29 metres of a 7 km lap, five pixels of
+  -- ribbon. It was drawn all along, but too narrow to hold a digit, so the
+  -- ribbon read as 21 cameras. Ticks say how many there are even when a
+  -- segment is too thin to say anything else.
+  for i = 1, #spans do
+    local span = spans[i]
+    if not span.wrapped and span.from > 0 then
+      local x = origin.x + xOf(span.from, width)
+      ui.drawLine(vec2(x, top), vec2(x, origin.y + height),
+        theme.bandTick, 1)
+    end
   end
 
   ------------------------------------------------------------------
@@ -323,34 +345,6 @@ function band.draw(state, width)
   wasActive = active
 
   if active and at ~= nil then
-    -- A diamond before the camera handle: it is four pixels wide and drawn on
-    -- top, so anything else would make it impossible to grab.
-    if pressed and draggingKeyframe == nil and not dragging
-        and type(keyframes) == 'table' then
-      local best, bestDistance = nil, nil
-      for i = 1, #keyframes do
-        local position = keyframes[i].keyframe
-        if type(position) == 'number' then
-          local distance = math.abs(xOf(position, width) - (mouse.x - origin.x))
-          if distance <= theme.bandClickRadius
-              and (bestDistance == nil or distance < bestDistance) then
-            best, bestDistance = keyframes[i], distance
-          end
-        end
-      end
-      if best ~= nil then
-        draggingKeyframe, keyframeToken = best, keyframeToken + 1
-      end
-    end
-
-    if draggingKeyframe ~= nil then
-      return { rename = renamed, moveKeyframe = {
-        keyframe = draggingKeyframe,
-        position = at,
-        gesture = 'keyframe:' .. keyframeToken,
-      } }
-    end
-
     if pressed and handleAt ~= nil
         and math.abs(xOf(handleAt, width) - (mouse.x - origin.x))
           <= theme.bandClickRadius then
@@ -360,8 +354,8 @@ function band.draw(state, width)
       return { rename = renamed,
         move = { position = at, gesture = 'band:' .. dragToken } }
     end
-  elseif dragging or draggingKeyframe ~= nil then
-    dragging, draggingKeyframe = false, nil
+  elseif dragging then
+    dragging = false
   end
 
   -- A double click opens the name of whatever is under it. Checked before the
@@ -415,7 +409,6 @@ function band.reset()
   dragging, wasActive = false, false
   menuAt, menuIndex = nil, nil
   renaming, renameBuffer = nil, ''
-  draggingKeyframe = nil
 end
 
 return band

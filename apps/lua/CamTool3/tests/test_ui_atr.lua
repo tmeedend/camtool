@@ -676,7 +676,7 @@ test('Reset asks before it clears anything', function()
       ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
       ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
-      ['Reset##reset'] = true,
+      ['Reset###reset'] = true,
     },
   })
 
@@ -1605,4 +1605,88 @@ test('with the strips hidden the action row starts its own line', function()
     'nothing beside it, so it begins a line')
   eq(firstActionPlacement(true), 'sameLine',
     'and it still sits beside the strip when there is one')
+end)
+
+--------------------------------------------------------------------------
+-- Buttons that used to refuse in silence
+--------------------------------------------------------------------------
+
+---Load a file, click something, and report what the panel said and did.
+local function clickInPanel(label, opts)
+  opts = opts or {}
+  opts.cameraFile = rawFile
+  opts.clicks = {
+    ['no file###fileName'] = true,
+    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    [label] = true,
+  }
+  local handle = fakes.install(opts)
+  trackAdapter.clearCache()
+  trackMap.reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Load on the first frame, then click on the next.
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+  opts.clicks['no file###fileName'] = nil
+  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  pcall(_G.script.windowAtr, 0.016)
+
+  -- A third frame: the panel is drawn before the clicks it reported are
+  -- acted on, so anything the click had to say appears the frame after.
+  handle.tick(0.016)
+  handle.drawn = {}
+  pcall(_G.script.windowAtr, 0.016)
+
+  -- Everything the panel wrote: the status line sits near the top, well
+  -- before the help line at the bottom.
+  local said = {}
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'text' then said[#said + 1] = handle.drawn[i].text end
+  end
+  handle.restoreIo()
+  return table.concat(said, ' | '), handle
+end
+
+test('adding a camera works before the camera has been taken', function()
+  -- The playhead came from the playback, and the playback only runs once the
+  -- camera is held. Before that, + refused and said nothing -- which is what
+  -- clicking it and watching nothing happen looked like.
+  --
+  -- Measured on the undo stack: an add that was refused leaves it empty.
+  local _, handle = clickInPanel('+##camadd', { splinePosition = 0.42 })
+
+  local depth = nil
+  for i = #handle.buttons, 1, -1 do
+    local n = tostring(handle.buttons[i]):match('^Undo %((%d+)%)')
+    if n then depth = tonumber(n) break end
+  end
+
+  eq(depth, 1, 'one camera added, with no camera held')
+  handle.restoreIo()
+end)
+
+test('a button that cannot act says why', function()
+  -- No car at all: nothing to add a camera at, and the panel has to say so
+  -- rather than swallow the click.
+  local said = clickInPanel('+##camadd', { noFocusedCar = true })
+  eq(said ~= nil and said:find('no car', 1, true) ~= nil, true,
+    'the panel said: ' .. tostring(said))
+end)
+
+test('Reset says on the button that it is armed', function()
+  -- It warned only in the status line at the top, far from the thing that was
+  -- clicked, so a first click read as nothing happening.
+  local _, handle = clickInPanel('Reset###reset')
+
+  local armed = false
+  for i = 1, #handle.buttons do
+    if tostring(handle.buttons[i]):find('Reset?###reset', 1, true) then
+      armed = true
+    end
+  end
+  eq(armed, true, 'the button asks the question itself')
+  handle.restoreIo()
 end)

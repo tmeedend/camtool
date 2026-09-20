@@ -561,7 +561,11 @@ function atr.draw(state)
     -- The star is the only thing saying there is work not on disk yet.
     { id = 'save', width = 60,
       label = (depth > 0 and 'Save *' or 'Save') .. '###save' },
-    { id = 'reset', width = 56, label = 'Reset##reset' },
+    -- Armed, the button says so itself. It used to warn only in the status
+    -- line at the top of the panel, far from the thing that was clicked, so a
+    -- first click read as nothing happening.
+    { id = 'reset', width = 56,
+      label = (state.confirmReset and 'Reset?' or 'Reset') .. '###reset' },
     { id = 'toggleMap', width = 52,
       label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
     { id = 'toggleHelp', width = 30,
@@ -639,7 +643,6 @@ function atr.draw(state)
   if band.keyframe ~= nil then actions.selectKeyframe = band.keyframe end
   if band.move ~= nil then actions.moveCameraIn = band.move end
   if band.rename ~= nil then actions.renameCamera = band.rename end
-  if band.moveKeyframe ~= nil then actions.moveKeyframe = band.moveKeyframe end
   if band.addCamera ~= nil then actions.addCameraAt = band.addCamera end
   if band.removeCamera ~= nil then actions.removeCameraAt = band.removeCamera end
   ui.newLine(2)

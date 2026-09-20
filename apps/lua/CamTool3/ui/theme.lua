@@ -169,6 +169,10 @@ theme.bandLabelMin = 14
 ---Text on a segment. Dark on the pale tints, light on the dark ones, and the
 ---ribbon has both.
 theme.bandLabel = rgbm(1, 1, 1, 0.92)
+---The hand-over from one camera to the next. Dark rather than bright: it has
+---to be countable without competing with the names written beside it.
+theme.bandTick = rgbm(0.09, 0.09, 0.09, 1)
+
 ---The rename field is never narrower than this, however thin the segment.
 theme.bandRenameWidth = 150
 ---A diamond is four pixels across and nobody hits four pixels.

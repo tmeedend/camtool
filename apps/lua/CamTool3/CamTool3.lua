@@ -1140,13 +1140,17 @@ function script.windowAtr(dt)
     keyframeCount = keyframeCount,
     keyframePosition = keyframeCount > 0 and keyframes[atrKeyframe] ~= nil
       and keyframes[atrKeyframe].keyframe or nil,
-    trackPos = pbOut.trackPos,
+    -- The car, held camera or not: the ribbon, the map and the metre readout
+    -- all showed zero until the camera was taken, which is not where the car
+    -- was.
+    trackPos = pbOut.trackPos or focusedTrackPosition(),
     trackLength = sim.trackLengthM,
     outline = outline,
     outlineReason = outlineReason,
     showMap = atrShowMap,
     showHelp = atrShowHelp,
     showStrips = atrShowStrips,
+    confirmReset = atrConfirmReset,
     -- Offered when naming a camera that has none: see ui/band.
     sectionNameAt = trackAdapter.sectionNameAt,
     dt = dt,
@@ -1184,8 +1188,7 @@ function script.windowAtr(dt)
 
   -- Once nothing is being dragged, the entry is closed: the next edit starts
   -- a new one even on the same parameter.
-  if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil
-      and actions.moveKeyframe == nil then
+  if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil then
     openDrag = nil
   end
 
@@ -1201,25 +1204,6 @@ function script.windowAtr(dt)
   if actions.removeCameraAt ~= nil and cameras ~= nil then
     remember(edit.removeCamera(cameras, actions.removeCameraAt))
     if atrCamera ~= nil and atrCamera > #cameras then atrCamera = #cameras end
-  end
-
-  -- Dragging a keyframe along the ribbon. The same edit the KEYFRAME row
-  -- makes, re-sorted and re-found the same way -- moving one past another
-  -- changes the order, and the selection has to follow the keyframe rather
-  -- than the place it used to sit in.
-  local kfMove = actions.moveKeyframe
-  if kfMove ~= nil and camera ~= nil and type(kfMove.keyframe) == 'table' then
-    externalGesture = kfMove.gesture
-    remember(edit.apply({
-      camera = camera, holder = kfMove.keyframe, key = 'keyframe',
-      op = 'set', value = kfMove.position,
-    }))
-    externalGesture = nil
-
-    edit.sortKeyframes(camera)
-    for i = 1, #camera.keyframes do
-      if camera.keyframes[i] == kfMove.keyframe then atrKeyframe = i end
-    end
   end
 
   -- A name goes on the undo stack like anything else, so a rename can be
@@ -1306,9 +1290,28 @@ function script.windowAtr(dt)
   ------------------------------------------------------------------
   -- Cameras and keyframes, added, removed and moved
   ------------------------------------------------------------------
-  local playhead = pbOut.trackPos
+  -- Where the car is, whether or not we are driving the camera.
+  --
+  -- pbOut.trackPos is filled by the playback, and the playback only runs once
+  -- the camera is held. So before taking it, the playhead was nil and every
+  -- button that needs one -- add a camera, add a keyframe -- refused silently.
+  -- Clicking + and watching nothing happen is exactly what that looked like.
+  -- The car's position needs no camera held, so it is the honest fallback.
+  local playhead = pbOut.trackPos or focusedTrackPosition()
 
-  if actions.addKeyframe and camera ~= nil then
+  -- A button that cannot act says so. Refusing in silence is what made these
+  -- look broken.
+  if (actions.addCamera or actions.addKeyframe) and playhead == nil then
+    atrStatus = 'no car to put it at -- start the replay first'
+  elseif actions.addCamera and cameras == nil then
+    atrStatus = 'load a file before adding a camera'
+  elseif actions.removeCamera and atrCamera == nil then
+    atrStatus = 'pick a camera before removing one'
+  elseif actions.addKeyframe and camera == nil then
+    atrStatus = 'pick a camera before adding a keyframe'
+  end
+
+  if actions.addKeyframe and camera ~= nil and playhead ~= nil then
     local change = edit.addKeyframe(camera, playhead)
     remember(change)
     if change ~= nil then
@@ -1322,11 +1325,11 @@ function script.windowAtr(dt)
     remember(edit.removeKeyframe(camera, atrKeyframe))
     if atrKeyframe > #camera.keyframes then atrKeyframe = #camera.keyframes end
   end
-  if actions.addCamera and cameras ~= nil then
+  if actions.addCamera and cameras ~= nil and playhead ~= nil then
     -- The document hands out the identity: see core/data.claimCameraId.
     remember(edit.addCamera(cameras, playhead, dataModule.claimCameraId(doc)))
   end
-  if actions.removeCamera and cameras ~= nil then
+  if actions.removeCamera and cameras ~= nil and atrCamera ~= nil then
     remember(edit.removeCamera(cameras, atrCamera))
     if atrCamera > #cameras then atrCamera = #cameras end
     atrKeyframe = 1
