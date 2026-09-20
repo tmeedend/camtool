@@ -43,6 +43,12 @@ local renameBuffer = ''
 local draggingKeyframe = nil
 local keyframeToken = 0
 
+-- Where the right click landed, kept from the moment the menu opens. By the
+-- time an item is chosen the pointer is on the menu, nowhere near the place
+-- the camera is meant to go.
+local menuAt = nil
+local menuIndex = nil
+
 -- Whether the mouse was already down on this widget last frame. The press is
 -- the frame it goes from up to down, and only a press may take the handle:
 -- otherwise a drag that started elsewhere picks it up as it crosses over.
@@ -86,6 +92,8 @@ end
 ---  move          { position, gesture } while a camera start is dragged
 ---  moveKeyframe  { keyframe, position, gesture } while a diamond is dragged
 ---  rename        { index, name } when a name is committed
+---  addCamera     a lap position to put a new camera at
+---  removeCamera  the index of one to take away
 ---
 ---One table rather than a row of return values. Six of those had accumulated,
 ---and the seventh is what made the point: every caller had to count commas to
@@ -96,6 +104,21 @@ function band.draw(state, width)
 
   local clicked = ui.invisibleButton('##trackBand', vec2(width, height))
   local hovered = ui.itemHovered()
+
+  -- Adding and removing, where the thing is. A plus button has to decide for
+  -- you where the camera goes; a right click on the ribbon has already said.
+  -- And a delete behind a menu is a delete nobody reaches by accident, which
+  -- matters more here than a saved click: the strip's minus button sits next
+  -- to its plus.
+  local menu = nil
+  ui.itemPopup('##bandMenu', ui.MouseButton.Right, function()
+    if menuAt ~= nil and ui.selectable('Add a camera here') then
+      menu = { addCamera = menuAt }
+    end
+    if menuIndex ~= nil and ui.selectable('Remove this camera') then
+      menu = { removeCamera = menuIndex }
+    end
+  end)
 
 
   ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
@@ -137,6 +160,14 @@ function band.draw(state, width)
   -- worked on, which says who it is however little room it has. That last
   -- part is what keeps a set of a hundred readable instead of a row of
   -- clipped stubs.
+  if hovered and ui.mouseClicked(ui.MouseButton.Right) then
+    local where = ui.mouseLocalPos()
+    if where ~= nil and where.x >= 0 then
+      menuAt = positionOf(where.x - origin.x, width)
+      menuIndex = trackmap.ownerAt(segments, menuAt)
+    end
+  end
+
   local pointer = ui.mouseLocalPos()
   local pointerX = (pointer ~= nil and pointer.x >= 0)
     and (pointer.x - origin.x) or nil
@@ -196,6 +227,11 @@ function band.draw(state, width)
             or theme.diamondHollow)
       end
     end
+  end
+
+  if menu ~= nil then
+    ui.setCursor(vec2(origin.x, origin.y + height))
+    return menu
   end
 
   ------------------------------------------------------------------
@@ -367,6 +403,7 @@ end
 ---Give up any drag in progress. For tests.
 function band.reset()
   dragging, wasActive = false, false
+  menuAt, menuIndex = nil, nil
   renaming, renameBuffer = nil, ''
   draggingKeyframe = nil
 end

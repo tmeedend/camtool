@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (455 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (466 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -138,8 +138,9 @@ rien.
 | 15 | **Bande de piste** | Le ruban sous les bandes numérotées : une teinte par caméra, les losanges de la caméra éditée, le trait blanc de la voiture. Cliquer une portion sélectionne sa caméra, cliquer un losange sélectionne le keyframe. |
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
-| 18 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 19 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 18 | **Ruban, édition** | Glisser un losange le déplace. **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Chaque geste = **une** entrée d'`Undo`. |
+| 19 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 20 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -418,6 +419,13 @@ par l'**`id`**, pas par le rang : insérer une caméra pendant qu'on tape décal
 le rang sous le champ, et un renommage qui suivrait le rang atterrirait sur la
 mauvaise caméra. Un test le prouve. Échap abandonne, comme partout ailleurs
 dans le panneau.
+
+**Les losanges se glissent** le long du ruban, et **le clic droit ouvre un
+menu** : « ajouter une caméra ici », « supprimer cette caméra ». La position
+vient de l'endroit du clic droit, pas de la tête de lecture — un `+` doit
+décider à ta place où va la caméra, un clic droit l'a déjà dit. Et une
+suppression derrière un menu ne s'atteint pas par mégarde, ce qui compte plus
+ici qu'un clic épargné : le `−` de la bande numérotée est collé à son `+`.
 
 Reste sur ce point : une source de noms par défaut. **`sections.ini` du circuit** définit des
 `IN` / `OUT` / `TEXT` (« Tamburello »), et `ac.getTrackSectorName(progress)`

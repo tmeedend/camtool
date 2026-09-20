@@ -1141,6 +1141,20 @@ function script.windowAtr(dt)
     openDrag = nil
   end
 
+  -- Adding and removing a camera from the ribbon's menu. Same edits as the
+  -- strip's plus and minus, but the position comes from where the right click
+  -- landed rather than from the playhead, and the removal names the camera
+  -- under the pointer rather than whichever one happens to be selected.
+  if actions.addCameraAt ~= nil and cameras ~= nil then
+    remember(edit.addCamera(cameras, actions.addCameraAt,
+      dataModule.claimCameraId(doc)))
+  end
+
+  if actions.removeCameraAt ~= nil and cameras ~= nil then
+    remember(edit.removeCamera(cameras, actions.removeCameraAt))
+    if atrCamera ~= nil and atrCamera > #cameras then atrCamera = #cameras end
+  end
+
   -- Dragging a keyframe along the ribbon. The same edit the KEYFRAME row
   -- makes, re-sorted and re-found the same way -- moving one past another
   -- changes the order, and the selection has to follow the keyframe rather

@@ -579,3 +579,72 @@ test('a drag passing over a diamond does not pick it up', function()
   eq(pressKeyframe(state, WIDTH * 0.5), nil, 'and crossing it changes nothing')
   band.reset()
 end)
+
+--------------------------------------------------------------------------
+-- Adding and removing from the ribbon
+--------------------------------------------------------------------------
+
+---Right click somewhere, then pick an item from the menu it opens.
+local function pickFromMenu(state, mouseX, item)
+  band.reset()
+
+  -- The right click, which is what records where the menu is about.
+  local handle = fakes.install({
+    itemHovered = true, rightClicked = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  -- And the frame where the menu is open and something in it is chosen.
+  handle = fakes.install({
+    itemHovered = true, popupOpen = true,
+    clicks = item ~= nil and { [item] = true } or {},
+    mouseX = -1, mouseY = -1,
+  })
+  local did = band.draw(state, WIDTH)
+  handle.restoreIo()
+  band.reset()
+  return did
+end
+
+test('the menu adds a camera where the click landed', function()
+  -- Not at the playhead: the right click has already said where.
+  local did = pickFromMenu({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.3, 'Add a camera here')
+  eq(did.addCamera ~= nil, true)
+  near(did.addCamera, 0.3, 0.01)
+end)
+
+test('the menu removes the camera that was under the pointer', function()
+  -- And not the selected one, which is the strip's minus and a different
+  -- thing entirely.
+  local did = pickFromMenu(
+    { cameras = cameras({ 0, 0.25, 0.5, 0.75 }), cameraIndex = 1 },
+    WIDTH * 0.6, 'Remove this camera')
+  eq(did.removeCamera, 3)
+end)
+
+test('the position is the one from the right click, not from later', function()
+  -- By the time an item is chosen the pointer is on the menu, nowhere near
+  -- the ribbon. Taking the position then would put the camera anywhere.
+  local did = pickFromMenu({ cameras = cameras({ 0 }), cameraIndex = 1 },
+    WIDTH * 0.8, 'Add a camera here')
+  near(did.addCamera, 0.8, 0.01)
+end)
+
+test('opening the menu and choosing nothing changes nothing', function()
+  local did = pickFromMenu({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.3, nil)
+  eq(did.addCamera, nil)
+  eq(did.removeCamera, nil)
+end)
+
+test('a menu choice outranks anything else happening that frame', function()
+  -- It is the one thing the user asked for explicitly. Selecting a camera
+  -- underneath it as well would be two edits from one click.
+  local did = pickFromMenu({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.3, 'Add a camera here')
+  eq(did.camera, nil)
+  eq(did.keyframe, nil)
+end)

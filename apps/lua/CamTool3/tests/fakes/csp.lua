@@ -308,6 +308,18 @@ function fakes.install(opts)
       handle.tooltips[#handle.tooltips + 1] = tostring(text)
     end,
 
+    -- The context menu. Its contents are only drawn while it is open, so a
+    -- test says so rather than the fake guessing.
+    itemPopup = function(id, button, content)
+      if opts.popupOpen and type(content) == 'function' then return content() end
+      if opts.popupOpen and type(button) == 'function' then return button() end
+    end,
+    selectable = function(label) return clicked(label) end,
+    mouseClicked = function(button)
+      return opts.rightClicked == true and button == 1
+    end,
+    MouseButton = { Left = 0, Right = 1 },
+
     slider = function(_, value) return value, false end,
     checkbox = function(label) return clicked(label) end,
     radioButton = function(label) return clicked(label) end,

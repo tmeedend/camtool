@@ -615,6 +615,8 @@ function atr.draw(state)
   if band.move ~= nil then actions.moveCameraIn = band.move end
   if band.rename ~= nil then actions.renameCamera = band.rename end
   if band.moveKeyframe ~= nil then actions.moveKeyframe = band.moveKeyframe end
+  if band.addCamera ~= nil then actions.addCameraAt = band.addCamera end
+  if band.removeCamera ~= nil then actions.removeCameraAt = band.removeCamera end
   ui.newLine(2)
 
   ------------------------------------------------------------------
