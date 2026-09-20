@@ -261,8 +261,9 @@ atr.LEGEND = {
   'Ruler   DRAG ANYWHERE ON IT to move the playhead -- not only on the ' ..
     'triangle. The replay follows as you drag, roughly, and lands exactly ' ..
     'when you let go. The sound is muted until it has.',
-  'Ribbon   click to select that camera AND bring the car there. ' ..
-    'Shift+click selects without moving the replay.',
+  'Ribbon   click a segment to select that camera. It does NOT move the ' ..
+    'playhead: choosing a camera to work on is not a request to go and ' ..
+    'watch it. The ruler above is what moves the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
     'Double click a segment to name it.',
   'Cameras   +cam adds one where the car is, -cam removes the selected one. ' ..
@@ -270,8 +271,9 @@ atr.LEGEND = {
   'Ribbon   RIGHT CLICK to add a camera at that exact spot, to remove the ' ..
     'one under the pointer, or to bring the car there. The buttons are for ' ..
     'here and now; the menu is for somewhere in particular.',
-  'Map   the same cameras on the circuit. Click and Shift+click do what they ' ..
-    'do on the ribbon; the handle drags there too.',
+  'Map   the same cameras on the circuit. Click selects, exactly as on the ' ..
+    'ribbon and with as little effect on the replay; the handle drags there ' ..
+    'too.',
   "Arrows   left and right step through this camera's keyframes, up and " ..
     'down through the cameras, and each brings the car with it. Hold Shift ' ..
     'to step without moving the replay. They stop at the ends. Rebind them ' ..

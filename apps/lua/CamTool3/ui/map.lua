@@ -331,23 +331,18 @@ function map.draw(state, width, maxHeight)
     dragging = false
   end
 
-  -- The same gesture as the ribbon, for the same reason: the pointer is
-  -- already on the spot being asked about. Shift holds the replay still.
-  --
-  -- And here it costs nothing at all. Every point of the outline IS a lap
-  -- position -- that is what picking the AI spline over a picture of the
-  -- track bought -- so the click has one already in hand.
+  -- A click selects, and that is all it does -- the same rule as the ribbon,
+  -- and it has to be the same in both or neither can be relied on. It used to
+  -- move the replay too, with Shift to hold it still; the ribbon's ruler is
+  -- where the playhead is moved now, and it is the only place.
   local hint = nil
   if hovered then
-    hint = 'Click: select the camera and bring the car here.  ' ..
-      'Shift+click: select only.'
+    hint = 'Click: select this camera.'
   end
 
   if clicked and hoverIndex ~= nil then
-    local at = points[hoverIndex]
-    local seekTo = (at ~= nil and not ui.hotkeyShift()) and at.p or nil
-    if owners[hoverIndex] then return owners[hoverIndex], nil, seekTo, hint end
-    return nil, nil, seekTo, hint
+    if owners[hoverIndex] then return owners[hoverIndex], nil, nil, hint end
+    return nil, nil, nil, hint
   end
 
   return nil, nil, nil, hint

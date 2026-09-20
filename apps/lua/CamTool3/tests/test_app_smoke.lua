@@ -455,8 +455,11 @@ end)
 -- Bringing the car somewhere
 --------------------------------------------------------------------------
 
----Load the app, load a file, then click the ribbon at `at` of the way along.
----@return table handle, number frames @how many frames were run after the click
+---Load the app, load a file, then click the ruler at `at` of the way along.
+---
+---A click, not a drag: press and release, which is the shortest gesture that
+---asks for an exact landing and so the one these cases want.
+---@return table handle
 local function clickRibbon(at, opts)
   opts = opts or {}
   opts.cameraFile = rawFile
@@ -479,13 +482,16 @@ local function clickRibbon(at, opts)
   opts.clicks['no file###fileName'] = nil
   opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
 
-  -- The click: hovering the ribbon, at a known fraction of its width.
-  opts.clicks['##trackBand'] = true
-  opts.itemHovered = true
+  -- The click: the ruler held down at a known fraction of its width, then
+  -- let go. The landing is asked for on the release.
+  opts.itemActive = '##bandRuler'
+  opts.itemHovered = '##bandRuler'
   opts.mouseX = 17 + at * 360
-  opts.mouseY = 23 + 10
+  opts.mouseY = 23 + 4
   pcall(_G.script.windowAtr, 0.016)
-  opts.clicks['##trackBand'] = nil
+
+  opts.itemActive = false
+  pcall(_G.script.windowAtr, 0.016)
 
   -- And the frames the search runs in.
   for _ = 1, 12 do handle.tick(0.016) end
@@ -509,14 +515,14 @@ test('the index fills as the replay plays, and moves nothing', function()
   handle.restoreIo()
 end)
 
-test('clicking the ribbon brings the car to that point of the track', function()
+test('clicking the ruler brings the car to that point of the track', function()
   -- End to end through the app: the click, the search, the landing. The fake
   -- replay puts the car where the frame says, so where it ends up is the
   -- answer to the question asked.
   local handle = clickRibbon(0.62)
 
   runner.near(handle.car.splinePosition, 0.62, 0.01,
-    'the car is where the ribbon was clicked')
+    'the car is where the ruler was clicked')
   handle.restoreIo()
 end)
 

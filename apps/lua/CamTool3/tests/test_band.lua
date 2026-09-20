@@ -725,26 +725,32 @@ local function clickBand(state, mouseX, shift)
   return did
 end
 
-test('a plain click selects the camera and asks for the car', function()
+test('a click on a segment selects that camera', function()
   local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
     WIDTH * 0.3)
   eq(did.camera, 1, 'the camera whose stretch was clicked')
-  near(did.seekTo, 0.3, 0.01, 'and the exact spot within it')
 end)
 
-test('shift selects without touching the replay', function()
-  -- For picking a camera without losing the moment being watched.
+test('selecting a camera leaves the replay exactly where it was', function()
+  -- It used to move the replay too, with Shift to hold it still. Choosing a
+  -- camera to edit is not a request to go and watch it, and the moment you
+  -- were looking at does not come back.
   local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
-    WIDTH * 0.7, true)
-  eq(did.camera, 2)
+    WIDTH * 0.3)
   eq(did.seekTo, nil)
+  eq(did.scrubTo, nil)
 end)
 
-test('the spot asked for is where the click landed, not the camera start', function()
-  local did = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
-    WIDTH * 0.85)
-  eq(did.camera, 2, 'the second camera starts at half a lap')
-  near(did.seekTo, 0.85, 0.01, 'but the car goes where the pointer was')
+test('no modifier changes what a click on a segment does', function()
+  -- A modifier that turns a behaviour off is a thing only its author knows
+  -- about: nothing on screen can tell you it is there.
+  local plain = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.7)
+  local shifted = clickBand({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.7, true)
+
+  eq(shifted.camera, plain.camera)
+  eq(shifted.seekTo, plain.seekTo)
 end)
 
 test('hovering the ribbon says what clicking it will do', function()
@@ -757,7 +763,9 @@ test('hovering the ribbon says what clicking it will do', function()
   handle.restoreIo()
 
   eq(type(did.hint), 'string')
-  eq(did.hint:find('Shift', 1, true) ~= nil, true, 'and names the modifier')
+  eq(did.hint:find('select', 1, true) ~= nil, true, 'and says what a click does')
+  eq(did.hint:lower():find('shift', 1, true), nil,
+    'and no longer offers a modifier that does nothing')
 end)
 
 test('the pointer changes over the ribbon', function()

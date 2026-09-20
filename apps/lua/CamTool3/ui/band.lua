@@ -332,9 +332,8 @@ local function drawBand(state, width)
   end
   if hovered then
     ui.setMouseCursor(ui.MouseCursor.Hand)
-    hint = 'Click: select the camera and bring the car here.  ' ..
-      'Shift+click: select only.  ' ..
-      'Right click: add a camera here, or remove one.'
+    hint = 'Click: select this camera.  Double click: rename it.  ' ..
+      'Right click: bring the car here, add a camera, or remove one.'
   end
 
   local segments = trackmap.segments(state.cameras)
@@ -647,16 +646,19 @@ local function drawBand(state, width)
     if best ~= nil then return { hint = hint, keyframe = best, rename = renamed } end
   end
 
-  -- A plain click does both: picks the camera and takes the replay to the
-  -- spot. Shift holds the replay still, for choosing a camera without losing
-  -- the moment being watched.
+  -- A CLICK SELECTS, AND THAT IS ALL IT DOES. It used to move the replay as
+  -- well, with Shift to hold it still, and both halves of that were wrong.
+  -- Moving the replay on every selection is in the way while a set is being
+  -- built: picking a camera to edit is not a request to go and watch it, and
+  -- the moment you were looking at is gone. And a modifier that turns a
+  -- behaviour off is a thing only its author knows about -- there is nothing
+  -- on screen that could tell you Shift was there.
   --
-  -- Moving the replay is not an edit. Nothing here reaches camera data, and
-  -- nothing here belongs on the undo stack.
+  -- The playhead has a zone of its own now, which is where an editor puts it,
+  -- and nothing outside that zone touches it.
   return {
     hint = hint,
     camera = trackmap.ownerAt(segments, at),
-    seekTo = (not ui.hotkeyShift()) and at or nil,
     rename = renamed,
   }
 end

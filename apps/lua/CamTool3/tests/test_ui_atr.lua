@@ -1756,7 +1756,7 @@ test('the legend covers every gesture the panel has', function()
   local all = table.concat(atr.LEGEND, ' | '):lower()
 
   for _, gesture in ipairs({
-    'shift+click', 'double click', 'right click', 'drag', 'escape',
+    'double click', 'right click', 'drag', 'escape',
     'ctrl+z', 'wheel', 'diamond', 'ribbon', 'map', 'click away',
   }) do
     eq(all:find(gesture, 1, true) ~= nil, true,
@@ -1765,10 +1765,21 @@ test('the legend covers every gesture the panel has', function()
 end)
 
 test('the legend says what a click on the ribbon does to the replay', function()
-  -- The one Théo found missing: a click moves the replay, and nothing said so.
+  -- It used to move it, and the legend had to say so. It no longer does, and
+  -- the legend has to say THAT: someone who learnt the old behaviour will
+  -- click a segment and wait for the picture to change.
   local all = table.concat(atr.LEGEND, ' | '):lower()
-  eq(all:find('bring the car', 1, true) ~= nil, true)
-  eq(all:find('without moving the replay', 1, true) ~= nil, true)
+  eq(all:find('does not move the playhead', 1, true) ~= nil, true)
+  eq(all:find('bring the car', 1, true) ~= nil, true,
+    'and the menu that still does it is still named')
+end)
+
+test('the legend offers no gesture that was taken away', function()
+  -- Shift+click held the replay still. There is nothing left for it to hold
+  -- still, so a legend still promising it would send someone hunting for a
+  -- difference they will never see.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('shift+click', 1, true), nil)
 end)
 
 test('the panel hands the widget the sentence written for the row', function()

@@ -688,27 +688,27 @@ local function clickOutline(state, index, shift)
   return picked, seekTo, hint
 end
 
-test('clicking the outline selects the camera and asks for the car', function()
-  -- The same gesture as the ribbon, and here it costs nothing: every point of
-  -- the outline IS a lap position, which is what choosing the AI spline over
-  -- a picture of the track bought.
+test('clicking the outline selects the camera under it', function()
   local state = {
     outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
   }
-  local picked, seekTo = clickOutline(state, 40)
+  local picked = clickOutline(state, 40)
 
   eq(picked ~= nil, true, 'a camera was selected')
-  eq(type(seekTo), 'number', 'and the car was asked for')
-  near(seekTo, 39 / 120, 0.02, 'at the point clicked')
 end)
 
-test('shift selects on the map without moving the replay either', function()
+test('selecting on the map leaves the replay where it was, modifier or not', function()
+  -- The ribbon's rule, and it has to be the same in both surfaces or neither
+  -- can be relied on. The ruler is the only thing that moves the playhead.
   local state = {
     outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
   }
-  local picked, seekTo = clickOutline(state, 40, true)
-  eq(picked ~= nil, true)
-  eq(seekTo, nil)
+
+  local _, plain = clickOutline(state, 40)
+  eq(plain, nil)
+
+  local _, shifted = clickOutline(state, 40, true)
+  eq(shifted, nil)
 end)
 
 test('hovering the map says what clicking it does', function()
@@ -717,7 +717,8 @@ test('hovering the map says what clicking it does', function()
   }
   local _, _, hint = clickOutline(state, 40)
   eq(type(hint), 'string')
-  eq(hint:find('Shift', 1, true) ~= nil, true)
+  eq(hint:find('select', 1, true) ~= nil, true)
+  eq(hint:lower():find('shift', 1, true), nil, 'and offers no dead modifier')
 end)
 
 test('clicking the empty middle of the map moves nothing', function()

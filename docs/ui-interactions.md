@@ -87,6 +87,112 @@ Le bloc d'explications en bas de fenêtre est supprimé. Il est remplacé par :
 
 Les noms de fonctions varient selon le binding Lua de CSP : vérifier dans le SDK avant de reprendre les noms C++ cités ici.
 
+## Le ruban — la surface de navigation principale
+
+<!--
+  Section ajoutée après coup : le contrat d'origine a été écrit avant que le
+  ruban et la carte existent. Les gestes ci-dessous ont été demandés par Théo,
+  qui a tranché explicitement contre la version précédente ; les raisons sont
+  les siennes et sont écrites ici pour qu'on ne les redécouvre pas.
+-->
+
+Le ruban est **le** navigateur : c'est lui qu'on regarde pour savoir où on en
+est dans le tour. La carte dit la même chose dans l'espace ; elle ne commande
+pas le replay.
+
+**Deux zones horizontales, et le fond les distingue.** C'est le fond qui fait
+le travail : il rend la coupure évidente sans un mot d'explication, ce qu'une
+coupure expliquée n'obtient jamais.
+
+| Zone | Contenu | Ce qu'on y fait |
+|---|---|---|
+| **La règle**, en haut, une quinzaine de pixels | Graduations de distance sur le tour, noms des portions quand le circuit en donne (`sections.ini`) | On déplace la tête de lecture |
+| **Les segments**, en dessous | Une teinte par caméra, les losanges de la caméra éditée | On choisit une caméra |
+
+> La règle fait 16 px et non la dizaine demandée : une ligne de texte en fait
+> 13, et une règle sur laquelle on ne peut pas écrire une distance est une
+> rangée de marques qui ne mesurent rien.
+
+**Un nom l'emporte sur un chiffre.** Les deux ne tiennent pas sur la même
+ligne. Là où le circuit a nommé la portion, la distance abandonne son
+étiquette et garde sa marque — on lit le chiffre sur les marques voisines.
+
+### La tête de lecture
+
+Un trait vertical traversant les deux zones, avec une poignée triangulaire
+dans la règle. Elle suit la lecture du replay toute seule.
+
+| Geste | Effet |
+|---|---|
+| Clic ou glissé **n'importe où sur la règle** | Déplace la tête de lecture |
+| Glisser la poignée | Pareil — c'est le même geste, la poignée dit seulement où est la tête |
+
+**N'importe où, et c'est toute la règle.** Viser cinq pixels de triangle avant
+que quoi que ce soit ne bouge est une épreuve d'adresse, pas un geste. Tous
+les logiciels de montage laissent tirer la règle entière.
+
+Pendant le glissé, le replay suit **grossièrement** : un saut par tranche de
+100 ms, une seule sonde, aucune convergence. La recherche ordinaire sonde à
+chaque frame jusqu'à tomber juste — soit soixante repositionnements par
+seconde pendant un glissé, et pour rien, puisque le pointeur a bougé entre
+temps. Un atterrissage faux reste en place jusqu'au tick suivant ; d'ici là la
+boucle de frame a noté où on avait atterri, donc la correction est mieux
+informée qu'une seconde sonde ne l'aurait été. **L'atterrissage exact a lieu
+une fois, au relâchement** — c'est aussi le moment où être à quelques mètres
+près commence à compter.
+
+**Le son est coupé pour tout le geste**, pas pour chaque saut : CamTool 2
+avait des artefacts sur les changements de position, et les rejouer une fois
+par saut serait pire que ce qu'on évite.
+
+### Les segments
+
+| Geste | Effet |
+|---|---|
+| Clic | Sélectionne la caméra. **Ne déplace pas la tête de lecture** |
+| Double-clic | Renomme la caméra |
+| Glisser la poignée rouge | Déplace le début de la caméra sélectionnée |
+| Clic droit | Menu : amener la voiture ici, ajouter une caméra ici, supprimer celle-ci |
+
+**Sélectionner ne déplace pas le replay, et aucun modificateur ne le fait.**
+Un état antérieur faisait l'inverse — clic = sélectionner *et* amener la
+voiture, Maj+clic pour s'en abstenir — et les deux moitiés étaient fausses.
+Déplacer le replay à chaque sélection gêne la création de caméras : choisir
+une caméra à éditer n'est pas demander à aller la regarder, et l'instant qu'on
+regardait ne revient pas. Et un modificateur qui désactive un comportement
+n'est connu que de son auteur : rien à l'écran ne peut dire que Maj existait.
+
+**Le double-clic garde partout le même sens : éditer le texte de l'élément.**
+Sur un champ de valeur on tape la valeur, sur un segment on tape le nom.
+C'est la convention universelle, du gestionnaire de fichiers aux calques de
+Photoshop. « Amener la tête de lecture au début d'une caméra » est couvert
+deux fois par ailleurs — Haut/Bas au clavier, et le menu du clic droit, qui a
+l'avantage d'être libellé en toutes lettres.
+
+**Les losanges ne se déplacent pas au ruban.** Un losange fait quatre pixels
+sur une surface qu'on clique aussi pour sélectionner : un clic manqué de peu
+déplacerait un keyframe, et un keyframe déplacé par mégarde ne se remarque
+qu'au montage. Le champ `KEYFRAME` les déplace, là où le geste ne peut se
+confondre avec rien.
+
+### Clavier
+
+Les flèches déplacent la tête de lecture, comme les touches de saut d'un point
+de montage à l'autre dans Premiere ou Resolve : Gauche/Droite d'un keyframe à
+l'autre, Haut/Bas d'une caméra à l'autre. Elles **s'arrêtent aux extrémités** :
+boucler ferait repartir un tour en arrière sous une touche maintenue.
+
+### La carte
+
+La carte suit la règle du ruban : **un clic sélectionne, rien de plus**. Elle
+doit dire la même chose que le ruban ou aucune des deux ne peut être crue.
+
+### Ce que rien de tout ça n'est
+
+Déplacer la tête de lecture **n'est pas une modification de données** : aucune
+entrée d'annulation, jamais. Un glissé qui traverse la moitié du tour laisse
+la pile d'annulation exactement où elle était.
+
 ## Ce qui n'a pas sa place dans l'UI
 
 - **Aucune note de chantier.** « Pas encore implémenté », listes de ce qui manque par rapport à CamTool 2 : cela va dans les issues GitHub ou le README, jamais dans la fenêtre.
