@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (575 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (577 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -396,8 +396,10 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
 
    Où est passé ce qu'elles portaient : **sélectionner** une caméra ou un
    keyframe est un clic sur le ruban, **ajouter et supprimer une caméra** est
-   son menu au clic droit, et la paire de boutons keyframe a rejoint la rangée
-   d'actions — un keyframe naît à la tête de lecture sur la caméra
+   son menu au **clic droit** — il n'y a plus de bouton, et Théo ne l'a pas
+   trouvé, parce que la légende et la ligne de statut disaient « right click
+   for more », ce qui ne nomme rien. Elles nomment les trois entrées
+   maintenant. La paire de boutons keyframe a rejoint la rangée d'actions — un keyframe naît à la tête de lecture sur la caméra
    sélectionnée, donc ni l'un ni l'autre n'a besoin d'un endroit à viser.
 
    `Starting point` et la ligne `KEYFRAME` restent, et c'est voulu : le ruban

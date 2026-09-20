@@ -247,7 +247,11 @@ atr.LEGEND = {
   'Ribbon   click to select that camera AND bring the car there. ' ..
     'Shift+click selects without moving the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
-    'Double click a segment to name it. Right click for more.',
+    'Double click a segment to name it.',
+  'Ribbon   RIGHT CLICK to add a camera where you clicked, to remove the one ' ..
+    'under the pointer, or to bring the car there. There is no button for ' ..
+    'adding a camera: the menu knows where you meant, and a button would ' ..
+    'have to guess.',
   'Map   the same cameras on the circuit. Click and Shift+click do what they ' ..
     'do on the ribbon; the handle drags there too.',
   "Arrows   left and right step through this camera's keyframes, up and " ..

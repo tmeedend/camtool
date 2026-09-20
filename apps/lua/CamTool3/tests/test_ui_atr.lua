@@ -1875,3 +1875,25 @@ test('the legend offers a rebinding widget for every shortcut', function()
   handle.restoreIo()
   trackShortcuts.reset()
 end)
+
+test('the legend says how to add a camera, in words', function()
+  -- Théo could not find how. The strips took the + button with them, and both
+  -- the legend and the status line said only "right click for more", which
+  -- names nothing. A gesture whose only description is that it exists is not
+  -- described.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('add a camera', 1, true) ~= nil, true)
+  eq(all:find('remove', 1, true) ~= nil, true)
+end)
+
+test('the ribbon says it too, while the pointer is on it', function()
+  local handle = fakes.install({ itemHovered = true, mouseX = 17 + 10,
+    mouseY = 23 + 10 })
+  local did = trackBand.draw({
+    cameras = { { id = 1, camera_in = 0, camera_pit = false } }, cameraIndex = 1,
+  }, 360)
+  handle.restoreIo()
+
+  eq(did.hint:lower():find('add a camera', 1, true) ~= nil, true,
+    'got: ' .. tostring(did.hint))
+end)

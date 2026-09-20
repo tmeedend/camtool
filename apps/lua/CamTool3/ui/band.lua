@@ -138,7 +138,8 @@ function band.draw(state, width)
   if hovered then
     ui.setMouseCursor(ui.MouseCursor.Hand)
     hint = 'Click: select the camera and bring the car here.  ' ..
-      'Shift+click: select only.  Right click: more.'
+      'Shift+click: select only.  ' ..
+      'Right click: add a camera here, or remove one.'
   end
 
   local segments = trackmap.segments(state.cameras)
