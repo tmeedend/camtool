@@ -466,6 +466,9 @@ local function clickRibbon(at, opts)
     ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
   }
   local handle = fakes.install(opts)
+  -- The ribbon is a module and outlives one app. A case that ended with the
+  -- mouse still down would otherwise hand its release to the next one.
+  require('ui/band').reset()
 
   local chunk = assert(loadfile('CamTool3.lua'))
   chunk()
@@ -612,6 +615,117 @@ test('and a camera can go into the set that was just started', function()
   eq(depth ~= nil and depth >= 1, true,
     'a camera went into a set that did not exist a moment ago, got ' ..
     tostring(depth))
+
+  handle.restoreIo()
+end)
+
+--------------------------------------------------------------------------
+-- Dragging the playhead
+--------------------------------------------------------------------------
+-- What cannot be checked out of game is whether it FEELS like following the
+-- hand. What can is how often the game is asked to move the replay, and that
+-- is the part that would hurt it.
+
+---Load the app with a file, then hold the ruler down and drag along it.
+---@param path number[] @where the pointer is, 0..1, one entry per frame
+---@param dt number @seconds per frame
+---@return table handle
+local function dragRuler(path, dt, opts)
+  opts = opts or {}
+  opts.cameraFile = rawFile
+  opts.framesPerLap = opts.framesPerLap or 6000
+  opts.clicks = {
+    ['no file###fileName'] = true,
+    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+  }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Watch a while so the index has something in it, then load the file.
+  for _ = 1, 5 do handle.tick(0.016) end
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks['no file###fileName'] = nil
+  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+
+  handle.replayPositions = {}
+  handle.audioWrites = {}
+
+  opts.itemActive = '##bandRuler'
+  opts.itemHovered = '##bandRuler'
+  opts.mouseY = 23 + 4
+
+  for i = 1, #path do
+    opts.mouseX = 17 + path[i] * 360
+    pcall(_G.script.windowAtr, dt)
+    handle.tick(dt)
+  end
+
+  return handle, opts
+end
+
+test('a drag moves the replay at most ten times a second', function()
+  -- Sixty a second is what asking per frame would cost, and moving a replay
+  -- is not a cheap thing to ask for.
+  local path = {}
+  for i = 1, 30 do path[i] = 0.3 + i * 0.005 end
+
+  local handle = dragRuler(path, 0.016)
+  local moves = #handle.replayPositions
+
+  -- Half a second of dragging: five or six jumps, not thirty.
+  eq(moves >= 1, true, 'it did follow, got ' .. moves)
+  eq(moves <= 8, true, 'thirty frames asked for ' .. moves .. ' jumps')
+
+  handle.restoreIo()
+end)
+
+test('the first frame of a drag moves the replay at once', function()
+  -- Waiting a tenth of a second to react to a press is the one delay anybody
+  -- would notice.
+  local handle = dragRuler({ 0.42 }, 0.016)
+  eq(#handle.replayPositions >= 1, true)
+  handle.restoreIo()
+end)
+
+test('the sound goes once for the gesture, not once for each jump', function()
+  -- The artefact being avoided is on the replay MOVING. Restoring the volume
+  -- between two jumps of one drag plays it again, per jump, which is worse
+  -- than what it was there to prevent.
+  local path = {}
+  for i = 1, 30 do path[i] = 0.3 + i * 0.01 end
+
+  local handle = dragRuler(path, 0.016)
+
+  local silences = 0
+  for _, write in ipairs(handle.audioWrites) do
+    if write[2] == 0 then silences = silences + 1 end
+  end
+  eq(silences, 1, 'the game was quietened ' .. silences .. ' times')
+
+  handle.restoreIo()
+end)
+
+test('letting go lands exactly, and gives the sound back', function()
+  local handle, opts = dragRuler({ 0.3, 0.35, 0.4 }, 0.016)
+
+  -- The release: no longer held, and the ribbon reports the landing.
+  opts.itemActive = false
+  for _ = 1, 14 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+
+  runner.near(handle.car.splinePosition, 0.4, 0.02,
+    'the car ended up where the drag ended')
+
+  local restored = false
+  for _, write in ipairs(handle.audioWrites) do
+    if write[2] ~= 0 then restored = true end
+  end
+  eq(restored, true, 'and the sound came back')
 
   handle.restoreIo()
 end)

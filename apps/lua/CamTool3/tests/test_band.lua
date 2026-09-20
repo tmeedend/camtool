@@ -234,7 +234,7 @@ end)
 ---Press somewhere on the band and report what came back.
 local function press(state, mouseX)
   local handle = fakes.install({
-    itemActive = true, itemHovered = true,
+    itemActive = '##trackBand', itemHovered = true,
     mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
   })
   local did = band.draw(state, WIDTH)
@@ -500,7 +500,7 @@ test('a diamond cannot be dragged from the ribbon', function()
   }
 
   local handle = fakes.install({
-    itemActive = true, itemHovered = true,
+    itemActive = '##trackBand', itemHovered = true,
     mouseX = ORIGIN_X + WIDTH * 0.2, mouseY = ORIGIN_Y + 10,
   })
   local did = band.draw(state, WIDTH)
@@ -518,7 +518,7 @@ test('the camera handle is still draggable', function()
   local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
 
   local handle = fakes.install({
-    itemActive = true, itemHovered = true,
+    itemActive = '##trackBand', itemHovered = true,
     mouseX = ORIGIN_X + WIDTH * 0.25, mouseY = ORIGIN_Y + 10,
   })
   local did = band.draw(state, WIDTH)
@@ -1066,4 +1066,143 @@ test('nothing is drawn for a car the game cannot place', function()
   local _, _, nan = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
     trackPos = 0 / 0, trackLength = LAP_M })
   eq(playheadLine(nan), nil)
+end)
+
+--------------------------------------------------------------------------
+-- Dragging the playhead
+--------------------------------------------------------------------------
+
+---Hold the mouse down on the ruler at `mouseX` pixels along it.
+local function holdRuler(state, mouseX)
+  local handle = fakes.install({
+    itemActive = '##bandRuler', itemHovered = '##bandRuler',
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 4,
+  })
+  local did = band.draw(state, WIDTH)
+  handle.restoreIo()
+  return did, handle
+end
+
+---And let go, the frame after.
+local function releaseRuler(state)
+  local handle = fakes.install({ itemActive = false, mouseX = -1 })
+  local did = band.draw(state, WIDTH)
+  handle.restoreIo()
+  return did
+end
+
+test('pressing the ruler takes hold of the playhead', function()
+  band.reset()
+  local did = holdRuler({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.1, trackLength = LAP_M }, WIDTH * 0.6)
+
+  near(did.scrubTo, 0.6, 0.01, 'the replay is asked to follow')
+  eq(did.seekTo, nil, 'and not to land yet')
+  band.reset()
+end)
+
+test('the ruler can be taken hold of anywhere, not only on the grip', function()
+  -- Aiming at five pixels of triangle before anything will move is a test of
+  -- nerve, not a gesture. The grip says where the head is; the strip is what
+  -- is dragged.
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.9, trackLength = LAP_M }
+  local did = holdRuler(state, WIDTH * 0.15)
+
+  near(did.scrubTo, 0.15, 0.01, 'far from where the head was')
+  band.reset()
+end)
+
+test('the head follows the pointer, not the replay catching up', function()
+  -- The replay is a tenth of a second behind by design. A head that snapped
+  -- back to it would stutter under the finger holding it.
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.1, trackLength = LAP_M }
+  local _, handle = holdRuler(state, WIDTH * 0.75)
+
+  near(playheadLine(handle.drawn).x, ORIGIN_X + WIDTH * 0.75, 1)
+  near(playheadGrip(handle.drawn).x, ORIGIN_X + WIDTH * 0.75, 1)
+  band.reset()
+end)
+
+test('a drag follows the pointer along the ruler', function()
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.1, trackLength = LAP_M }
+
+  for _, at in ipairs({ 0.2, 0.35, 0.5 }) do
+    local did = holdRuler(state, WIDTH * at)
+    near(did.scrubTo, at, 0.01)
+    eq(did.seekTo, nil, 'still nothing exact while it runs')
+  end
+  band.reset()
+end)
+
+test('letting go asks for the exact spot, once', function()
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.1, trackLength = LAP_M }
+
+  holdRuler(state, WIDTH * 0.42)
+  local did = releaseRuler(state)
+
+  near(did.seekTo, 0.42, 0.01, 'where the drag ended')
+  eq(did.scrubTo, nil, 'and the following stops')
+
+  local after = releaseRuler(state)
+  eq(after.seekTo, nil, 'asked once, not every frame afterwards')
+  band.reset()
+end)
+
+test('a click on the ruler is a drag of one frame', function()
+  -- Which is why there is no separate handling of one: press and release, and
+  -- the head is where it was clicked.
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.1, trackLength = LAP_M }
+
+  holdRuler(state, WIDTH * 0.8)
+  near(releaseRuler(state).seekTo, 0.8, 0.01)
+  band.reset()
+end)
+
+test('a drag past the end of the ribbon stops at the line', function()
+  band.reset()
+  local state = { cameras = cameras({ 0 }), cameraIndex = 1,
+    trackPos = 0.5, trackLength = LAP_M }
+
+  near(holdRuler(state, WIDTH + 200).scrubTo, 1, 0.001)
+  band.reset()
+  near(holdRuler(state, -50).scrubTo, 0, 0.001, 'and at the start')
+  band.reset()
+end)
+
+test('the pointer over the ruler says it can be dragged', function()
+  band.reset()
+  local handle = fakes.install({
+    itemHovered = '##bandRuler',
+    mouseX = ORIGIN_X + WIDTH * 0.3, mouseY = ORIGIN_Y + 4,
+  })
+  local did = band.draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M }, WIDTH)
+  handle.restoreIo()
+
+  eq(handle.cursor, ui.MouseCursor.ResizeEW,
+    'the same arrow a draggable value shows')
+  eq(type(did.hint), 'string')
+  eq(did.hint:lower():find('playhead', 1, true) ~= nil, true)
+  band.reset()
+end)
+
+test('holding the ruler does not move a camera', function()
+  -- The two zones have a button each precisely so that this cannot happen.
+  band.reset()
+  local state = { cameras = cameras({ 0.25, 0.75 }), cameraIndex = 1 }
+  local did = holdRuler(state, WIDTH * 0.25)
+
+  eq(did.move, nil, 'the camera handle is in the other zone')
+  eq(did.camera, nil)
+  band.reset()
 end)

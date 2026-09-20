@@ -2163,3 +2163,15 @@ test('naming a file with nothing loaded is how a set is started', function()
 
   eq(actions.saveAs, 'my first set')
 end)
+
+test('the legend covers the ruler and the playhead', function()
+  -- Two surfaces that did not exist when this list was written. The ? button
+  -- is the only place help is exhaustive, so a gesture missing from it is a
+  -- gesture only its author knows about.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+
+  for _, word in ipairs({ 'ruler', 'playhead', 'drag anywhere' }) do
+    eq(all:find(word, 1, true) ~= nil, true,
+      'the legend never mentions ' .. word)
+  end
+end)

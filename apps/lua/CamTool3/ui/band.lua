@@ -66,6 +66,16 @@ local menuIndex = nil
 -- otherwise a drag that started elsewhere picks it up as it crosses over.
 local wasActive = false
 
+-- The scrub: whether the playhead is being dragged along the ruler, and where
+-- it was last put. Module state rather than a local, because the answer has
+-- to survive between the frame a drag starts and the frame it ends.
+local scrubbing = false
+local scrubAt = nil
+-- What to tell the panel about it this frame: a position to follow while the
+-- drag runs, and one to land on exactly when it ends.
+local scrubReport = nil
+local scrubLanding = nil
+
 ---Where a lap position sits along the ribbon.
 ---@return number @pixels from the ribbon's left edge
 local function xOf(position, width)
@@ -89,6 +99,11 @@ end
 ---the ribbon is being scrubbed the head belongs to the pointer, not to a
 ---replay still catching up with it.
 local function playheadAt(state)
+  -- The pointer wins while a drag is running. The replay is chasing it a
+  -- tenth of a second behind, and a head that jumped back to where the replay
+  -- had got to would stutter under the finger holding it.
+  if scrubbing and scrubAt ~= nil then return scrubAt end
+
   local at = state.trackPos
   if type(at) ~= 'number' or at ~= at then return nil end
   return at
@@ -209,6 +224,8 @@ end
 ---  keyframe      a keyframe of the selected camera they clicked on
 ---  move          { position, gesture } while a camera start is dragged
 ---  rename        { index, name } when a name is committed
+---  scrubTo       a lap position the playhead is being dragged over, this
+---                frame, while the drag is still running
 ---  seekTo        a lap position to bring the car to
 ---  hint          what to say in the status line while the pointer is here
 ---  addCamera     a lap position to put a new camera at
@@ -217,7 +234,7 @@ end
 ---One table rather than a row of return values. Six of those had accumulated,
 ---and the seventh is what made the point: every caller had to count commas to
 ---find out which nil was which.
-function band.draw(state, width)
+local function drawBand(state, width)
   -- The two zones. Everything below measures from `bandTop` and `bottom`
   -- rather than from the widget's own origin, so the ruler can change height
   -- without every keyframe and label moving with it.
@@ -232,10 +249,51 @@ function band.draw(state, width)
   ui.setCursor(vec2(origin.x, origin.y))
   ui.invisibleButton('##bandRuler', vec2(width, theme.bandRulerHeight))
   local rulerHovered = ui.itemHovered()
+  local rulerActive = ui.itemActive()
 
   ui.setCursor(vec2(origin.x, bandTop))
   local clicked = ui.invisibleButton('##trackBand', vec2(width, theme.bandHeight))
   local hovered = ui.itemHovered()
+
+  ------------------------------------------------------------------
+  -- Dragging the playhead
+  ------------------------------------------------------------------
+  -- ANYWHERE ON THE RULER, and that is the whole rule. The triangle says
+  -- where the head is; aiming at five pixels of it before the replay will
+  -- move is a test of nerve, not a gesture. Every editor worth copying lets
+  -- the whole ruler be dragged.
+  --
+  -- A click is a drag of one frame, so clicking somewhere on the ruler and
+  -- dragging along it are the same code and need no telling apart.
+  --
+  -- NONE OF THIS IS AN EDIT. It moves the replay, reaches no camera data, and
+  -- has no business on the undo stack.
+  local pointer = ui.mouseLocalPos()
+  local pointerAt = (pointer ~= nil and pointer.x >= 0)
+    and positionOf(pointer.x - origin.x, width) or nil
+
+  scrubReport, scrubLanding = nil, nil
+
+  -- While a drag runs the pointer may leave the ribbon, and it will: pulling
+  -- the head onto the start line means going past it. So this reading is not
+  -- the one above -- that one treats a pointer outside the window as no
+  -- pointer at all, which is right for a click and wrong here, where letting
+  -- the gesture drop would leave the head stuck a few pixels short of the end
+  -- it was being dragged to. positionOf clamps, so it stops AT the line.
+  local dragAt = pointer ~= nil
+    and positionOf(pointer.x - origin.x, width) or nil
+
+  if rulerActive and dragAt ~= nil then
+    scrubbing = true
+    scrubAt = dragAt
+    scrubReport = dragAt
+  elseif scrubbing then
+    -- Let go. The exact landing is asked for once, here, rather than on every
+    -- frame of the drag: what runs during the drag is deliberately rough.
+    scrubbing = false
+    scrubLanding = scrubAt
+    scrubAt = nil
+  end
 
   -- Adding and removing, where the thing is. A plus button has to decide for
   -- you where the camera goes; a right click on the ribbon has already said.
@@ -265,6 +323,13 @@ function band.draw(state, width)
   -- the panel says what. Between them they cost no height at all, which is
   -- the whole reason for putting it there.
   local hint = nil
+  if rulerHovered or scrubbing then
+    -- The same arrow a value shows when it can be dragged sideways, which is
+    -- the same promise: hold and move, and the number under you changes.
+    ui.setMouseCursor(ui.MouseCursor.ResizeEW)
+    hint = 'Drag anywhere on the ruler to move the playhead; ' ..
+      'the replay follows.'
+  end
   if hovered then
     ui.setMouseCursor(ui.MouseCursor.Hand)
     hint = 'Click: select the camera and bring the car here.  ' ..
@@ -335,9 +400,7 @@ function band.draw(state, width)
     end
   end
 
-  local pointer = ui.mouseLocalPos()
-  local pointerX = (pointer ~= nil and pointer.x >= 0)
-    and (pointer.x - origin.x) or nil
+  local pointerX = pointerAt ~= nil and (pointer.x - origin.x) or nil
 
   for i = 1, #spans do
     local span = spans[i]
@@ -518,9 +581,7 @@ function band.draw(state, width)
   ------------------------------------------------------------------
   -- A keyframe first, then the camera under the click. Diamonds are small and
   -- sit on top of the ribbon, so anything else would make them unclickable.
-  local mouse = ui.mouseLocalPos()
-  local at = (mouse ~= nil and mouse.x >= 0)
-    and positionOf(mouse.x - origin.x, width) or nil
+  local mouse, at = pointer, pointerAt
 
   -- Dragging the handle moves where the camera takes over. Held down and
   -- near it: the press has to start on the handle, so dragging across the
@@ -600,9 +661,28 @@ function band.draw(state, width)
   }
 end
 
+---What the ribbon did this frame, the scrub included.
+---
+---The scrub is added here rather than at each of the half-dozen places the
+---body returns from. It is decided at the top of the frame, before anything
+---is drawn, because the playhead is drawn from it -- so by the time any of
+---those returns is reached the answer has been known for a while.
+function band.draw(state, width)
+  local did = drawBand(state, width)
+
+  if scrubReport ~= nil then did.scrubTo = scrubReport end
+  -- The landing outranks anything else asking for a seek this frame: it is
+  -- the end of a gesture the user is still holding in their hand.
+  if scrubLanding ~= nil then did.seekTo = scrubLanding end
+
+  return did
+end
+
 ---Give up any drag in progress. For tests.
 function band.reset()
   dragging, wasActive = false, false
+  scrubbing, scrubAt = false, nil
+  scrubReport, scrubLanding = nil, nil
   menuAt, menuIndex = nil, nil
   renaming, renameBuffer = nil, ''
 end

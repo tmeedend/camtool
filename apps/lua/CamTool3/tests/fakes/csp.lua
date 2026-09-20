@@ -279,6 +279,20 @@ function fakes.install(opts)
   local clicks = opts.clicks or {}
   local function clicked(label) return clicks[label] == true end
 
+  -- The item most recently submitted, which is what ImGui's own itemActive
+  -- and itemHovered answer about. Needed once a widget submitted more than
+  -- one item -- the ribbon has a ruler and a band, and "the mouse is down"
+  -- has to be able to mean one of them and not the other.
+  local lastItem = nil
+
+  ---True when `opts.itemActive` (or itemHovered) says so: `true` for any item
+  ---at all, or the label of the one it means.
+  local function itemStateIs(want)
+    if want == true then return true end
+    if type(want) == 'string' then return want == lastItem end
+    return false
+  end
+
   _G.ui = setmetatable({
     -- Enough of the layout and styling API for the ATR panel to be drawn.
     -- These have to be real values rather than the catch-all below: the panel
@@ -290,7 +304,10 @@ function fakes.install(opts)
     Alignment = { Start = -1, Center = 0, End = 1 },
     Direction = { None = -1, Left = 0, Right = 1, Up = 2, Down = 3 },
     arrowButton = function(label) return clicked(label) end,
-    invisibleButton = function(label) return clicked(label) end,
+    invisibleButton = function(label)
+      lastItem = label
+      return clicked(label)
+    end,
     keyboardButtonPressed = function(key) return opts.keyPressed == key end,
     KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27,
       Left = 37, Up = 38, Right = 39, Down = 40, Space = 32 },
@@ -307,8 +324,8 @@ function fakes.install(opts)
     -- The pointer, for the drag and the double click. These answer the same
     -- for every widget, so a test that wants to be sure which one reacted
     -- draws a single row rather than the whole panel.
-    itemActive = function() return opts.itemActive == true end,
-    itemHovered = function() return opts.itemHovered == true end,
+    itemActive = function() return itemStateIs(opts.itemActive) end,
+    itemHovered = function() return itemStateIs(opts.itemHovered) end,
     mouseDoubleClicked = function() return opts.mouseDoubleClicked == true end,
     mouseDragDelta = function() return opts.mouseDragDelta end,
     resetMouseDragDelta = function() end,
@@ -316,6 +333,7 @@ function fakes.install(opts)
 
     InputTextFlags = { CharsDecimal = 1, AutoSelectAll = 16 },
     inputText = function(label, str)
+      lastItem = label
       -- text, changed, enter pressed
       return opts.typed or str, opts.typed ~= nil, opts.enterPressed == true
     end,

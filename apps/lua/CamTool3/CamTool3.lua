@@ -434,6 +434,12 @@ local function seekGoTo(frame)
   return frame
 end
 
+---Whether the playhead is being dragged, and how long since the last jump of
+---that drag. Declared up here, ahead of the muffling, because the quiet is
+---the one thing a drag changes about an ordinary search.
+local scrubbing = false
+local scrubClock = 0
+
 ---What the volume was before we started jumping the replay about, or nil
 ---when we are not holding it.
 ---
@@ -456,7 +462,10 @@ local function seekMuffle(on)
       muffledVolume = ac.getAudioVolume(ac.AudioChannel.Main, -1, 1)
       ac.setAudioVolume(ac.AudioChannel.Main, 0)
     end
-  elseif muffledVolume ~= nil then
+  elseif muffledVolume ~= nil and not scrubbing then
+    -- A search that finishes in the middle of a drag does NOT give the sound
+    -- back: the drag is still moving the replay, and the artefact would play
+    -- once per jump instead of once per gesture.
     ac.setAudioVolume(ac.AudioChannel.Main, muffledVolume)
     muffledVolume = nil
   end
@@ -547,6 +556,93 @@ local function seekStep(position)
     return
   end
   seekGoTo(next_)
+end
+
+--------------------------------------------------------------------------------
+-- Scrubbing
+--------------------------------------------------------------------------------
+-- Dragging the playhead along the ruler, which is a seek that has to keep up
+-- with a hand rather than land exactly.
+--
+-- SO IT IS DELIBERATELY ROUGH. One jump every tenth of a second, one probe
+-- each, no convergence: a drag crosses fifty positions in the time the full
+-- five-probe search would settle on the first of them, and running that
+-- search per frame would ask the game to reload the replay sixty times a
+-- second. What the eye wants during a drag is the picture moving with the
+-- hand, and a jump into the right corner is enough for that.
+--
+-- THE EXACT LANDING COMES ON RELEASE, once, by the ordinary search -- which
+-- is also when being a few metres out would start to matter, because that is
+-- when someone looks at the frame they landed on.
+
+---How long between two jumps while a drag runs, in seconds.
+---
+---A tenth of a second. Fast enough to read as following the hand, slow enough
+---that the game is asked to move the replay ten times a second and not sixty.
+local SCRUB_INTERVAL = 0.1
+
+---Follow a drag. Called every frame the playhead is being dragged.
+---@param target number @0..1, where the pointer is now
+---@param dt number @seconds since the last frame
+local function scrubTo(target, dt)
+  if not sim.isReplayActive then return end
+  if type(target) ~= 'number' or target ~= target then return end
+  if seekIndex == nil then seekIndex = seek.new() end
+
+  -- A search left over from before the drag, or started by the one before
+  -- this, would go on probing once a frame underneath it.
+  seekJob = nil
+
+  if not scrubbing then
+    scrubbing = true
+    -- The clock starts satisfied, so the first frame of the drag moves the
+    -- replay at once. Waiting a tenth of a second to react to a press is the
+    -- one delay anybody would notice.
+    scrubClock = SCRUB_INTERVAL
+    -- Quiet for the whole gesture, not for each jump: see muffledVolume.
+    seekMuffle(true)
+  end
+
+  scrubClock = scrubClock + (type(dt) == 'number' and dt == dt and dt or 0)
+  if scrubClock < SCRUB_INTERVAL then return end
+  scrubClock = 0
+
+  local from = sim.replayCurrentFrame or 0
+  local guess = seek.nearest(seekIndex, target, from, 8)
+
+  if guess ~= nil then
+    seekGoTo(guess)
+    return
+  end
+
+  -- Nowhere near anything recorded, which is every stretch the replay has not
+  -- played yet. One step of the arithmetic then, and one only.
+  --
+  -- NOT the ordinary search, and this is the whole reason a drag has code of
+  -- its own: that search probes once per FRAME until it converges, which is
+  -- exactly the sixty-jumps-a-second this is here to avoid. Here a wrong
+  -- landing is simply left standing until the next tick, a tenth of a second
+  -- later -- by which time the frame loop has recorded where it landed, so
+  -- the correction is better informed than a second probe would have been.
+  -- Over a drag lasting a second that is ten corrections, which reads as
+  -- following the hand.
+  local here = focusedTrackPosition()
+  if here == nil then return end
+
+  -- A pace for a replay too short to have measured one: assume the whole of
+  -- it is a lap. Wrong, and it is a first guess, which the next tick refines.
+  local pace = seek.framesPerLap(seekIndex)
+    or math.max(sim.replayFrames or 1, 1)
+
+  local next_ = seek.refine(from, here, target, pace,
+    math.max((sim.replayFrames or 1) - 1, 0))
+  if next_ ~= nil then seekGoTo(next_) end
+end
+
+---Let go. The landing itself arrives as an ordinary seek, so all this has to
+---do is stop following.
+local function scrubStop()
+  scrubbing = false
 end
 
 
@@ -1521,11 +1617,29 @@ function script.windowAtr(dt)
     openDrag = nil
   end
 
+  -- Dragging the playhead along the ruler. Rough and frequent while the drag
+  -- runs; the exact landing arrives below, as an ordinary seek, on the frame
+  -- the button comes up.
+  --
+  -- NOT an edit, no more than the seek below it is: it moves the replay,
+  -- reaches no camera data, and never touches the undo stack.
+  if actions.scrubTo ~= nil then
+    scrubTo(actions.scrubTo, dt)
+  else
+    scrubStop()
+  end
+
   -- Bringing the car to a point of the track. NOT an edit: it moves the
   -- replay, touches no camera data, and so never reaches the undo stack.
   if actions.seekTo ~= nil then
     local why = seekBegin(actions.seekTo)
     if why ~= nil then atrStatus = why end
+
+    -- A search muffles on its way in and unmuffles when it finishes. If there
+    -- was no search to start -- out of a replay, say -- nothing would ever
+    -- unmuffle, and a drag that ended there would leave the game silent for
+    -- good.
+    if seekJob == nil then seekMuffle(false) end
   end
 
   -- Whatever the seek had to say once it finished, said here because the

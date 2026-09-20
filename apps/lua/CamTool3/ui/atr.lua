@@ -252,7 +252,15 @@ atr.LEGEND = {
     'the step, Shift quadruples it. The wheel never edits, and Escape is the ' ..
     "game's own key for leaving the replay.",
   'Ribbon   the lap from the start line to the finish, tinted by camera, ' ..
-    "with this camera's keyframes above it and the car as a white line.",
+    "with this camera's keyframes above it.",
+  'Ruler   the thin strip along the top: how far round the lap, and what the ' ..
+    'track calls its own corners where it names them. A name takes the place ' ..
+    'of the distance under it; the marks stay either way.',
+  'Playhead   the white line across the ribbon, with a triangle in the ' ..
+    'ruler. It follows the replay by itself.',
+  'Ruler   DRAG ANYWHERE ON IT to move the playhead -- not only on the ' ..
+    'triangle. The replay follows as you drag, roughly, and lands exactly ' ..
+    'when you let go. The sound is muted until it has.',
   'Ribbon   click to select that camera AND bring the car there. ' ..
     'Shift+click selects without moving the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
@@ -719,6 +727,7 @@ function atr.draw(state)
   if band.move ~= nil then actions.moveCameraIn = band.move end
   if band.rename ~= nil then actions.renameCamera = band.rename end
   if band.seekTo ~= nil then actions.seekTo = band.seekTo end
+  if band.scrubTo ~= nil then actions.scrubTo = band.scrubTo end
   if band.hint ~= nil then actions.hint = band.hint end
   if band.addCamera ~= nil then actions.addCameraAt = band.addCamera end
   if band.removeCamera ~= nil then actions.removeCameraAt = band.removeCamera end
