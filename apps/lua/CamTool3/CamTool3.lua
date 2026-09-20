@@ -372,8 +372,8 @@ local seekIndex = nil
 ---What the index is an index OF. Frames mean nothing across a different
 ---replay or a different car, so the key changing empties it.
 local seekKey = nil
----The seek in progress: target, how many probes are left, the best landing so
----far, and what the volume was before we started jumping.
+---The seek in progress: target, how many probes are left, and the best
+---landing so far.
 local seekJob = nil
 ---Something for the panel to say once the seek is over. Kept here rather than
 ---written straight into the panel's status: that local is declared hundreds of
@@ -434,6 +434,16 @@ local function seekGoTo(frame)
   return frame
 end
 
+---What the volume was before we started jumping the replay about, or nil
+---when we are not holding it.
+---
+---HERE RATHER THAN ON THE JOB, which is where it used to live. A job is one
+---search, and the quiet has to last longer than one: dragging the playhead is
+---a run of searches, and a volume restored between two of them would put the
+---artefact back in the middle of the gesture -- once per jump, which is worse
+---than the one it was avoiding.
+local muffledVolume = nil
+
 ---Quieten the game while the replay is jumping about.
 ---
 ---CamTool 2 had audio artefacts on replay position changes. Skipped when the
@@ -442,13 +452,13 @@ local function seekMuffle(on)
   if audioProbeOn then return end
 
   if on then
-    if seekJob ~= nil and seekJob.volume == nil then
-      seekJob.volume = ac.getAudioVolume(ac.AudioChannel.Main, -1, 1)
+    if muffledVolume == nil then
+      muffledVolume = ac.getAudioVolume(ac.AudioChannel.Main, -1, 1)
       ac.setAudioVolume(ac.AudioChannel.Main, 0)
     end
-  elseif seekJob ~= nil and seekJob.volume ~= nil then
-    ac.setAudioVolume(ac.AudioChannel.Main, seekJob.volume)
-    seekJob.volume = nil
+  elseif muffledVolume ~= nil then
+    ac.setAudioVolume(ac.AudioChannel.Main, muffledVolume)
+    muffledVolume = nil
   end
 end
 
