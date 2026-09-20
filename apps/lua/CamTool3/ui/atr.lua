@@ -609,10 +609,12 @@ function atr.draw(state)
   -- replaces them at all, is ATR's call in front of a replay, not something
   -- to decide by deleting them first.
   ui.newLine(2)
-  local bandCamera, bandKeyframe, bandMove = trackBand.draw(state, width)
+  local bandCamera, bandKeyframe, bandMove, bandRename =
+    trackBand.draw(state, width)
   if bandCamera ~= nil then actions.selectCamera = bandCamera end
   if bandKeyframe ~= nil then actions.selectKeyframe = bandKeyframe end
   if bandMove ~= nil then actions.moveCameraIn = bandMove end
+  if bandRename ~= nil then actions.renameCamera = bandRename end
   ui.newLine(2)
 
   ------------------------------------------------------------------

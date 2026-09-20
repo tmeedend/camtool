@@ -272,6 +272,11 @@ function fakes.install(opts)
         { op = 'drawLine', x = p1.x, y = p1.y, x2 = p2.x, y2 = p2.y,
           colour = colour, thickness = thickness }
     end,
+    drawTextClipped = function(text, posMin, posMax, colour)
+      handle.drawn[#handle.drawn + 1] = { op = 'label', text = tostring(text),
+        x = posMin.x, y = posMin.y, x2 = posMax.x, y2 = posMax.y,
+        colour = colour }
+    end,
     drawQuadFilled = function(a, b, c, d, colour)
       -- Recorded by its centre, which is what a test wants to know: the four
       -- corners of a diamond are the same point plus a radius.

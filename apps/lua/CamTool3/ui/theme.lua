@@ -153,10 +153,24 @@ theme.statusLine = rgbm(0.70, 0.70, 0.70, 1)
 ---Short on purpose. It is a reading, not a picture, and every pixel it takes
 ---is one the parameters do not get. The ribbon sits at the bottom of it and
 ---the keyframes above, so the two never overlap.
-theme.bandHeight = 26
-theme.bandRibbon = 10
+---The ribbon is tall enough to write in: a segment carries the camera's name,
+---or its number, and ten pixels cannot hold either. The keyframes sit above
+---it, so the two never overlap.
+theme.bandHeight = 34
+theme.bandRibbon = 18
 theme.bandKeyframeY = 7
 theme.bandDiamond = 4
+---Room left either side of a label inside its segment, so text never touches
+---the edge of its own colour.
+theme.bandLabelPadding = 3
+---A label needs this much of a segment before it is worth drawing at all.
+---Below it the segment stays blank unless it is the one being pointed at.
+theme.bandLabelMin = 14
+---Text on a segment. Dark on the pale tints, light on the dark ones, and the
+---ribbon has both.
+theme.bandLabel = rgbm(1, 1, 1, 0.92)
+---The rename field is never narrower than this, however thin the segment.
+theme.bandRenameWidth = 150
 ---A diamond is four pixels across and nobody hits four pixels.
 theme.bandClickRadius = 7
 

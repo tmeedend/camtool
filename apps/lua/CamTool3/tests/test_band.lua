@@ -302,3 +302,178 @@ test('with no camera selected there is nothing to drag', function()
   eq(press({ cameras = cameras({ 0.25 }), cameraIndex = nil }, WIDTH * 0.25), nil)
   band.reset()
 end)
+
+--------------------------------------------------------------------------
+-- What each segment says it is
+--------------------------------------------------------------------------
+
+local function labels(drawn)
+  local out = {}
+  for i = 1, #drawn do
+    if drawn[i].op == 'label' then out[#out + 1] = drawn[i] end
+  end
+  return out
+end
+
+local function named(list)
+  local out = cameras({})
+  for i, entry in ipairs(list) do
+    out[i] = { id = i, camera_in = entry[1], name = entry[2], camera_pit = false }
+  end
+  return out
+end
+
+test('a segment wide enough shows the camera number', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 })
+  local written = labels(drawn)
+  eq(#written, 2)
+  eq(written[1].text, '1')
+  eq(written[2].text, '2')
+end)
+
+test('a named camera shows its name instead', function()
+  -- The whole point of names: "Eau Rouge" says where the shot is, 14 does not.
+  local _, _, drawn = draw({
+    cameras = named({ { 0, 'Eau Rouge' }, { 0.5, nil } }), cameraIndex = 1,
+  })
+  local written = labels(drawn)
+  eq(written[1].text, 'Eau Rouge')
+  eq(written[2].text, '2', 'and an unnamed one still shows its rank')
+end)
+
+test('a name too long for its segment falls back to the number', function()
+  -- Twenty cameras on a 400 pixel band is 20 pixels each: room for a digit,
+  -- not for a name.
+  local starts, names = {}, {}
+  for i = 1, 20 do
+    starts[i] = (i - 1) / 20
+    names[i] = { starts[i], 'Some Long Corner Name' }
+  end
+
+  local _, _, drawn = draw({ cameras = named(names), cameraIndex = nil })
+  for _, label in ipairs(labels(drawn)) do
+    eq(#label.text <= 2, true, 'got "' .. label.text .. '" in a 20px segment')
+  end
+end)
+
+test('a segment too thin for anything stays blank', function()
+  local starts = {}
+  for i = 1, 60 do starts[i] = (i - 1) / 60 end
+
+  local _, _, drawn = draw({ cameras = cameras(starts), cameraIndex = nil })
+  eq(#labels(drawn), 0, 'sixty cameras on 400 pixels: nothing legible to write')
+end)
+
+test('the selected camera says who it is however thin it gets', function()
+  -- What keeps a hundred cameras readable rather than a row of clipped stubs.
+  local starts = {}
+  for i = 1, 60 do starts[i] = (i - 1) / 60 end
+
+  local _, _, drawn = draw({ cameras = cameras(starts), cameraIndex = 30 })
+  local written = labels(drawn)
+  eq(#written, 1)
+  eq(written[1].text, '30')
+end)
+
+test('a label is drawn inside its own segment, not across its neighbour', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 })
+  local written = labels(drawn)
+  eq(written[1].x >= ORIGIN_X, true)
+  eq(written[1].x2 <= ORIGIN_X + WIDTH / 2, true, 'the first stays in its half')
+  eq(written[2].x >= ORIGIN_X + WIDTH / 2, true)
+end)
+
+--------------------------------------------------------------------------
+-- Renaming in place
+--------------------------------------------------------------------------
+
+---Double click a segment, then hand back the fake so the field can be driven.
+local function openRename(state, mouseX)
+  local handle = fakes.install({
+    itemHovered = true, mouseDoubleClicked = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+end
+
+test('double clicking a segment opens a field over it', function()
+  band.reset()
+  local state = { cameras = cameras({ 0, 0.5 }), cameraIndex = 1 }
+  openRename(state, WIDTH * 0.75)
+
+  -- The field is drawn on the next frame, with nothing typed yet.
+  local handle = fakes.install({})
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+  band.reset()
+end)
+
+test('typing a name and pressing enter reports it', function()
+  band.reset()
+  local state = { cameras = named({ { 0, nil }, { 0.5, nil } }), cameraIndex = 1 }
+  openRename(state, WIDTH * 0.75)
+
+  local handle = fakes.install({ typed = 'Bus Stop', enterPressed = true })
+  local _, _, _, rename = band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  eq(rename ~= nil, true)
+  eq(rename.index, 2, 'the segment that was double clicked')
+  eq(rename.name, 'Bus Stop')
+  band.reset()
+end)
+
+test('escape drops the rename', function()
+  band.reset()
+  local state = { cameras = named({ { 0, nil } }), cameraIndex = 1 }
+  openRename(state, WIDTH * 0.5)
+
+  local handle = fakes.install({ typed = 'nope', keyPressed = 27 })
+  local _, _, _, rename = band.draw(state, WIDTH)
+  handle.restoreIo()
+  eq(rename, nil)
+
+  -- And the field is gone: nothing comes back on the next frame either.
+  handle = fakes.install({ typed = 'nope', enterPressed = true })
+  local _, _, _, after = band.draw(state, WIDTH)
+  handle.restoreIo()
+  eq(after, nil, 'the field closed rather than staying open')
+  band.reset()
+end)
+
+test('renaming follows the camera, not the place it was in', function()
+  -- The rename is held by id. Insert a camera ahead of the one being renamed
+  -- and its rank changes underneath the field; the name must still land on
+  -- the camera that was double clicked.
+  band.reset()
+  local cameraList = named({ { 0.1, nil }, { 0.6, nil } })
+  local state = { cameras = cameraList, cameraIndex = 1 }
+  openRename(state, WIDTH * 0.8)
+
+  -- A camera appears in front of it, as adding one at the playhead would.
+  table.insert(cameraList, 2, { id = 99, camera_in = 0.3, camera_pit = false })
+
+  local handle = fakes.install({ typed = 'Eau Rouge', enterPressed = true })
+  local _, _, _, rename = band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  eq(rename.index, 3, 'it is the third camera now, and still the right one')
+  eq(cameraList[rename.index].id, 2, 'the camera that was double clicked')
+  band.reset()
+end)
+
+test('a camera deleted while being renamed closes the field', function()
+  band.reset()
+  local cameraList = named({ { 0.1, nil }, { 0.6, nil } })
+  local state = { cameras = cameraList, cameraIndex = 1 }
+  openRename(state, WIDTH * 0.8)
+
+  table.remove(cameraList, 2)
+
+  local handle = fakes.install({ typed = 'gone', enterPressed = true })
+  local _, _, _, rename = band.draw(state, WIDTH)
+  handle.restoreIo()
+  eq(rename, nil)
+  band.reset()
+end)

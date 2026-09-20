@@ -1140,6 +1140,15 @@ function script.windowAtr(dt)
     openDrag = nil
   end
 
+  -- A name goes on the undo stack like anything else, so a rename can be
+  -- taken back and a camera can go back to being a number.
+  if actions.renameCamera ~= nil and cameras ~= nil then
+    local target = cameras[actions.renameCamera.index]
+    if target ~= nil then
+      remember(edit.renameCamera(target, actions.renameCamera.name))
+    end
+  end
+
   if actions.toggleMap then atrShowMap = not atrShowMap end
   if actions.toggleHelp then atrShowHelp = not atrShowHelp end
   if actions.selectKeyframe ~= nil then

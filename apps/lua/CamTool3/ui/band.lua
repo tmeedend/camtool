@@ -21,6 +21,7 @@
 
 local theme = require('ui/theme')
 local trackmap = require('core/trackmap')
+local data = require('core/data')
 
 local band = {}
 
@@ -29,6 +30,12 @@ local band = {}
 -- reasoning as ui/parameter.
 local dragging = false
 local dragToken = 0
+
+-- The camera being renamed, by its id rather than its rank: the rank is
+-- exactly what moves when a camera is inserted, and a rename that followed it
+-- would land on the wrong camera.
+local renaming = nil
+local renameBuffer = ''
 -- Whether the mouse was already down on this widget last frame. The press is
 -- the frame it goes from up to down, and only a press may take the handle:
 -- otherwise a drag that started elsewhere picks it up as it crosses over.
@@ -69,6 +76,7 @@ end
 ---@return number|nil camera @a camera the user clicked on
 ---@return number|nil keyframe @or a keyframe of the selected camera
 ---@return table|nil move @{ position = , gesture = } while a start is dragged
+---@return table|nil rename @{ index = , name = } when a name is committed
 function band.draw(state, width)
   local height = theme.bandHeight
   local origin = ui.getCursor()
@@ -104,6 +112,57 @@ function band.draw(state, width)
     if x2 - x1 > 2 then x2 = x2 - 1 end
 
     ui.drawRectFilled(vec2(x1, top), vec2(x2, origin.y + height), colour)
+    span.x1, span.x2 = x1, x2
+  end
+
+  ------------------------------------------------------------------
+  -- What each segment is called
+  ------------------------------------------------------------------
+  -- The name if it fits, the number if only that fits, and nothing at all on
+  -- a segment too thin for either -- except the one being pointed at or
+  -- worked on, which says who it is however little room it has. That last
+  -- part is what keeps a set of a hundred readable instead of a row of
+  -- clipped stubs.
+  local pointer = ui.mouseLocalPos()
+  local pointerX = (pointer ~= nil and pointer.x >= 0)
+    and (pointer.x - origin.x) or nil
+
+  for i = 1, #spans do
+    local span = spans[i]
+    local room = span.x2 - span.x1 - 2 * theme.bandLabelPadding
+    local under = pointerX ~= nil and hovered
+      and pointerX >= span.x1 - origin.x and pointerX < span.x2 - origin.x
+
+    local focused = under or span.index == state.cameraIndex
+    local camera = state.cameras ~= nil and state.cameras[span.index] or nil
+    local label = data.cameraLabel(camera, span.index)
+    local rank = tostring(span.index)
+
+    local text, x1, x2 = nil, span.x1, span.x2
+
+    if room >= theme.bandLabelMin and ui.measureText(label).x <= room then
+      text = label
+    elseif room >= theme.bandLabelMin and ui.measureText(rank).x <= room then
+      text = rank
+    elseif focused then
+      -- Too thin for even a digit, but this is the one being pointed at or
+      -- worked on, so it says what it is and borrows the room from its
+      -- neighbours. Overlapping them is right here: they are not the one
+      -- being looked at, and the alternative is a segment that stays silent
+      -- exactly when it is asked.
+      text = label
+      local wanted = math.max(ui.measureText(label).x + 8, theme.bandLabelMin)
+      local middle = (span.x1 + span.x2) / 2
+      x1 = math.max(origin.x, middle - wanted / 2)
+      x2 = math.min(origin.x + width, x1 + wanted)
+    end
+
+    if text ~= nil then
+      ui.drawTextClipped(text,
+        vec2(x1 + theme.bandLabelPadding, top),
+        vec2(x2 - theme.bandLabelPadding, origin.y + height),
+        theme.bandLabel, vec2(0.5, 0.5), true)
+    end
   end
 
   ------------------------------------------------------------------
@@ -121,6 +180,50 @@ function band.draw(state, width)
         diamond(origin.x, 0, xOf(at, width), keyframeY, theme.bandDiamond,
           i == state.keyframeIndex and theme.diamondFilled
             or theme.diamondHollow)
+      end
+    end
+  end
+
+  ------------------------------------------------------------------
+  -- Renaming, in place
+  ------------------------------------------------------------------
+  -- Double click a segment and type. This is the moment for it: you are
+  -- already looking at where the camera is, which is what makes a name worth
+  -- giving. The field is never narrower than a name needs, however thin the
+  -- segment under it, and never runs past the end of the band.
+  local renamed = nil
+
+  if renaming ~= nil then
+    local span, camera = nil, nil
+    for i = 1, #spans do
+      local candidate = state.cameras ~= nil
+        and state.cameras[spans[i].index] or nil
+      if type(candidate) == 'table' and candidate.id == renaming then
+        span, camera = spans[i], candidate
+      end
+    end
+
+    if span == nil then
+      -- The camera went away underneath the field: deleted, or another file
+      -- loaded. Nothing to name.
+      renaming = nil
+    else
+      local fieldWidth = math.max(span.x2 - span.x1, theme.bandRenameWidth)
+      local fieldX = math.min(span.x1, origin.x + width - fieldWidth)
+      if fieldX < origin.x then fieldX = origin.x end
+
+      ui.setCursor(vec2(fieldX, origin.y + height - theme.bandRibbon))
+      ui.setNextItemWidth(fieldWidth)
+      local text, _, entered = ui.inputText('##bandRename', renameBuffer,
+        ui.InputTextFlags.AutoSelectAll)
+      renameBuffer = text or renameBuffer
+
+      if entered then
+        renamed = { index = span.index, name = renameBuffer }
+        renaming = nil
+      elseif ui.keyboardButtonPressed(ui.KeyIndex.Escape) then
+        -- Dropped, like every other typed entry in this panel.
+        renaming = nil
       end
     end
   end
@@ -176,13 +279,29 @@ function band.draw(state, width)
       dragging, dragToken = true, dragToken + 1
     end
     if dragging then
-      return nil, nil, { position = at, gesture = 'band:' .. dragToken }
+      return nil, nil, { position = at, gesture = 'band:' .. dragToken }, renamed
     end
   elseif dragging then
     dragging = false
   end
 
-  if not clicked or not hovered or at == nil then return nil, nil, nil end
+  -- A double click opens the name of whatever is under it. Checked before the
+  -- single-click handling below, which would otherwise select first and treat
+  -- the second click as another selection.
+  if hovered and at ~= nil and ui.mouseDoubleClicked(0) and renaming == nil then
+    local index = trackmap.ownerAt(segments, at)
+    local camera = index ~= nil and state.cameras ~= nil
+      and state.cameras[index] or nil
+    if type(camera) == 'table' and type(camera.id) == 'number' then
+      renaming = camera.id
+      renameBuffer = type(camera.name) == 'string' and camera.name or ''
+      return nil, nil, nil, renamed
+    end
+  end
+
+  if not clicked or not hovered or at == nil then
+    return nil, nil, nil, renamed
+  end
 
   if type(keyframes) == 'table' then
     local best, bestDistance = nil, nil
@@ -196,15 +315,16 @@ function band.draw(state, width)
         end
       end
     end
-    if best ~= nil then return nil, best, nil end
+    if best ~= nil then return nil, best, nil, renamed end
   end
 
-  return trackmap.ownerAt(segments, at), nil, nil
+  return trackmap.ownerAt(segments, at), nil, nil, renamed
 end
 
 ---Give up any drag in progress. For tests.
 function band.reset()
   dragging, wasActive = false, false
+  renaming, renameBuffer = nil, ''
 end
 
 return band
