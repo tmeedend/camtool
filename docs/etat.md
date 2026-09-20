@@ -676,10 +676,22 @@ ruban. **Maj** est l'échappatoire, partout pareil. Aux extrémités ça
 **s'arrête** — boucler ferait repartir un tour en arrière sous une touche
 maintenue, et l'ordre est la seule chose qu'un set de caméras possède.
 
-**Par `ac.ControlButton`, jamais par un hook clavier.** C'est ce qu'a coûté
-l'issue **#34** à CamTool 2 : de la latence sur les touches du jeu, subie par
-des gens qui n'utilisaient même pas l'app. Ici on demande à AC de prévenir, il
-n'y a rien à ralentir. Les touches sont des **défauts** : elles vivent dans
+**Par `ac.ControlButton`, jamais par un hook clavier.** Le mécanisme de
+CamTool 2 est vérifiable dans son code : `classes/hotkey.py` appelle
+`keyboard.add_hotkey`, et la bibliothèque `keyboard/` vendorisée installe un
+**hook bas niveau global** (`WH_KEYBOARD_LL`). Toutes les touches de la machine
+y passent avant d'arriver à leur destinataire, et le callback tourne dans le
+Python 3.3 embarqué d'AC — occupé à chaque frame par `acUpdate`. C'est dans le
+chemin de **toutes** les touches, y compris pour qui n'utilise pas l'app.
+
+`ac.ControlButton` n'a rien dans ce chemin : AC lit ses entrées comme
+d'habitude et nous dit qu'une affectation qu'il connaît déjà s'est déclenchée.
+Notre coût est une poignée de comparaisons **dans notre frame**, pas dans celle
+du clavier.
+
+⚠️ **Le rattachement à l'issue #34 vient du brief de Théo, pas du dépôt** : le
+registre d'issues de `docs/legacy.md` ne la documente pas, et je n'ai pas son
+texte. Le raisonnement sur les hooks tient indépendamment du numéro. Les touches sont des **défauts** : elles vivent dans
 `controls.ini` et se réaffectent depuis le panneau `?`, section SHORTCUTS,
 avec le widget de CSP.
 
