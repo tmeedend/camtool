@@ -1231,7 +1231,8 @@ function script.windowAtr(dt)
     if atrKeyframe > #camera.keyframes then atrKeyframe = #camera.keyframes end
   end
   if actions.addCamera and cameras ~= nil then
-    remember(edit.addCamera(cameras, playhead))
+    -- The document hands out the identity: see core/data.claimCameraId.
+    remember(edit.addCamera(cameras, playhead, dataModule.claimCameraId(doc)))
   end
   if actions.removeCamera and cameras ~= nil then
     remember(edit.removeCamera(cameras, atrCamera))

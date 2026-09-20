@@ -454,12 +454,25 @@ function edit.removeKeyframe(camera, index)
 end
 
 ---@return EditStructuralChange|nil change, string|nil why
-function edit.addCamera(cameras, position)
+---@param id number|nil @the identity to give it, from data.claimCameraId.
+---  Worked out from the cameras in hand when a caller has no document, which
+---  is the tests; the app always passes one, because a counter that lives on
+---  the document cannot hand out an id twice after a deletion.
+function edit.addCamera(cameras, position, id)
   if type(cameras) ~= 'table' then return nil, 'no camera list' end
   if type(position) ~= 'number' then return nil, 'no position to put it at' end
 
+  if type(id) ~= 'number' then
+    id = 1
+    for i = 1, #cameras do
+      local other = cameras[i].id
+      if type(other) == 'number' and other >= id then id = other + 1 end
+    end
+  end
+
   local before = copyList(cameras)
   cameras[#cameras + 1] = {
+    id = id,
     camera_in = position,
     camera_pit = false,
     camera_use_tracking_point = 1,
@@ -535,6 +548,45 @@ function edit.continues(open, change, gesture)
     and open.change ~= nil
     and open.change.holder == change.holder
     and open.change.key == change.key
+end
+
+---The longest a camera name may be.
+---
+---Not a storage limit -- it is what fits on a segment of the ribbon and in a
+---sentence about a camera. Longer than this and the name stops being a name.
+edit.MAX_NAME = 40
+
+---Name a camera, or take its name away.
+---
+---The name is for the user; the id underneath is what the program holds on
+---to, and nothing here touches it. An empty name is not an empty string but
+---no name at all, so a camera falls back to its rank cleanly rather than
+---showing a blank where a label should be.
+---@param camera table
+---@param name string|nil
+---@return table|nil change, string|nil why
+function edit.renameCamera(camera, name)
+  if type(camera) ~= 'table' then return nil, 'no camera' end
+
+  if name ~= nil and type(name) ~= 'string' then
+    return nil, 'a name is text'
+  end
+
+  if name ~= nil then
+    -- Trimmed, because a name with a space on the end looks identical to one
+    -- without and sorts differently everywhere.
+    name = name:gsub('^%s+', ''):gsub('%s+$', '')
+    -- Newlines and tabs would break every line they are drawn on.
+    name = name:gsub('%s', ' ')
+    if #name > edit.MAX_NAME then name = name:sub(1, edit.MAX_NAME) end
+    if name == '' then name = nil end
+  end
+
+  local before = camera.name
+  if before == name then return nil, 'unchanged' end
+
+  camera.name = name
+  return { holder = camera, key = 'name', before = before, after = name }
 end
 
 function edit.revert(change)

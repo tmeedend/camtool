@@ -23,7 +23,7 @@ local fov = require('core/fov')
 
 local data = {}
 
-data.CURRENT_VERSION = 1
+data.CURRENT_VERSION = 2
 
 ---Reproduce the legacy curve maths, quirks and all. What every CamTool 2 file
 ---is loaded as.
@@ -105,6 +105,60 @@ local function migrateFromV0(raw)
   return doc
 end
 
+---Version 2: every camera gets an identity of its own.
+---
+---Until now a camera was known by its place in the list, and that place moves.
+---The list is sorted by camera_in, so adding a camera between the fifth and
+---the sixth renumbers everything after it: what was camera 14 becomes 15, and
+---so does every note, every mental landmark and every bug report that said
+---"camera 14".
+---
+---CamTool 2 looks like it solved this -- every camera carries a `slot` -- but
+---sort_cameras does `slot = i` on every sort (classes/data.py:455). It is a
+---cached rank, not an identity. So this is the first stable handle the tool
+---has had.
+---
+---`id` is for the program: it never changes, never repeats, and survives a
+---sort, a rename and a save. `name` is for the user and is optional; a file
+---where nobody named anything is perfectly normal. Both are additive, so a
+---camera missing them is not a broken camera, it is one from before.
+local function migrateFromV1(doc)
+  local next_ = 1
+
+  -- Whatever ids are already there are kept, so a file half-migrated by some
+  -- future路 mistake cannot end up with two cameras sharing one.
+  for _, listName in ipairs(CAMERA_LISTS) do
+    local list = doc[listName]
+    if type(list) == 'table' then
+      for i = 1, #list do
+        local id = list[i].id
+        if type(id) == 'number' and id >= next_ then next_ = id + 1 end
+      end
+    end
+  end
+
+  for _, listName in ipairs(CAMERA_LISTS) do
+    local list = doc[listName]
+    if type(list) == 'table' then
+      for i = 1, #list do
+        if type(list[i].id) ~= 'number' then
+          list[i].id = next_
+          next_ = next_ + 1
+        end
+      end
+    end
+  end
+
+  -- The counter lives on the document rather than being worked out from the
+  -- highest id in use. Deleting the last camera and adding another would
+  -- otherwise hand the new one the id the deleted one had, and anything
+  -- pointing at the old one would quietly follow the new.
+  doc.next_camera_id = math.max(next_, doc.next_camera_id or 1)
+  doc.version = 2
+
+  return doc
+end
+
 ---Load a parsed camera document, migrating it if it predates version 1.
 ---Never mutates the input.
 ---@param raw table @already parsed from JSON
@@ -117,17 +171,27 @@ function data.load(raw)
   local version = data.versionOf(raw)
 
   if version == 0 then
-    return migrateFromV0(raw)
+    return migrateFromV1(migrateFromV0(raw))
   end
 
-  if version == data.CURRENT_VERSION then
+  if version == 1 then
     local doc = deepCopy(raw)
     -- A version 1 file with no mode recorded was written by CamTool 3, so it
     -- gets the corrected maths.
     if doc.interpolation_mode == nil then
       doc.interpolation_mode = data.MODE_FIXED
     end
-    return doc
+    return migrateFromV1(doc)
+  end
+
+  if version == data.CURRENT_VERSION then
+    local doc = deepCopy(raw)
+    if doc.interpolation_mode == nil then
+      doc.interpolation_mode = data.MODE_FIXED
+    end
+    -- Ids are not optional at version 2, so a file that says 2 and has none
+    -- is repaired rather than trusted.
+    return migrateFromV1(doc)
   end
 
   -- Refuse loudly rather than guess. A file from a newer build may use fields
@@ -135,6 +199,37 @@ function data.load(raw)
   error(string.format(
     'unsupported camera file version %s; this build reads up to %d',
     tostring(version), data.CURRENT_VERSION), 2)
+end
+
+---Take the next camera id from a document, and move the counter on.
+---
+---The document owns the counter; nothing works it out from the cameras in
+---hand. See migrateFromV1 for why.
+---@param doc table|nil
+---@return number
+function data.claimCameraId(doc)
+  if type(doc) ~= 'table' then return 1 end
+  local id = doc.next_camera_id
+  if type(id) ~= 'number' or id < 1 then id = 1 end
+  doc.next_camera_id = id + 1
+  return id
+end
+
+---What to call a camera on screen.
+---
+---The name when it has one, its rank when it does not. The rank is the number
+---users already know, and it stays the fallback rather than being replaced:
+---it is what a hotkey reaches for and what two people say to each other about
+---a bug. The name is what survives a camera being inserted ahead of it.
+---@param camera table|nil
+---@param index number @its place in the list, 1-based
+---@return string
+function data.cameraLabel(camera, index)
+  if type(camera) == 'table' and type(camera.name) == 'string'
+      and camera.name ~= '' then
+    return camera.name
+  end
+  return tostring(index)
 end
 
 ---Is a flag from a camera file on?

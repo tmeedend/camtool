@@ -51,9 +51,9 @@ test('the fixture is a real camera file, not a stub', function()
   end
 end)
 
-test('loading stamps version 1 and the legacy interpolation mode', function()
+test('loading stamps the current version and the legacy interpolation mode', function()
   local doc = data.load(rawFile)
-  eq(doc.version, 1)
+  eq(doc.version, data.CURRENT_VERSION)
   -- The whole point: new encoding, old maths. Anything else would change
   -- footage that has already been cut.
   eq(doc.interpolation_mode, data.MODE_LEGACY)
@@ -142,4 +142,98 @@ test('a flag stored as a number is read the way Python read it', function()
   eq(data.isOn(0.0), false, 'a float zero is still off')
   eq(data.isOn(-1), true, 'camera_use_specific_cam uses -1 for "no", so only '
     .. 'ask this about flags that mean 0 or 1')
+end)
+
+--------------------------------------------------------------------------
+-- Version 2: a camera that keeps its identity
+--------------------------------------------------------------------------
+
+test('every camera of a migrated file comes out with an id', function()
+  local doc = data.load(rawFile)
+  eq(doc.version, 2)
+
+  local seen = {}
+  for _, listName in ipairs({ 'pos', 'time' }) do
+    for i, camera in ipairs(doc[listName] or {}) do
+      eq(type(camera.id), 'number', listName .. ' camera ' .. i .. ' has no id')
+      eq(seen[camera.id], nil, 'id ' .. tostring(camera.id) .. ' handed out twice')
+      seen[camera.id] = true
+    end
+  end
+end)
+
+test('the document remembers which id comes next', function()
+  local doc = data.load(rawFile)
+  eq(type(doc.next_camera_id), 'number')
+
+  for _, listName in ipairs({ 'pos', 'time' }) do
+    for _, camera in ipairs(doc[listName] or {}) do
+      eq(camera.id < doc.next_camera_id, true, 'the counter is past every id')
+    end
+  end
+end)
+
+test('an id already in the file is kept, not reassigned', function()
+  local doc = data.load({
+    version = 1, interpolation_mode = 'fixed',
+    pos = { { id = 9, camera_in = 0, keyframes = {} },
+            { camera_in = 0.5, keyframes = {} } },
+    time = {},
+  })
+  eq(doc.pos[1].id, 9)
+  eq(doc.pos[2].id ~= 9, true, 'and the one without gets a free one')
+  eq(doc.next_camera_id > 9, true)
+end)
+
+test('claiming an id moves the counter on', function()
+  local doc = { next_camera_id = 7 }
+  eq(data.claimCameraId(doc), 7)
+  eq(data.claimCameraId(doc), 8)
+  eq(doc.next_camera_id, 9)
+end)
+
+test('the counter does not go back when the last camera is deleted', function()
+  -- The whole reason it lives on the document. Working the next id out from
+  -- the cameras in hand would hand the deleted one's id to the next camera,
+  -- and anything pointing at the old one would quietly follow the new.
+  local doc = data.load({
+    version = 1, interpolation_mode = 'fixed',
+    pos = { { camera_in = 0, keyframes = {} }, { camera_in = 0.5, keyframes = {} } },
+    time = {},
+  })
+  local highest = doc.pos[2].id
+  table.remove(doc.pos, 2)
+
+  eq(data.claimCameraId(doc) > highest, true, 'the id is not handed out again')
+end)
+
+test('claiming from nothing still answers a number', function()
+  eq(data.claimCameraId(nil), 1)
+  eq(data.claimCameraId({}), 1)
+end)
+
+test('a version 2 file missing ids is repaired rather than trusted', function()
+  local doc = data.load({
+    version = 2, interpolation_mode = 'fixed',
+    pos = { { camera_in = 0, keyframes = {} } }, time = {},
+  })
+  eq(type(doc.pos[1].id), 'number')
+end)
+
+test('a camera shows its name, or its rank when it has none', function()
+  -- The rank stays the fallback rather than being replaced: it is what a
+  -- hotkey reaches for and what two people say to each other about a bug.
+  eq(data.cameraLabel({ name = 'Eau Rouge' }, 14), 'Eau Rouge')
+  eq(data.cameraLabel({}, 14), '14')
+  eq(data.cameraLabel({ name = '' }, 14), '14', 'an empty name is no name')
+  eq(data.cameraLabel(nil, 3), '3')
+end)
+
+test('a name survives being loaded and does not become anything else', function()
+  local doc = data.load({
+    version = 2, interpolation_mode = 'fixed',
+    pos = { { id = 1, name = 'Bus Stop', camera_in = 0, keyframes = {} } },
+    time = {},
+  })
+  eq(doc.pos[1].name, 'Bus Stop')
 end)

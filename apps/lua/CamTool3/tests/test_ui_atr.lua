@@ -648,7 +648,8 @@ test('the panel can save the file it loaded, and says so', function()
   eq(type(handle.written[path]), 'string', 'the panel never wrote the file')
   eq(handle.written[storage.CAMTOOL2_DATA_DIR .. '/fake_track_-cameras.json'],
     nil, 'the CamTool 2 file must not be touched')
-  eq(handle.written[path]:find('"version": 1', 1, true) ~= nil, true)
+  eq(handle.written[path]:find('"version": ' .. data.CURRENT_VERSION, 1, true)
+    ~= nil, true)
 
   handle.restoreIo()
 end)

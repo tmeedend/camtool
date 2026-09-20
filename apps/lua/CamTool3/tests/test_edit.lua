@@ -490,7 +490,7 @@ end)
 test('a migrated CamTool 2 file asks for legacy maths', function()
   local dataModule = require('core/data')
   local doc = dataModule.load(require('tests/fixtures/camera_file_lap'))
-  eq(doc.version, 1, 'the encoding is migrated')
+  eq(doc.version, dataModule.CURRENT_VERSION, 'the encoding is migrated')
   eq(doc.interpolation_mode, 'legacy', 'but the maths is not')
 end)
 
@@ -649,4 +649,120 @@ test('two cameras cannot be squeezed onto the same point', function()
     key = 'camera_in', op = 'set', value = 0.9,
   })
   eq(cameras[1].camera_in < cameras[2].camera_in, true)
+end)
+
+--------------------------------------------------------------------------
+-- Naming a camera
+--------------------------------------------------------------------------
+
+test('a camera can be named, and the change can be undone', function()
+  local camera = { camera_in = 0, keyframes = {} }
+  local change = edit.renameCamera(camera, 'Eau Rouge')
+  eq(camera.name, 'Eau Rouge')
+
+  edit.revert(change)
+  eq(camera.name, nil, 'back to having no name at all, not an empty one')
+end)
+
+test('a name is trimmed, and its whitespace flattened', function()
+  -- A name with a space on the end looks identical to one without and sorts
+  -- differently everywhere; a newline breaks the line it is drawn on.
+  local camera = {}
+  edit.renameCamera(camera, '  Bus Stop  ')
+  eq(camera.name, 'Bus Stop')
+
+  edit.renameCamera(camera, 'Bus\tStop')
+  eq(camera.name, 'Bus Stop')
+end)
+
+test('a name that is only spaces is no name', function()
+  local camera = { name = 'something' }
+  edit.renameCamera(camera, '   ')
+  eq(camera.name, nil)
+end)
+
+test('clearing a name is an edit like any other', function()
+  local camera = { name = 'Tamburello' }
+  local change = edit.renameCamera(camera, nil)
+  eq(camera.name, nil)
+  edit.revert(change)
+  eq(camera.name, 'Tamburello')
+end)
+
+test('a very long name is cut to something that fits a segment', function()
+  local camera = {}
+  edit.renameCamera(camera, string.rep('x', 200))
+  eq(#camera.name, edit.MAX_NAME)
+end)
+
+test('renaming to the same name changes nothing', function()
+  local camera = { name = 'Eau Rouge' }
+  eq(edit.renameCamera(camera, 'Eau Rouge'), nil)
+  eq(edit.renameCamera(camera, ' Eau Rouge '), nil, 'trimmed first, then compared')
+end)
+
+test('a name has to be text', function()
+  local camera = {}
+  eq(edit.renameCamera(camera, 42), nil)
+  eq(camera.name, nil)
+end)
+
+--------------------------------------------------------------------------
+-- Identity on creation
+--------------------------------------------------------------------------
+
+test('a new camera is born with an id', function()
+  local cameras = { { id = 4, camera_in = 0, keyframes = {} } }
+  edit.addCamera(cameras, 0.5, 12)
+
+  local added = nil
+  for _, camera in ipairs(cameras) do
+    if camera.camera_in == 0.5 then added = camera end
+  end
+  eq(added.id, 12)
+end)
+
+test('with no id given it takes one past the highest in the list', function()
+  -- The fallback for callers with no document, which is the tests.
+  local cameras = { { id = 4, camera_in = 0, keyframes = {} } }
+  edit.addCamera(cameras, 0.5)
+  for _, camera in ipairs(cameras) do
+    if camera.camera_in == 0.5 then eq(camera.id, 5) end
+  end
+end)
+
+test('an id is never shared, whatever order cameras are added in', function()
+  local cameras = {}
+  for i = 1, 10 do
+    edit.addCamera(cameras, (11 - i) / 20)
+  end
+
+  local seen = {}
+  for _, camera in ipairs(cameras) do
+    eq(seen[camera.id], nil, 'id ' .. tostring(camera.id) .. ' twice')
+    seen[camera.id] = true
+  end
+end)
+
+test('inserting a camera shifts every rank after it, and no id at all', function()
+  -- The reason any of this exists. The list is sorted by camera_in, so a
+  -- camera added between two others pushes everything after it down a place:
+  -- what the panel called 3 is now 4, and so is every note and every mental
+  -- landmark. The id underneath does not move, and neither does the name
+  -- hanging off it.
+  local cameras = {}
+  edit.addCamera(cameras, 0.1, 1)
+  edit.addCamera(cameras, 0.4, 2)
+  edit.addCamera(cameras, 0.7, 3)
+  edit.renameCamera(cameras[3], 'Eau Rouge')
+
+  eq(cameras[3].id, 3)
+  eq(cameras[3].name, 'Eau Rouge')
+
+  edit.addCamera(cameras, 0.2, 4)
+
+  eq(#cameras, 4)
+  eq(cameras[4].id, 3, 'it is the fourth camera now, and still id 3')
+  eq(cameras[4].name, 'Eau Rouge', 'and still called what it was called')
+  eq(cameras[2].id, 4, 'the new one took the place, not the identity')
 end)

@@ -92,7 +92,8 @@ test('a whole migrated document comes back out', function()
   local text = serialise.toJson(doc)
 
   -- The things that have to be there for it to be loadable again.
-  eq(text:find('"version": 1', 1, true) ~= nil, true)
+  eq(text:find('"version": ' .. dataModule.CURRENT_VERSION, 1, true) ~= nil,
+    true)
   eq(text:find('"interpolation_mode"', 1, true) ~= nil, true)
   eq(text:find('"pos": [', 1, true) ~= nil, true)
   eq(text:find('"keyframes"', 1, true) ~= nil, true)
@@ -220,4 +221,31 @@ test('both folders are listed, ours first', function()
   eq(list[2].own, false)
 
   handle.restoreIo()
+end)
+
+test('an id and a name survive the trip through the file', function()
+  -- Both are new at version 2, and neither is any use if a save loses it.
+  local dataModule = require('core/data')
+  local doc = dataModule.load({
+    version = 2, interpolation_mode = 'fixed',
+    pos = { { id = 7, name = 'Bus Stop', camera_in = 0.5, keyframes = {} } },
+    time = {},
+  })
+
+  local text = serialise.toJson(doc)
+  eq(text:find('"id": 7', 1, true) ~= nil, true)
+  eq(text:find('"name": "Bus Stop"', 1, true) ~= nil, true)
+  eq(text:find('"next_camera_id"', 1, true) ~= nil, true,
+    'the counter goes with the file, or the next session reuses ids')
+end)
+
+test('a name with a quote in it does not break the file', function()
+  local dataModule = require('core/data')
+  local doc = dataModule.load({
+    version = 2, interpolation_mode = 'fixed',
+    pos = { { id = 1, name = 'the "fast" one', camera_in = 0, keyframes = {} } },
+    time = {},
+  })
+  local text = serialise.toJson(doc)
+  eq(text:find('\\"fast\\"', 1, true) ~= nil, true, 'escaped, not raw')
 end)

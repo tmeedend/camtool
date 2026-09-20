@@ -116,7 +116,7 @@ test('the storage adapter migrates what it reads', function()
 
   local doc, err = storage.loadCameraFile('fake_track_-cameras.json')
   eq(err, nil)
-  eq(doc.version, 1)
+  eq(doc.version, require('core/data').CURRENT_VERSION)
   eq(doc.interpolation_mode, 'legacy')
 
   handle.restoreIo()

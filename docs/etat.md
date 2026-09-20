@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (422 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (444 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -406,9 +406,15 @@ rejoue un vrai fichier Lua → JSON → Python et compare champ par champ.
    de place — échanger voudrait dire renuméroter en plein geste, et la caméra
    tirée changerait d'index sous la main qui la tire.
 
-Idée notée, non tranchée : **nommer les caméras** (« Sortie Eau Rouge » plutôt
-que « 6 »), un champ texte de plus dans le JSON, le numéro restant pour la
-compatibilité.
+**Nommer les caméras — tranché, et la couche données est faite** (version 2,
+plus haut). Reste l'UI : afficher le nom sur le segment du ruban, et le
+double-clic pour renommer sur place.
+
+Source possible de noms par défaut : **`sections.ini` du circuit** définit des
+`IN` / `OUT` / `TEXT` (« Tamburello »), et `ac.getTrackSectorName(progress)`
+de CSP lit très probablement ce fichier — à vérifier en jeu avant de le
+promettre. Ça donnerait un nom automatique neutre du type « 14 — Tamburello »
+pour qui pose quarante caméras sans en nommer une seule.
 
 ## 📁 Fichiers : deux dossiers, deux formats
 
@@ -436,6 +442,31 @@ si c'étaient des listes de caméras, trébucherait sur `version` et
 `data.versionOf(raw)` : **absence de champ `version` = CamTool 2** (version 0).
 CamTool 2 n'a jamais écrit ce champ, CamTool 3 l'écrit toujours. La détection
 est donc fiable, et c'est elle qui déclenche la migration.
+
+### Version 2 : une caméra qui garde son identité
+
+Ajoutée avec le chantier du ruban, sur l'analyse du designer d'ATR et vérifiée
+dans le code : **le numéro affiché est le rang dans la liste, et le rang
+bouge.** `edit.addCamera` ajoute puis trie par `camera_in`, donc insérer une
+caméra entre la 5 et la 6 décale tout ce qui suit — « caméra 14 » devient 15,
+et avec elle chaque note et chaque repère mental.
+
+CamTool 2 a l'air d'avoir résolu ça : chaque caméra porte un `slot`. Mais
+`sort_cameras` fait `slot = i` à chaque tri
+([data.py:455](../apps/python/CamTool_2/classes/data.py)). C'est un rang mis en
+cache, pas une identité. **Il n'existait donc aucun identifiant stable.**
+
+- **`id`** — pour le programme. Ne change jamais, ne se répète jamais, survit
+  au tri, au renommage et à la sauvegarde. Le compteur `next_camera_id` vit
+  **sur le document** : le déduire des caméras présentes redonnerait au
+  prochain ajout l'`id` de la dernière supprimée.
+- **`name`** — pour l'utilisateur, **facultatif**. Un fichier où personne n'a
+  rien nommé est parfaitement normal : `data.cameraLabel` retombe sur le rang.
+  Le rang reste ce qu'un raccourci vise et ce que deux personnes se disent à
+  propos d'un bug.
+
+La migration est à sens unique comme les autres, et un fichier v2 sans `id`
+est **réparé** plutôt que cru.
 
 ### Les deux axes, à ne pas confondre
 
