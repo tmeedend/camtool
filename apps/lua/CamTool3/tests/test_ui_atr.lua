@@ -87,6 +87,7 @@ test('the panel never writes a note about its own construction', function()
   -- shot they are cutting. The list now lives in docs/etat.md.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   atr.draw({
     cameraCount = 0, keyframeCount = 0, listName = 'pos',
@@ -375,6 +376,7 @@ test('dragging a value reports how many steps it moved', function()
     itemActive = true, mouseDragDelta = { x = 16, y = 0 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('drag1', spec)
@@ -390,6 +392,7 @@ test('dragging leftwards moves the other way', function()
     itemActive = true, mouseDragDelta = { x = -8, y = 0 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('drag2', spec)
@@ -410,6 +413,7 @@ test('a click that slips a pixel or two moves nothing', function()
     itemActive = true, mouseDragDelta = { x = 2, y = 0 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   eq(parameter.draw('slip', spec), nil)
@@ -425,6 +429,7 @@ test('a drag is horizontal: moving up and down changes nothing', function()
     itemActive = true, mouseDragDelta = { x = 0, y = 60 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('vert', spec)
@@ -437,6 +442,7 @@ test('the pointer says the value can be dragged', function()
   -- Discoverability, and the only hint the panel gives.
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   parameter.draw('cursor1', { label = 'MIX', text = '50%', width = 140 })
   eq(handle.cursor, ui.MouseCursor.ResizeEW)
@@ -447,6 +453,7 @@ end)
 test('a value with nothing behind it does not offer the cursor', function()
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   parameter.draw('cursor2', {
     label = 'FOCUS POINT', text = nil, present = false, width = 140,
@@ -465,6 +472,7 @@ test('a right click during a drag asks for the value back', function()
     rightClicked = true,
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('esc', spec)
@@ -478,6 +486,7 @@ test('Escape does nothing to a drag, and so never reaches the game as ours', fun
     itemActive = true, mouseDragDelta = { x = 30, y = 0 }, keyPressed = 27,
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('escgone', spec)
@@ -494,6 +503,7 @@ test('after cancelling, the same hold cannot start dragging again', function()
     rightClicked = true,
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   parameter.draw('esc2', spec)
@@ -516,6 +526,7 @@ test('one gesture answers with one number, and the next with another', function(
     itemActive = true, mouseDragDelta = { x = 16, y = 0 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'MIX', text = '50%', width = 140 }
   eq(parameter.draggingGesture(), nil, 'nothing yet')
@@ -543,6 +554,7 @@ test('a value with nothing behind it cannot be dragged', function()
     itemActive = true, mouseDragDelta = { x = 40, y = 0 },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local action = parameter.draw('drag3', {
     label = 'FOCUS POINT', text = nil, present = false, width = 140,
@@ -555,6 +567,7 @@ end)
 test('a double click opens the field, and Enter commits the number', function()
   local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   -- First draw: the double click lands, and the field opens for next frame.
   local action = parameter.draw('type1', {
@@ -573,6 +586,7 @@ test('a double click opens the field, and Enter commits the number', function()
 
   handle.restoreIo()
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 end)
 
 test('a number typed in degrees is stored in radians', function()
@@ -608,6 +622,7 @@ test('the keyframe pair sits in the action row now the strips have gone', functi
   -- born at the playhead, on the selected camera.
   local handle = fakes.install({ clicks = { ['+kf##kfadd'] = true } })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local actions = atr.draw({
     cameraCount = 3, cameraIndex = 1, keyframeCount = 2, keyframeIndex = 1,
@@ -630,6 +645,7 @@ test('no numbered cell is drawn anywhere any more', function()
   -- two ways to pick a camera again, which is what the ribbon replaced.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   atr.draw({
     cameraCount = 22, cameraIndex = 1, keyframeCount = 3, keyframeIndex = 1,
@@ -1147,6 +1163,7 @@ test('a value keeps its identity when the value changes', function()
   -- then died. That is the bug this pins.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   parameter.draw('row', { label = 'FOV', text = '40.00 deg', width = 140 })
   local first = {}
@@ -1181,6 +1198,7 @@ test('no widget in the panel changes identity when its text does', function()
   local function identities(extra)
     local handle = fakes.install({})
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
     local state = {}
     for k, v in pairs(base) do state[k] = v end
@@ -1292,6 +1310,7 @@ test('clicking away drops what was being typed', function()
     itemHovered = true, mouseDoubleClicked = true,
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local spec = { label = 'FOV', text = '40.00 deg', raw = '40', width = 140 }
   parameter.draw('esc-type', spec)
@@ -1328,6 +1347,7 @@ test('an animated parameter is tinted, so a column can be swept', function()
   local function fieldColour(keyframe)
     local handle = fakes.install({})
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
     parameter.draw('tint-' .. keyframe, {
       label = 'FOV', text = '40.00 deg', width = 140,
       column = theme.columns.camera, keyframe = keyframe,
@@ -1361,6 +1381,7 @@ end)
 local function hoverRow(frames, dt, spec)
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   for _ = 1, frames do
     parameter.beginFrame(dt)
@@ -1410,6 +1431,7 @@ end)
 test('moving to another field restarts the wait', function()
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local a = { label = 'FOV', text = '40', width = 140, help = 'Field of view.' }
   local b = { label = 'PITCH', text = '0', width = 140, help = 'Tilt.' }
@@ -1435,6 +1457,7 @@ test('the status line answers at once, with no delay at all', function()
   -- learnable without knowing there is anything to hover.
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   parameter.beginFrame(0.016)
   parameter.draw('status', { label = 'OFF TRACKING', text = '0.00', width = 140,
@@ -1451,6 +1474,7 @@ end)
 test('the status line forgets once the mouse leaves the panel', function()
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   parameter.beginFrame(0.016)
   parameter.draw('gone', { label = 'FOV', text = '40', width = 140, help = 'x' })
@@ -1471,6 +1495,7 @@ test('the ? button shows the legend instead of the status line', function()
   local function textsWith(showHelp)
     local handle = fakes.install({})
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
     atr.draw({
       cameraCount = 0, keyframeCount = 0, listName = 'pos',
       trackPos = 0, trackLength = 1000, showMap = false, showHelp = showHelp,
@@ -1703,6 +1728,7 @@ test('nothing in the panel asks to hold the keyboard', function()
   local doc = data.load(rawFile)
   local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   for _ = 1, 3 do
     atr.draw({
@@ -1716,6 +1742,7 @@ test('nothing in the panel asks to hold the keyboard', function()
   eq(handle.keyboardHeld, nil, 'the game keeps its own keys')
   handle.restoreIo()
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 end)
 
 
@@ -1757,6 +1784,7 @@ test('the panel hands the widget the sentence written for the row', function()
   local doc = data.load(rawFile)
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   atr.draw({
     doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
@@ -1773,6 +1801,7 @@ test('the panel hands the widget the sentence written for the row', function()
   handle.restoreIo()
   handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
   for _ = 1, 40 do
     parameter.beginFrame(0.016)
     parameter.draw('join', { label = label, help = help, text = '1', width = 140 })
@@ -1788,6 +1817,7 @@ test('the status line shows the sentence, not just the label', function()
   local doc = data.load(rawFile)
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   atr.draw({
     doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
@@ -1813,6 +1843,7 @@ test('the header says whether the replay is running', function()
   local function shapes(paused)
     local handle = fakes.install({})
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
     atr.draw({
       cameraCount = 0, keyframeCount = 0, listName = 'pos',
       trackPos = 0, trackLength = 1000, showMap = false, paused = paused,
@@ -1839,6 +1870,7 @@ end)
 test('the indicator says what it means when hovered', function()
   local handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   atr.draw({
     cameraCount = 0, keyframeCount = 0, listName = 'pos',
@@ -1862,6 +1894,7 @@ end)
 test('the legend offers a rebinding widget for every shortcut', function()
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
   trackShortcuts.reset()
   trackShortcuts.install()
 
@@ -1904,6 +1937,7 @@ test('cameras can be added and removed without the menu', function()
   local function click(label)
     local handle = fakes.install({ clicks = { [label] = true } })
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
     local actions = atr.draw({
       cameraCount = 3, cameraIndex = 1, keyframeCount = 2, keyframeIndex = 1,
       trackPos = 0.2, trackLength = 4300, listName = 'pos', showMap = false,
@@ -1926,6 +1960,7 @@ test('a field with nothing stored shows what the camera is doing', function()
   -- pinning a value you could not see.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local camera = { camera_in = 0, keyframes = { { keyframe = 0, interpolation = {} } } }
   atr.draw({
@@ -1951,6 +1986,7 @@ test('a stored value wins over the live one', function()
   -- reading is only for the empty ones.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local camera = {
     camera_in = 0,
@@ -1977,6 +2013,7 @@ test('a live reading is drawn dimmer than a value of its own', function()
   local function colourOf(live)
     local handle = fakes.install({})
     parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
     parameter.draw('dim' .. tostring(live), {
       label = 'FOV', text = '37.50 deg', width = 140,
       column = theme.columns.camera, live = live,
@@ -2002,6 +2039,7 @@ test('a parameter with no reading available still says nothing', function()
   -- would be inventing.
   local handle = fakes.install({})
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local camera = { camera_in = 0, keyframes = { { keyframe = 0, interpolation = {} } } }
   atr.draw({
@@ -2029,6 +2067,7 @@ test('double clicking the file name opens it for typing', function()
   -- name it changes.
   local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local state = {
     fileName = 'spa_-ATR.json', loadedName = 'spa_-ATR.json',
@@ -2054,6 +2093,7 @@ test('a double click does not also load the file', function()
     clicks = { ['spa_-ATR.json###fileName'] = true },
   })
   parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
 
   local actions = atr.draw({
     fileName = 'spa_-ATR.json', loadedName = 'spa_-ATR.json',
@@ -2068,4 +2108,55 @@ end)
 test('the legend says how to name a file', function()
   local all = table.concat(atr.LEGEND, ' | '):lower()
   eq(all:find('double click the file name', 1, true) ~= nil, true)
+end)
+
+test('the name field survives the frame it opens on', function()
+  -- The bug Théo hit: the field closed on the very frame it appeared, because
+  -- a field is not active yet then and that read as "clicked away". It only
+  -- showed with a file loaded -- the old test was for an empty buffer, and a
+  -- loaded file's name is not empty.
+  local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
+  parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
+
+  local state = {
+    fileName = 'spa_-ATR.json', loadedName = 'spa_-ATR.json',
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false,
+  }
+  atr.draw(state)
+  handle.restoreIo()
+
+  -- The frame after: the field is drawn, nothing is active yet, and it has to
+  -- still be there.
+  handle = fakes.install({})
+  atr.draw(state)
+  handle.restoreIo()
+
+  -- And the frame after that, typing into it works.
+  handle = fakes.install({ typed = 'my set', enterPressed = true })
+  local actions = atr.draw(state)
+  handle.restoreIo()
+
+  eq(actions.saveAs, 'my set', 'the field was still open to type into')
+end)
+
+test('naming a file with nothing loaded is how a set is started', function()
+  local handle = fakes.install({ itemHovered = true, mouseDoubleClicked = true })
+  parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
+
+  local state = {
+    fileName = nil, loadedName = nil,
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false,
+  }
+  atr.draw(state)
+  handle.restoreIo()
+
+  handle = fakes.install({ typed = 'my first set', enterPressed = true })
+  local actions = atr.draw(state)
+  handle.restoreIo()
+
+  eq(actions.saveAs, 'my first set')
 end)

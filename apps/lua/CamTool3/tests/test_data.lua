@@ -237,3 +237,46 @@ test('a name survives being loaded and does not become anything else', function(
   })
   eq(doc.pos[1].name, 'Bus Stop')
 end)
+
+--------------------------------------------------------------------------
+-- Starting from nothing
+--------------------------------------------------------------------------
+
+test('a new document is empty, current, and ready to be added to', function()
+  -- There was no way to make one: every path into the app went through
+  -- loading a file, so a fresh session could only work on somebody else's set.
+  local doc = data.newDocument()
+
+  eq(doc.version, data.CURRENT_VERSION)
+  eq(doc.interpolation_mode, data.MODE_FIXED,
+    'authored here and now, so no legacy behaviour to reproduce')
+  eq(#doc.pos, 0)
+  eq(#doc.time, 0)
+  eq(doc.next_camera_id, 1)
+end)
+
+test('a new document reads back as itself', function()
+  -- Saved and loaded again, it must not be migrated or repaired: it was
+  -- already written at the version this build reads.
+  local doc = data.load(data.newDocument())
+  eq(doc.version, data.CURRENT_VERSION)
+  eq(doc.interpolation_mode, data.MODE_FIXED)
+end)
+
+test('a camera can be added to a new document', function()
+  local edit = require('core/edit')
+  local doc = data.newDocument()
+
+  edit.addCamera(doc.pos, 0.25, data.claimCameraId(doc))
+  eq(#doc.pos, 1)
+  eq(doc.pos[1].id, 1)
+  eq(doc.next_camera_id, 2)
+end)
+
+test('a new document has the two track splines, empty', function()
+  -- So a file written here reads back the same shape as one from CamTool 2.
+  local doc = data.newDocument()
+  eq(type(doc.track_spline), 'table')
+  eq(#doc.track_spline.the_x, 0)
+  eq(type(doc.pit_spline), 'table')
+end)

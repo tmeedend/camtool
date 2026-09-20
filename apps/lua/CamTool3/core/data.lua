@@ -201,6 +201,33 @@ function data.load(raw)
     tostring(version), data.CURRENT_VERSION), 2)
 end
 
+---A camera file with nothing in it yet.
+---
+---There was no way to make one. Every path into the app went through loading
+---a file, so a session that started with none could not add a camera -- the
+---panel said "load a file first", which is true and no help at all, since the
+---only files to load were somebody else's.
+---
+---Written at the current version and with the corrected maths: it is being
+---authored here and now, so it has no legacy behaviour to reproduce.
+---@return table
+function data.newDocument()
+  return {
+    version = data.CURRENT_VERSION,
+    interpolation_mode = data.MODE_FIXED,
+    pos = {},
+    time = {},
+    next_camera_id = 1,
+    -- The track and pit splines of CamTool 2 have a slot in every file.
+    -- Empty ones, so a file written here reads back the same shape as one
+    -- that came from there.
+    track_spline = { the_x = {}, loc_x = {}, loc_y = {}, loc_z = {},
+      rot_x = {}, rot_y = {}, rot_z = {} },
+    pit_spline = { the_x = {}, loc_x = {}, loc_y = {}, loc_z = {},
+      rot_x = {}, rot_y = {}, rot_z = {} },
+  }
+end
+
 ---Take the next camera id from a document, and move the counter on.
 ---
 ---The document owns the counter; nothing works it out from the cameras in

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (585 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (593 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -140,20 +140,21 @@ rien.
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Infobulles** | Rester sur une valeur : la phrase apparaît après un instant. Elles **ne marchaient pas du tout** — le panneau reconstruisait la ligne et laissait la phrase en route. |
 | 19 | **Champs en caméra libre** | Voler en caméra libre : `X`, `Y`, `Z`, `PITCH`, `HEADING`, `FOV` doivent afficher la valeur **en gris**, et le losange l'épingler telle quelle. `ROLL` et `FOCUS POINT` restent à `--`, c'est voulu. |
-| 20 | **Sauver sous un nom** | **Double-clic sur le nom de fichier** en haut, taper, Entrée. Le fichier doit apparaître dans la liste, et l'original de CamTool 2 ne pas changer de date. |
-| 21 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la voiture suit. **Maj** ne déplace pas le replay. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. |
-| 22 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
-| 23 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
-| 24 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
-| 25 | **Annuler un geste** | **Clic droit** pendant un glissé remet la valeur de départ. **Cliquer ailleurs** abandonne une saisie. Échap ne doit **plus rien** faire dans le panneau — il quitte le replay, comme toujours. |
-| 26 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
-| 27 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
-| 28 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
-| 29 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
-| 30 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
-| 31 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
-| 32 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 33 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 20 | **Créer un fichier** | Session neuve, **double-clic sur « no file »**, taper un nom, Entrée. Puis `+cam` doit marcher. Le fichier doit apparaître dans la liste avec le préfixe de la piste. |
+| 21 | **Sauver sous un nom** | Fichier d'ATR chargé, **double-clic sur son nom** : le champ doit s'ouvrir **et rester ouvert** (il se refermait aussitôt). Taper, Entrée. L'original ne doit pas changer de date. |
+| 22 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la voiture suit. **Maj** ne déplace pas le replay. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. |
+| 23 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
+| 24 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
+| 25 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
+| 26 | **Annuler un geste** | **Clic droit** pendant un glissé remet la valeur de départ. **Cliquer ailleurs** abandonne une saisie. Échap ne doit **plus rien** faire dans le panneau — il quitte le replay, comme toujours. |
+| 27 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
+| 28 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
+| 29 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
+| 30 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
+| 31 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
+| 32 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
+| 33 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -732,6 +733,14 @@ encore la valeur de cette caméra, le losange est ce qui la fait devenir.
 Roulis et distance de mise au point n'ont pas de lecture : AC donne un vecteur
 et non un angle, et rien ne dit sur quoi l'objectif fait le point. Ils restent
 à `--` plutôt que d'inventer un zéro.
+
+**Créer un fichier depuis rien.** Tous les chemins d'entrée passaient par le
+chargement : une session fraîche ne pouvait travailler que sur le set de
+quelqu'un d'autre, et `+cam` répondait « charge un fichier d'abord » — vrai et
+d'aucune aide, puisqu'il n'y avait aucun fichier à soi. **Double-cliquer le nom
+sans rien de chargé crée le fichier** (`data.newDocument`), et le préfixe de la
+piste est ajouté s'il manque, sans quoi le fichier n'aurait jamais été reproposé
+sur ce circuit.
 
 **Sauvegarder sous un nom** : il n'y en avait aucun moyen. `Save` écrasait le
 fichier chargé, donc un set ne pouvait jamais devenir le vôtre. **Double-clic

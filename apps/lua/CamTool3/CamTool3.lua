@@ -1633,7 +1633,7 @@ function script.windowAtr(dt)
   if (actions.addCamera or actions.addKeyframe) and playhead == nil then
     atrStatus = 'no car to put it at -- start the replay first'
   elseif actions.addCamera and cameras == nil then
-    atrStatus = 'load a file before adding a camera'
+    atrStatus = 'no file yet -- double click the name above to start one'
   elseif actions.removeCamera and atrCamera == nil then
     atrStatus = 'pick a camera before removing one'
   elseif actions.addKeyframe and camera == nil then
@@ -1729,6 +1729,8 @@ function script.windowAtr(dt)
 
   if actions.loadFile then
     loadSelectedFile()
+    -- A name being typed was about the file that was in hand a moment ago.
+    atrPanel.cancelEditing()
     atrStatus = nil
     undoStack, redoStack = {}, {}
   end
@@ -1758,12 +1760,29 @@ function script.windowAtr(dt)
   -- Saving under a name of your own. The file is written into CamTool 3's
   -- folder like every other save, so this never touches a CamTool 2 original
   -- whatever it is called.
-  if type(actions.saveAs) == 'string' and doc ~= nil then
+  if type(actions.saveAs) == 'string' then
     local name = actions.saveAs:gsub('^%s+', ''):gsub('%s+$', '')
     if name == '' then
       atrStatus = 'a file needs a name'
     else
+      -- Naming a file when none is loaded MAKES one. Every path into the app
+      -- went through loading before, so a fresh session could only ever work
+      -- on somebody else's set.
+      if doc == nil then
+        doc, docError = dataModule.newDocument(), nil
+        playbackCore.applyMode(pb, doc.interpolation_mode)
+        atrCamera, atrKeyframe = nil, 1
+        mode = MODE_PLAYBACK
+        log('new camera file')
+      end
+
       if not name:lower():find('%.json$') then name = name .. '.json' end
+
+      -- A file belongs to the track it was made on, the same prefix CamTool 2
+      -- uses, or it will not be offered again when this track is next loaded.
+      local prefix = storage.trackPrefix()
+      if name:sub(1, #prefix) ~= prefix then name = prefix .. name end
+
       local saved, err = storage.saveCameraFile(name, doc)
       if saved then
         docName = name
@@ -1780,8 +1799,6 @@ function script.windowAtr(dt)
         log(atrStatus)
       end
     end
-  elseif actions.saveAs ~= nil then
-    atrStatus = 'nothing loaded to save'
   end
 
   if actions.save then

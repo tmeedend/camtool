@@ -540,3 +540,78 @@ test('a target the replay never reaches gives up and says so', function()
 
   handle.restoreIo()
 end)
+
+test('a session with no file can start one and put a camera in it', function()
+  -- End to end, and the thing Théo could not do: open the app, name a file,
+  -- add a camera. Every path in used to go through loading somebody else's.
+  --
+  -- One fake for the whole run, its options changed as it goes. Installing a
+  -- second one replaces _G.script, so the app's entry points vanish -- which
+  -- is how the first version of this test managed to fail without the app
+  -- ever being at fault.
+  local opts = {
+    cameraFile = rawFile, framesPerLap = 6000, splinePosition = 0.3,
+    itemHovered = true, mouseDoubleClicked = true, clicks = {},
+  }
+  local handle = fakes.install(opts)
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Double click the name with nothing loaded: the field opens.
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+
+  -- Type a name and press Enter.
+  opts.mouseDoubleClicked = false
+  opts.typed, opts.enterPressed = 'my set', true
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+
+  local written = nil
+  for name in pairs(handle.written) do written = name end
+  eq(written ~= nil, true, 'a file was written')
+  eq(written:find('fake_track_-', 1, true) ~= nil, true,
+    'named for the track it was made on, or it is never offered again: ' ..
+    tostring(written))
+  eq(written:find('my set', 1, true) ~= nil, true)
+  eq(written:find('.json', 1, true) ~= nil, true)
+
+  handle.restoreIo()
+end)
+
+test('and a camera can go into the set that was just started', function()
+  local opts = {
+    cameraFile = rawFile, framesPerLap = 6000, splinePosition = 0.3,
+    itemHovered = true, mouseDoubleClicked = true, clicks = {},
+  }
+  local handle = fakes.install(opts)
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+  opts.mouseDoubleClicked = false
+  opts.typed, opts.enterPressed = 'fresh', true
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+
+  -- Now the button that used to say "load a file first".
+  opts.typed, opts.enterPressed = nil, false
+  opts.clicks['+cam##camadd'] = true
+  for _ = 1, 3 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+
+  local depth = nil
+  for i = #handle.buttons, 1, -1 do
+    local n = tostring(handle.buttons[i]):match('^Undo %((%d+)%)')
+    if n then depth = tonumber(n) break end
+  end
+  eq(depth ~= nil and depth >= 1, true,
+    'a camera went into a set that did not exist a moment ago, got ' ..
+    tostring(depth))
+
+  handle.restoreIo()
+end)

@@ -32,6 +32,10 @@ local atr = {}
 -- and the camera being renamed, so a plain pair rather than a table.
 local renamingFile = false
 local fileNameBuffer = ''
+---Whether the field has had the focus yet. Without it, "not active" on the
+---frame the field appears reads as "clicked away". See ui/parameter, which
+---learned the same lesson first.
+local fileNameWasActive = false
 
 --------------------------------------------------------------------------------
 -- What each column holds
@@ -269,9 +273,10 @@ atr.LEGEND = {
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
   'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
     'moving the replay is not an edit at all.',
-  'Save   writes over the file it came from, keeping one copy of what was ' ..
-    'there before CamTool 3 first touched it. DOUBLE CLICK THE FILE NAME to ' ..
-    'save under a different one. Reset asks first.',
+  'Files   DOUBLE CLICK THE FILE NAME to save under a different one -- or, ' ..
+    'with nothing loaded, to start an empty set of your own. Save writes ' ..
+    'over the file it came from, keeping one copy of what was there before ' ..
+    'CamTool 3 first touched it. Reset asks first.',
 }
 
 --------------------------------------------------------------------------------
@@ -427,6 +432,15 @@ local function columnWidth(total)
   return math.floor((total - 2 * theme.columnGap - 2 * theme.padding) / 3)
 end
 
+---Close any file name being typed.
+---
+---Module state, so it outlives a single draw -- and, in the tests, a single
+---test. Called when a file is loaded, since the name being typed is then
+---about a file that is no longer the one in hand.
+function atr.cancelEditing()
+  renamingFile, fileNameBuffer, fileNameWasActive = false, '', false
+end
+
 ---@param state table
 ---  doc          the migrated document, or nil
 ---  camera       the selected camera, or nil
@@ -471,6 +485,10 @@ function atr.draw(state)
   -- name it changes. There was no way to name a file at all: Save wrote over
   -- whatever had been loaded, so a set could never become a set of your own.
   if renamingFile then
+    -- Take the focus on the frame it opens, or the first keystroke goes
+    -- nowhere.
+    if not fileNameWasActive then ui.setKeyboardFocusHere() end
+
     ui.setNextItemWidth(nameWidth)
     local text, _, entered = ui.inputText('##fileNameEntry', fileNameBuffer,
       ui.InputTextFlags.AutoSelectAll)
@@ -478,9 +496,15 @@ function atr.draw(state)
 
     if entered then
       actions.saveAs = fileNameBuffer
-      renamingFile = false
-    elseif not ui.itemActive() and fileNameBuffer ~= '' then
-      renamingFile = false
+      renamingFile, fileNameWasActive = false, false
+    elseif ui.itemActive() then
+      fileNameWasActive = true
+    elseif fileNameWasActive then
+      -- Clicked away. Only once it HAS been active: a field is not active on
+      -- the frame it appears, and closing on that frame is why double
+      -- clicking a loaded file name did nothing at all -- the buffer was the
+      -- file's name, so the old test for an empty one never saved it.
+      renamingFile, fileNameWasActive = false, false
     end
   else
     if ui.button((state.fileName or 'no file') .. '###fileName',
@@ -488,10 +512,13 @@ function atr.draw(state)
       actions.loadFile = true
     end
     if ui.itemHovered() then
-      ui.setTooltip('Click to load another file.  ' ..
-        'Double click to save this one under a new name.')
+      ui.setTooltip(state.loadedName ~= nil
+        and ('Click to load another file.  ' ..
+          'Double click to save this one under a new name.')
+        or ('Click to load a file.  ' ..
+          'Double click to start a new set of your own.'))
       if ui.mouseDoubleClicked(0) then
-        renamingFile = true
+        renamingFile, fileNameWasActive = true, false
         fileNameBuffer = state.loadedName or ''
         actions.loadFile = nil
       end
