@@ -37,9 +37,9 @@ local function draw(state, mouseX, clickedIt)
     mouseX = mouseX ~= nil and (ORIGIN_X + mouseX) or -1,
     mouseY = ORIGIN_Y + 10,
   })
-  local camera, keyframe = band.draw(state, WIDTH)
+  local did = band.draw(state, WIDTH)
   handle.restoreIo()
-  return camera, keyframe, handle.drawn
+  return did.camera, did.keyframe, handle.drawn
 end
 
 local function rects(drawn)
@@ -231,9 +231,9 @@ local function press(state, mouseX)
     itemActive = true, itemHovered = true,
     mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
   })
-  local camera, keyframe, move = band.draw(state, WIDTH)
+  local did = band.draw(state, WIDTH)
   handle.restoreIo()
-  return move, camera, keyframe
+  return did.move, did.camera, did.keyframe
 end
 
 test('the selected camera shows a handle where it takes over', function()
@@ -415,7 +415,7 @@ test('typing a name and pressing enter reports it', function()
   openRename(state, WIDTH * 0.75)
 
   local handle = fakes.install({ typed = 'Bus Stop', enterPressed = true })
-  local _, _, _, rename = band.draw(state, WIDTH)
+  local rename = band.draw(state, WIDTH).rename
   handle.restoreIo()
 
   eq(rename ~= nil, true)
@@ -430,13 +430,13 @@ test('escape drops the rename', function()
   openRename(state, WIDTH * 0.5)
 
   local handle = fakes.install({ typed = 'nope', keyPressed = 27 })
-  local _, _, _, rename = band.draw(state, WIDTH)
+  local rename = band.draw(state, WIDTH).rename
   handle.restoreIo()
   eq(rename, nil)
 
   -- And the field is gone: nothing comes back on the next frame either.
   handle = fakes.install({ typed = 'nope', enterPressed = true })
-  local _, _, _, after = band.draw(state, WIDTH)
+  local after = band.draw(state, WIDTH).rename
   handle.restoreIo()
   eq(after, nil, 'the field closed rather than staying open')
   band.reset()
@@ -455,7 +455,7 @@ test('renaming follows the camera, not the place it was in', function()
   table.insert(cameraList, 2, { id = 99, camera_in = 0.3, camera_pit = false })
 
   local handle = fakes.install({ typed = 'Eau Rouge', enterPressed = true })
-  local _, _, _, rename = band.draw(state, WIDTH)
+  local rename = band.draw(state, WIDTH).rename
   handle.restoreIo()
 
   eq(rename.index, 3, 'it is the third camera now, and still the right one')
@@ -472,7 +472,7 @@ test('a camera deleted while being renamed closes the field', function()
   table.remove(cameraList, 2)
 
   local handle = fakes.install({ typed = 'gone', enterPressed = true })
-  local _, _, _, rename = band.draw(state, WIDTH)
+  local rename = band.draw(state, WIDTH).rename
   handle.restoreIo()
   eq(rename, nil)
   band.reset()
@@ -489,15 +489,12 @@ test('pressing a diamond and moving reports a new position', function()
     camera = { keyframes = keyframesAt({ 0.2, 0.8 }) }, keyframeIndex = 1,
   }
 
-  local _, _, _, _, move = select(1, (function()
-    local handle = fakes.install({
-      itemActive = true, itemHovered = true,
-      mouseX = ORIGIN_X + WIDTH * 0.2, mouseY = ORIGIN_Y + 10,
-    })
-    local a, b, c, d, e = band.draw(state, WIDTH)
-    handle.restoreIo()
-    return a, b, c, d, e
-  end)())
+  local handle = fakes.install({
+    itemActive = true, itemHovered = true,
+    mouseX = ORIGIN_X + WIDTH * 0.2, mouseY = ORIGIN_Y + 10,
+  })
+  local move = band.draw(state, WIDTH).moveKeyframe
+  handle.restoreIo()
 
   eq(move ~= nil, true, 'the press landed on a diamond')
   eq(rawequal(move.keyframe, state.camera.keyframes[1]), true,
@@ -511,7 +508,7 @@ local function pressKeyframe(state, mouseX)
     itemActive = true, itemHovered = true,
     mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
   })
-  local _, _, _, _, move = band.draw(state, WIDTH)
+  local move = band.draw(state, WIDTH).moveKeyframe
   handle.restoreIo()
   return move
 end

@@ -80,11 +80,16 @@ end
 ---  keyframeIndex    the selected keyframe
 ---  trackPos         the car, 0..1
 ---@param width number
----@return number|nil camera @a camera the user clicked on
----@return number|nil keyframe @or a keyframe of the selected camera
----@return table|nil move @{ position = , gesture = } while a start is dragged
----@return table|nil rename @{ index = , name = } when a name is committed
----@return table|nil moveKeyframe @{ keyframe = , position = , gesture = }
+---@return table @what the user did, any of:
+---  camera        a camera they clicked on
+---  keyframe      a keyframe of the selected camera they clicked on
+---  move          { position, gesture } while a camera start is dragged
+---  moveKeyframe  { keyframe, position, gesture } while a diamond is dragged
+---  rename        { index, name } when a name is committed
+---
+---One table rather than a row of return values. Six of those had accumulated,
+---and the seventh is what made the point: every caller had to count commas to
+---find out which nil was which.
 function band.draw(state, width)
   local height = theme.bandHeight
   local origin = ui.getCursor()
@@ -303,11 +308,11 @@ function band.draw(state, width)
     end
 
     if draggingKeyframe ~= nil then
-      return nil, nil, nil, renamed, {
+      return { rename = renamed, moveKeyframe = {
         keyframe = draggingKeyframe,
         position = at,
         gesture = 'keyframe:' .. keyframeToken,
-      }
+      } }
     end
 
     if pressed and handleAt ~= nil
@@ -316,7 +321,8 @@ function band.draw(state, width)
       dragging, dragToken = true, dragToken + 1
     end
     if dragging then
-      return nil, nil, { position = at, gesture = 'band:' .. dragToken }, renamed
+      return { rename = renamed,
+        move = { position = at, gesture = 'band:' .. dragToken } }
     end
   elseif dragging or draggingKeyframe ~= nil then
     dragging, draggingKeyframe = false, nil
@@ -332,12 +338,12 @@ function band.draw(state, width)
     if type(camera) == 'table' and type(camera.id) == 'number' then
       renaming = camera.id
       renameBuffer = type(camera.name) == 'string' and camera.name or ''
-      return nil, nil, nil, renamed
+      return { rename = renamed }
     end
   end
 
   if not clicked or not hovered or at == nil then
-    return nil, nil, nil, renamed
+    return { rename = renamed }
   end
 
   if type(keyframes) == 'table' then
@@ -352,10 +358,10 @@ function band.draw(state, width)
         end
       end
     end
-    if best ~= nil then return nil, best, nil, renamed end
+    if best ~= nil then return { keyframe = best, rename = renamed } end
   end
 
-  return trackmap.ownerAt(segments, at), nil, nil, renamed
+  return { camera = trackmap.ownerAt(segments, at), rename = renamed }
 end
 
 ---Give up any drag in progress. For tests.
