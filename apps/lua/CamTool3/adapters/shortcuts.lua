@@ -28,10 +28,14 @@ local buttons = nil
 
 ---What each shortcut is for, in the order the settings panel shows them.
 ---
----The Shift variants are separate bindings rather than a modifier read at the
----moment of the press: a binding matches its modifiers, so Shift+Left is not
----Left with a flag set. Declaring them plainly also means they can be
----rebound, or unbound by anyone who does not want them.
+---FOUR, NOT EIGHT. There were Shift variants that stepped without moving the
+---replay -- the keyboard's half of a Shift+click on the ribbon. The ribbon no
+---longer moves the replay on a click, so there is nothing left for them to
+---abstain from: an arrow moves the playhead, the way the jump-to-edit-point
+---keys do in Premiere and Resolve, and that is all an arrow does.
+---
+---Anyone who had them bound keeps four dead entries in controls.ini. Harmless,
+---and cheaper than carrying a shortcut that does what the plain key does.
 shortcuts.DEFINITIONS = {
   { id = 'keyframeNext', label = 'Next keyframe',
     key = 'Right' },
@@ -41,24 +45,6 @@ shortcuts.DEFINITIONS = {
     key = 'Down' },
   { id = 'cameraPrevious', label = 'Previous camera',
     key = 'Up' },
-
-  { id = 'keyframeNextQuiet', label = 'Next keyframe, leave the replay',
-    key = 'Right', shift = true },
-  { id = 'keyframePreviousQuiet', label = 'Previous keyframe, leave the replay',
-    key = 'Left', shift = true },
-  { id = 'cameraNextQuiet', label = 'Next camera, leave the replay',
-    key = 'Down', shift = true },
-  { id = 'cameraPreviousQuiet', label = 'Previous camera, leave the replay',
-    key = 'Up', shift = true },
-}
-
----Which of these move the replay as well as the selection, and which do not.
----The quiet ones are the same escape hatch as Shift+click on the ribbon.
-shortcuts.QUIET = {
-  keyframeNextQuiet = 'keyframeNext',
-  keyframePreviousQuiet = 'keyframePrevious',
-  cameraNextQuiet = 'cameraNext',
-  cameraPreviousQuiet = 'cameraPrevious',
 }
 
 ---How long a held arrow waits before repeating, in seconds. Read from

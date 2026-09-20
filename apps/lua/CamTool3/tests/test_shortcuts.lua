@@ -47,16 +47,19 @@ test('a held arrow repeats', function()
   shortcuts.reset()
 end)
 
-test('the quiet variants are their own bindings, with Shift as the default', function()
-  -- A binding matches its modifiers, so Shift+Left is not Left with a flag
-  -- set. Declaring them plainly also means they can be rebound or unbound.
+test('an arrow moves the playhead, and there is no variant that does not', function()
+  -- There were four Shift variants that stepped without moving the replay.
+  -- They were the keyboard's half of Shift+click on the ribbon; a click no
+  -- longer moves the replay, so they had nothing left to abstain from.
   local handle = withShortcuts({})
 
-  local shifted = 0
+  eq(#shortcuts.DEFINITIONS, 4, 'four arrows, four bindings')
+  eq(shortcuts.QUIET, nil, 'and no table of quiet ones')
+
   for _, created in ipairs(handle.controlButtons) do
-    if created.defaults.keyboard.shift then shifted = shifted + 1 end
+    eq(created.defaults.keyboard.shift, false,
+      created.id .. ' still asks for a modifier')
   end
-  eq(shifted, 4, 'one quiet variant per direction')
 
   handle.restoreIo()
   shortcuts.reset()

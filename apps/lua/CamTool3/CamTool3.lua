@@ -1328,8 +1328,7 @@ handleShortcuts = function()
   local fired = shortcuts.pressed()
   if fired == nil then return end
 
-  local quiet = shortcuts.QUIET[fired] ~= nil
-  local action = shortcuts.QUIET[fired] or fired
+  local action = fired
 
   local cameras = doc ~= nil and doc[pb.options.listName] or nil
   if cameras == nil or #cameras == 0 then
@@ -1373,9 +1372,10 @@ handleShortcuts = function()
     target = navigate.positionOf(camera, next_)
   end
 
-  -- Stepping brings the car with it, by the same route a click on the ribbon
-  -- takes. Shift is the escape hatch here exactly as it is there.
-  if not quiet and target ~= nil then
+  -- Stepping brings the car with it. That is what the jump-to-edit-point keys
+  -- do in an editing suite, and it is the only thing that makes an arrow
+  -- worth pressing: the point of going to the next keyframe is to see it.
+  if target ~= nil then
     local why = seekBegin(target)
     if why ~= nil then atrStatus = why end
   end

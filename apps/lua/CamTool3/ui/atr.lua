@@ -275,9 +275,9 @@ atr.LEGEND = {
     'ribbon and with as little effect on the replay; the handle drags there ' ..
     'too.',
   "Arrows   left and right step through this camera's keyframes, up and " ..
-    'down through the cameras, and each brings the car with it. Hold Shift ' ..
-    'to step without moving the replay. They stop at the ends. Rebind them ' ..
-    'below.',
+    'down through the cameras, and each takes the playhead with it -- the ' ..
+    'jump-to-edit-point keys of an editing suite. They stop at the ends ' ..
+    'rather than wrap. Rebind them below.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',

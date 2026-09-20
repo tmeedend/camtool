@@ -1780,6 +1780,8 @@ test('the legend offers no gesture that was taken away', function()
   -- difference they will never see.
   local all = table.concat(atr.LEGEND, ' | '):lower()
   eq(all:find('shift+click', 1, true), nil)
+  eq(all:find('without moving the replay', 1, true), nil,
+    'the Shift arrows went with it')
 end)
 
 test('the panel hands the widget the sentence written for the row', function()
