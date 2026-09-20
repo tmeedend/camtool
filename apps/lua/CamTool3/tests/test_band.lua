@@ -17,6 +17,12 @@ local test, eq, near = runner.test, runner.eq, runner.near
 local WIDTH = 400
 local ORIGIN_X, ORIGIN_Y = 17, 23
 
+-- The widget starts with the ruler, so everything about the cameras is
+-- measured from under it. Written once here rather than spelled out in each
+-- case: the ruler's height is the panel's business, not these tests'.
+local BAND_TOP = ORIGIN_Y + theme.bandRulerHeight
+local BAND_BOTTOM = BAND_TOP + theme.bandHeight
+
 local function cameras(starts)
   local out = {}
   for i = 1, #starts do out[i] = { camera_in = starts[i], camera_pit = false } end
@@ -54,7 +60,7 @@ end
 ---are rectangles too, and they run the full height.
 local function ribbon(drawn)
   local out = {}
-  local top = ORIGIN_Y + theme.bandHeight - theme.bandRibbon
+  local top = BAND_BOTTOM - theme.bandRibbon
   for _, bar in ipairs(rects(drawn)) do
     if math.abs(bar.y - top) < 0.001 then out[#out + 1] = bar end
   end
@@ -140,8 +146,8 @@ test('the car is a line across the whole band', function()
   end
   eq(line ~= nil, true)
   near(line.x, ORIGIN_X + WIDTH * 0.25, 1)
-  near(line.y, ORIGIN_Y, 0.001, 'from the top')
-  near(line.y2, ORIGIN_Y + theme.bandHeight, 0.001, 'to the bottom')
+  near(line.y, ORIGIN_Y, 0.001, 'from the top of the ruler')
+  near(line.y2, BAND_BOTTOM, 0.001, 'to the bottom of the ribbon')
 end)
 
 test('only the selected camera shows its keyframes', function()
@@ -241,7 +247,7 @@ test('the selected camera shows a handle where it takes over', function()
   local handle = nil
   for _, bar in ipairs(rects(drawn)) do
     if bar.colour == theme.stripActive
-      and math.abs(bar.y - ORIGIN_Y) < 0.001 then handle = bar end
+      and math.abs(bar.y - BAND_TOP) < 0.001 then handle = bar end
   end
   eq(handle ~= nil, true)
   near((handle.x + handle.x2) / 2, ORIGIN_X + WIDTH * 0.25, 1)
@@ -824,7 +830,7 @@ test('a squeezed label is written above the ribbon, not inside it', function()
   handle.restoreIo()
 
   eq(written ~= nil, true)
-  eq(written.y < ORIGIN_Y + theme.bandHeight - theme.bandRibbon, true,
+  eq(written.y < BAND_BOTTOM - theme.bandRibbon, true,
     'above the coloured strip, where there is room')
 end)
 
@@ -842,4 +848,161 @@ test('a label that fits is not ellipsised for want of a few pixels', function()
 
   eq(written.x2 - written.x >= ui.measureText(written.text).x
     + theme.bandLabelSlack - 2 * theme.bandLabelPadding, true)
+end)
+
+--------------------------------------------------------------------------
+-- The ruler
+--------------------------------------------------------------------------
+-- The thin strip along the top: how far round the lap, and what the track
+-- calls the place. What these can check is what reached the screen and where
+-- it landed; whether sixteen pixels of it look right is the in-game list.
+
+local LAP_M = 7004
+
+local function sectionsAt(list)
+  return require('core/sections').normalise(list)
+end
+
+---Everything drawn in one colour, in the order it was drawn.
+local function inColour(drawn, colour)
+  local out = {}
+  for i = 1, #drawn do
+    if drawn[i].colour == colour then out[#out + 1] = drawn[i] end
+  end
+  return out
+end
+
+local function textsIn(drawn, colour)
+  local out = {}
+  for _, item in ipairs(inColour(drawn, colour)) do
+    if item.op == 'label' then out[#out + 1] = item.text end
+  end
+  return out
+end
+
+test('the ruler has a background of its own, above the cameras', function()
+  -- The tint is what makes two zones out of one ribbon. Without it the split
+  -- has to be explained, and an explained split is one nobody reads.
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M })
+
+  local strip = inColour(drawn, theme.bandRulerBackground)[1]
+  eq(strip ~= nil, true)
+  near(strip.y, ORIGIN_Y, 0.001, 'at the very top')
+  near(strip.y2, BAND_TOP, 0.001, 'and stopping where the cameras start')
+  near(strip.x, ORIGIN_X, 0.001)
+  near(strip.x2, ORIGIN_X + WIDTH, 0.001)
+end)
+
+test('distances are written along the lap', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M })
+
+  local written = textsIn(drawn, theme.bandRulerLabel)
+  eq(#written > 1, true, 'a ruler with one number on it measures nothing')
+  eq(written[1], '1 km', 'and it starts at a round distance')
+end)
+
+test('a marked distance sits where that distance is', function()
+  -- A short circuit, so the labels come out in metres and can be read back
+  -- as a number. On a long one they are kilometres and prove less.
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = 1200 })
+
+  local checked = 0
+  for _, item in ipairs(inColour(drawn, theme.bandRulerLabel)) do
+    if item.op == 'label' then
+      local metres = tonumber(item.text:match('^([%d%.]+) m$'))
+      local km = tonumber(item.text:match('^([%d%.]+) km$'))
+      if km ~= nil then metres = km * 1000 end
+      eq(metres ~= nil, true, item.text .. ' is not a distance')
+      near(item.x - ORIGIN_X, WIDTH * metres / 1200, 5,
+        item.text .. ' is written away from its own mark')
+      checked = checked + 1
+    end
+  end
+  eq(checked > 0, true, 'no distance was written at all')
+end)
+
+test('a track that reports no length gets marks it cannot invent', function()
+  -- The game has been seen to answer nothing while a session is still coming
+  -- up. The strip is still drawn; it simply has nothing to say yet.
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1 })
+
+  eq(#inColour(drawn, theme.bandRulerBackground), 1, 'the strip is there')
+  eq(#textsIn(drawn, theme.bandRulerLabel), 0, 'and empty')
+end)
+
+test('a stretch the track has a name for is tinted and named', function()
+  local _, _, drawn = draw({
+    cameras = cameras({ 0 }), cameraIndex = 1, trackLength = LAP_M,
+    sections = sectionsAt({ { from = 0.4, to = 0.6, text = 'Kemmel' } }),
+  })
+
+  local tint = inColour(drawn, theme.bandRulerSection)[1]
+  eq(tint ~= nil, true)
+  near(tint.x, ORIGIN_X + WIDTH * 0.4, 1)
+  near(tint.x2, ORIGIN_X + WIDTH * 0.6, 1)
+
+  eq(textsIn(drawn, theme.bandRulerName)[1], 'Kemmel')
+end)
+
+test('a name is written inside its own stretch, never across the next', function()
+  local _, _, drawn = draw({
+    cameras = cameras({ 0 }), cameraIndex = 1, trackLength = LAP_M,
+    sections = sectionsAt({
+      { from = 0.1, to = 0.3, text = 'Eau Rouge' },
+      { from = 0.3, to = 0.5, text = 'Kemmel' },
+    }),
+  })
+
+  for _, item in ipairs(inColour(drawn, theme.bandRulerName)) do
+    if item.text == 'Eau Rouge' then
+      eq(item.x >= ORIGIN_X + WIDTH * 0.1 - 0.001, true)
+      eq(item.x2 <= ORIGIN_X + WIDTH * 0.3 + 0.001, true)
+    end
+  end
+end)
+
+test('a name too wide for its stretch is not written at all', function()
+  -- Three dots in a strip this thin say a name is there, which the tint has
+  -- already said.
+  local _, _, drawn = draw({
+    cameras = cameras({ 0 }), cameraIndex = 1, trackLength = LAP_M,
+    sections = sectionsAt({
+      { from = 0.5, to = 0.505, text = 'Bus Stop Chicane' },
+    }),
+  })
+
+  eq(#textsIn(drawn, theme.bandRulerName), 0)
+  eq(#inColour(drawn, theme.bandRulerSection), 1, 'but the tint still shows')
+end)
+
+test('a distance is not written on top of a name', function()
+  -- One line of text in sixteen pixels, so the two cannot share the row. A
+  -- name beats a number, and the marks stay either way.
+  local covered = sectionsAt({ { from = 0, to = 1, text = 'All of it' } })
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M, sections = covered })
+
+  eq(#textsIn(drawn, theme.bandRulerLabel), 0, 'every number gave way')
+  eq(#inColour(drawn, theme.bandRulerTick) > 0, true, 'and every mark stayed')
+end)
+
+test('a number that would run off the end is not written', function()
+  local _, _, drawn = draw({ cameras = cameras({ 0 }), cameraIndex = 1,
+    trackLength = LAP_M })
+
+  for _, item in ipairs(inColour(drawn, theme.bandRulerLabel)) do
+    if item.op == 'label' then
+      eq(item.x2 <= ORIGIN_X + WIDTH + 0.001, true,
+        item.text .. ' is written half off the edge')
+    end
+  end
+end)
+
+test('the ruler is drawn whether or not there are cameras', function()
+  local _, _, drawn = draw({ trackLength = LAP_M })
+  eq(#inColour(drawn, theme.bandRulerBackground), 1)
+  eq(#textsIn(drawn, theme.bandRulerLabel) > 0, true)
 end)

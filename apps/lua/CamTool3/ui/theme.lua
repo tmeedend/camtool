@@ -178,6 +178,32 @@ theme.bandLabel = rgbm(1, 1, 1, 0.92)
 ---to be countable without competing with the names written beside it.
 theme.bandTick = rgbm(0.09, 0.09, 0.09, 1)
 
+---The ruler across the top of the ribbon.
+---
+---A THIN STRIP WITH ITS OWN BACKGROUND, and the background is the part that
+---matters: it is what makes two zones out of one ribbon without a word of
+---explanation. Above the line you move the playhead, below it you pick a
+---camera, and nobody has to be told which is which.
+---
+---Sixteen pixels rather than the ten the brief asked for. A line of text in
+---this panel is thirteen, and a ruler you cannot write a distance on is a row
+---of marks that measure nothing.
+theme.bandRulerHeight = 16
+---How far the small unlabelled marks rise from the bottom of the strip. The
+---labelled ones cross the whole of it.
+theme.bandRulerMinorTick = 4
+---Room between a labelled mark and the text that belongs to it.
+theme.bandRulerLabelGap = 3
+
+theme.bandRulerBackground = rgbm(0.21, 0.21, 0.21, 1)
+---Behind a stretch the track itself has a name for. A tint, not an outline:
+---the names are the point, and a box round each one would be louder than
+---what is in it.
+theme.bandRulerSection = rgbm(0.28, 0.28, 0.30, 1)
+theme.bandRulerTick = rgbm(0.62, 0.62, 0.62, 1)
+theme.bandRulerLabel = rgbm(0.78, 0.78, 0.78, 1)
+theme.bandRulerName = rgbm(0.92, 0.92, 0.92, 1)
+
 ---The rename field is never narrower than this, however thin the segment.
 theme.bandRenameWidth = 150
 ---A diamond is four pixels across and nobody hits four pixels.

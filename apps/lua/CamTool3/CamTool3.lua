@@ -1467,6 +1467,9 @@ function script.windowAtr(dt)
     paused = playing.paused,
     -- Offered when naming a camera that has none: see ui/band.
     sectionNameAt = trackAdapter.sectionNameAt,
+    -- What the track calls its own stretches, for the ruler. Read once when
+    -- the track loaded, so this is a lookup and not a file.
+    sections = trackAdapter.sections(),
     dt = dt,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.

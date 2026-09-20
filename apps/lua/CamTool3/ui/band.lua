@@ -15,8 +15,15 @@
   Presentation only. The spans come from core/trackmap, the edits go through
   the panel, and nothing here touches a camera.
 
+  TWO ZONES, ONE RIBBON. A thin ruler along the top -- distances round the
+  lap, and the names the track gives its own stretches -- and under it the
+  cameras. The ruler has a background of its own, and that is what makes the
+  split obvious without a word of explanation: above the line you move the
+  playhead, below it you pick a camera.
+
   What it shows, bottom to top: each camera's stretch of the lap in its own
-  tint, the selected camera's keyframes as diamonds, and the car.
+  tint, the selected camera's keyframes as diamonds, the playhead, and the
+  ruler.
 
   THE DIAMONDS DO NOT MOVE, and that is deliberate. They were draggable for
   one round and Théo asked for it back out: a diamond is four pixels on a
@@ -30,6 +37,8 @@
 local theme = require('ui/theme')
 local trackmap = require('core/trackmap')
 local data = require('core/data')
+local ruler = require('core/ruler')
+local sections = require('core/sections')
 
 local band = {}
 
@@ -81,6 +90,98 @@ local function diamond(originX, originY, x, y, size, colour)
     vec2(cx, cy + size), vec2(cx - size, cy), colour)
 end
 
+---Draw the ruler: how far round the lap, and what the track calls the place.
+---
+---A NAME BEATS A NUMBER, and the marks stay either way. The two cannot share
+---the row -- there is one line of text in sixteen pixels -- so a distance
+---whose label would land on a named stretch gives up the label and keeps the
+---mark. Nothing is lost: the marks are evenly spaced, so a reader counts on
+---from the last number they can see, which is what a ruler is for.
+---
+---Nothing is allocated here. The marks come back from core/ruler as the same
+---table they were last frame, and the names were read once when the track
+---loaded.
+---@param originX number
+---@param y number @the top of the ruler
+---@param width number
+---@param state table @for trackLength and sections
+local function drawRuler(originX, y, width, state)
+  local height = theme.bandRulerHeight
+  local bottom = y + height
+
+  ui.drawRectFilled(vec2(originX, y), vec2(originX + width, bottom),
+    theme.bandRulerBackground, theme.rounding)
+
+  local named = type(state.sections) == 'table' and state.sections or nil
+
+  -- The named stretches, as a tint behind their own text. A box round each
+  -- one would be louder than what is in it.
+  if named ~= nil then
+    for i = 1, #named do
+      local section = named[i]
+      local x1 = originX + xOf(section.from, width)
+      local x2 = originX + xOf(section.to, width)
+      if x2 - x1 >= 1 then
+        ui.drawRectFilled(vec2(x1, y), vec2(x2, bottom), theme.bandRulerSection)
+      end
+    end
+  end
+
+  local marks = ruler.ticks(state.trackLength, width)
+
+  for i = 1, #marks do
+    local mark = marks[i]
+    local x = originX + xOf(mark.position, width)
+    ui.drawLine(vec2(x, mark.major and y or (bottom - theme.bandRulerMinorTick)),
+      vec2(x, bottom), theme.bandRulerTick, 1)
+  end
+
+  -- The distances, beside the mark they belong to rather than above it: the
+  -- strip is one line of text tall and there is no above.
+  for i = 1, #marks do
+    local mark = marks[i]
+    if mark.label ~= nil then
+      local x = originX + xOf(mark.position, width) + theme.bandRulerLabelGap
+      local textWidth = ui.measureText(mark.label).x
+
+      -- Written only if the whole of it fits before the end of the lap, and
+      -- only where the track has not named the ground it would be written on.
+      -- A number half off the edge is worse than no number.
+      local clear = x + textWidth <= originX + width
+      if clear and named ~= nil then
+        clear = sections.at(named, mark.position) == nil
+          and sections.at(named, positionOf(x + textWidth - originX, width)) == nil
+      end
+
+      if clear then
+        ui.drawTextClipped(mark.label, vec2(x, y), vec2(x + textWidth, bottom),
+          theme.bandRulerLabel, vec2(0, 0.5), false)
+      end
+    end
+  end
+
+  -- And the names on top, each one inside its own stretch. A name that does
+  -- not fit is not written: an ellipsis in a strip this thin is three dots
+  -- saying a name is there, which the tint already says.
+  if named ~= nil then
+    for i = 1, #named do
+      local section = named[i]
+      if section.text ~= nil then
+        local x1 = originX + xOf(section.from, width)
+        local x2 = originX + xOf(section.to, width)
+        local room = x2 - x1 - 2 * theme.bandLabelPadding
+
+        if ui.measureText(section.text).x <= room then
+          ui.drawTextClipped(section.text,
+            vec2(x1 + theme.bandLabelPadding, y),
+            vec2(x2 - theme.bandLabelPadding, bottom),
+            theme.bandRulerName, vec2(0.5, 0.5), false)
+        end
+      end
+    end
+  end
+end
+
 ---@param state table
 ---  cameras          the camera list being edited
 ---  cameraIndex      the camera being edited
@@ -88,6 +189,8 @@ end
 ---  camera           that camera, for its keyframes
 ---  keyframeIndex    the selected keyframe
 ---  trackPos         the car, 0..1
+---  trackLength      the lap in metres, for the ruler's distances
+---  sections         the track's named stretches, as core/sections gives them
 ---@param width number
 ---@return table @what the user did, any of:
 ---  camera        a camera they clicked on
@@ -103,10 +206,23 @@ end
 ---and the seventh is what made the point: every caller had to count commas to
 ---find out which nil was which.
 function band.draw(state, width)
-  local height = theme.bandHeight
+  -- The two zones. Everything below measures from `bandTop` and `bottom`
+  -- rather than from the widget's own origin, so the ruler can change height
+  -- without every keyframe and label moving with it.
+  local height = theme.bandRulerHeight + theme.bandHeight
   local origin = ui.getCursor()
+  local bandTop = origin.y + theme.bandRulerHeight
+  local bottom = bandTop + theme.bandHeight
 
-  local clicked = ui.invisibleButton('##trackBand', vec2(width, height))
+  -- A button each, so the two zones can hover, point and drag differently.
+  -- One button spanning both would make the ruler answer for gestures that
+  -- belong to the cameras under it.
+  ui.setCursor(vec2(origin.x, origin.y))
+  ui.invisibleButton('##bandRuler', vec2(width, theme.bandRulerHeight))
+  local rulerHovered = ui.itemHovered()
+
+  ui.setCursor(vec2(origin.x, bandTop))
+  local clicked = ui.invisibleButton('##trackBand', vec2(width, theme.bandHeight))
   local hovered = ui.itemHovered()
 
   -- Adding and removing, where the thing is. A plus button has to decide for
@@ -128,7 +244,9 @@ function band.draw(state, width)
   end)
 
 
-  ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
+  drawRuler(origin.x, origin.y, width, state)
+
+  ui.drawRectFilled(vec2(origin.x, bandTop), vec2(origin.x + width, bottom),
     theme.mapBackground, theme.rounding)
 
   -- The pointer says the ribbon does something, and the line at the bottom of
@@ -148,7 +266,7 @@ function band.draw(state, width)
   ------------------------------------------------------------------
   -- The lap, camera by camera
   ------------------------------------------------------------------
-  local top = origin.y + height - theme.bandRibbon
+  local top = bottom - theme.bandRibbon
   for i = 1, #spans do
     local span = spans[i]
     local colour = theme.mapTrackAlt
@@ -166,7 +284,7 @@ function band.draw(state, width)
     local x2 = origin.x + xOf(span.to, width)
     if x2 - x1 > 2 then x2 = x2 - 1 end
 
-    ui.drawRectFilled(vec2(x1, top), vec2(x2, origin.y + height), colour)
+    ui.drawRectFilled(vec2(x1, top), vec2(x2, bottom), colour)
     span.x1, span.x2 = x1, x2
   end
 
@@ -185,8 +303,7 @@ function band.draw(state, width)
     local span = spans[i]
     if not span.wrapped and span.from > 0 then
       local x = origin.x + xOf(span.from, width)
-      ui.drawLine(vec2(x, top), vec2(x, origin.y + height),
-        theme.bandTick, 1)
+      ui.drawLine(vec2(x, top), vec2(x, bottom), theme.bandTick, 1)
     end
   end
 
@@ -241,7 +358,7 @@ function band.draw(state, width)
       -- squeezed into a segment five pixels wide -- which is what produced
       -- " ..." for camera 22 and "1..." for camera 16.
       text = label
-      y1 = origin.y
+      y1 = bandTop
 
       local wanted = ui.measureText(label).x
         + 2 * theme.bandLabelPadding + theme.bandLabelSlack
@@ -263,7 +380,7 @@ function band.draw(state, width)
     if text ~= nil then
       ui.drawTextClipped(text,
         vec2(x1 + theme.bandLabelPadding, y1),
-        vec2(x2 - theme.bandLabelPadding, y1 == top and (origin.y + height) or top),
+        vec2(x2 - theme.bandLabelPadding, y1 == top and bottom or top),
         theme.bandLabel, vec2(0.5, 0.5), true)
     end
   end
@@ -274,7 +391,7 @@ function band.draw(state, width)
   -- Only that camera's. All of them at once would be a row of diamonds with
   -- nothing to say which belongs to what, and the panel edits one camera.
   local keyframes = state.camera ~= nil and state.camera.keyframes or nil
-  local keyframeY = origin.y + theme.bandKeyframeY
+  local keyframeY = bandTop + theme.bandKeyframeY
 
   if type(keyframes) == 'table' then
     for i = 1, #keyframes do
@@ -288,7 +405,7 @@ function band.draw(state, width)
   end
 
   if menu ~= nil then
-    ui.setCursor(vec2(origin.x, origin.y + height))
+    ui.setCursor(vec2(origin.x, bottom))
     menu.hint = hint
     return menu
   end
@@ -321,7 +438,7 @@ function band.draw(state, width)
       local fieldX = math.min(span.x1, origin.x + width - fieldWidth)
       if fieldX < origin.x then fieldX = origin.x end
 
-      ui.setCursor(vec2(fieldX, origin.y + height - theme.bandRibbon))
+      ui.setCursor(vec2(fieldX, bottom - theme.bandRibbon))
       ui.setNextItemWidth(fieldWidth)
       local text, _, entered = ui.inputText('##bandRename', renameBuffer,
         ui.InputTextFlags.AutoSelectAll)
@@ -351,7 +468,7 @@ function band.draw(state, width)
 
   if handleAt ~= nil then
     local x = origin.x + xOf(handleAt, width)
-    ui.drawRectFilled(vec2(x - 2, origin.y), vec2(x + 2, origin.y + height),
+    ui.drawRectFilled(vec2(x - 2, bandTop), vec2(x + 2, bottom),
       theme.stripActive, theme.rounding)
   end
 
@@ -360,8 +477,7 @@ function band.draw(state, width)
   ------------------------------------------------------------------
   if type(state.trackPos) == 'number' and state.trackPos == state.trackPos then
     local x = origin.x + xOf(state.trackPos, width)
-    ui.drawLine(vec2(x, origin.y), vec2(x, origin.y + height),
-      theme.mapPlayhead, 1.5)
+    ui.drawLine(vec2(x, origin.y), vec2(x, bottom), theme.mapPlayhead, 1.5)
   end
 
   ui.setCursor(vec2(origin.x, origin.y + height))
