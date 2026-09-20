@@ -1136,8 +1136,28 @@ function script.windowAtr(dt)
 
   -- Once nothing is being dragged, the entry is closed: the next edit starts
   -- a new one even on the same parameter.
-  if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil then
+  if atrParameter.draggingGesture() == nil and actions.moveCameraIn == nil
+      and actions.moveKeyframe == nil then
     openDrag = nil
+  end
+
+  -- Dragging a keyframe along the ribbon. The same edit the KEYFRAME row
+  -- makes, re-sorted and re-found the same way -- moving one past another
+  -- changes the order, and the selection has to follow the keyframe rather
+  -- than the place it used to sit in.
+  local kfMove = actions.moveKeyframe
+  if kfMove ~= nil and camera ~= nil and type(kfMove.keyframe) == 'table' then
+    externalGesture = kfMove.gesture
+    remember(edit.apply({
+      camera = camera, holder = kfMove.keyframe, key = 'keyframe',
+      op = 'set', value = kfMove.position,
+    }))
+    externalGesture = nil
+
+    edit.sortKeyframes(camera)
+    for i = 1, #camera.keyframes do
+      if camera.keyframes[i] == kfMove.keyframe then atrKeyframe = i end
+    end
   end
 
   -- A name goes on the undo stack like anything else, so a rename can be

@@ -477,3 +477,108 @@ test('a camera deleted while being renamed closes the field', function()
   eq(rename, nil)
   band.reset()
 end)
+
+--------------------------------------------------------------------------
+-- Dragging a keyframe
+--------------------------------------------------------------------------
+
+test('pressing a diamond and moving reports a new position', function()
+  band.reset()
+  local state = {
+    cameras = cameras({ 0, 0.5 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.2, 0.8 }) }, keyframeIndex = 1,
+  }
+
+  local _, _, _, _, move = select(1, (function()
+    local handle = fakes.install({
+      itemActive = true, itemHovered = true,
+      mouseX = ORIGIN_X + WIDTH * 0.2, mouseY = ORIGIN_Y + 10,
+    })
+    local a, b, c, d, e = band.draw(state, WIDTH)
+    handle.restoreIo()
+    return a, b, c, d, e
+  end)())
+
+  eq(move ~= nil, true, 'the press landed on a diamond')
+  eq(rawequal(move.keyframe, state.camera.keyframes[1]), true,
+    'and it is holding the keyframe itself, not its place in the list')
+  band.reset()
+end)
+
+---Press somewhere and hand back the keyframe move, if any.
+local function pressKeyframe(state, mouseX)
+  local handle = fakes.install({
+    itemActive = true, itemHovered = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  local _, _, _, _, move = band.draw(state, WIDTH)
+  handle.restoreIo()
+  return move
+end
+
+test('the drag follows the pointer along the lap', function()
+  band.reset()
+  local state = {
+    cameras = cameras({ 0 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
+  }
+
+  eq(pressKeyframe(state, WIDTH * 0.2) ~= nil, true)
+  local move = pressKeyframe(state, WIDTH * 0.65)
+  near(move.position, 0.65, 0.01)
+  band.reset()
+end)
+
+test('a whole keyframe drag is one gesture', function()
+  band.reset()
+  local state = {
+    cameras = cameras({ 0 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
+  }
+
+  local first = pressKeyframe(state, WIDTH * 0.2)
+  local later = pressKeyframe(state, WIDTH * 0.5)
+  eq(first.gesture, later.gesture)
+
+  local released = fakes.install({ itemActive = false })
+  band.draw(state, WIDTH)
+  released.restoreIo()
+
+  eq(pressKeyframe(state, WIDTH * 0.2).gesture ~= first.gesture, true)
+  band.reset()
+end)
+
+test('a diamond wins over the camera handle underneath it', function()
+  -- Four pixels wide and drawn on top: anything else would make it
+  -- impossible to grab, since the handle spans the full height of the band.
+  band.reset()
+  local state = {
+    cameras = cameras({ 0.3, 0.8 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.3 }) }, keyframeIndex = 1,
+  }
+
+  local move = pressKeyframe(state, WIDTH * 0.3)
+  eq(move ~= nil, true, 'the keyframe, not the camera start')
+  band.reset()
+end)
+
+test('a press away from any diamond drags no keyframe', function()
+  band.reset()
+  local state = {
+    cameras = cameras({ 0 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.2 }) }, keyframeIndex = 1,
+  }
+  eq(pressKeyframe(state, WIDTH * 0.7), nil)
+  band.reset()
+end)
+
+test('a drag passing over a diamond does not pick it up', function()
+  band.reset()
+  local state = {
+    cameras = cameras({ 0 }), cameraIndex = 1,
+    camera = { keyframes = keyframesAt({ 0.5 }) }, keyframeIndex = 1,
+  }
+  eq(pressKeyframe(state, WIDTH * 0.1), nil, 'pressed away from it')
+  eq(pressKeyframe(state, WIDTH * 0.5), nil, 'and crossing it changes nothing')
+  band.reset()
+end)

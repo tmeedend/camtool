@@ -36,6 +36,13 @@ local dragToken = 0
 -- would land on the wrong camera.
 local renaming = nil
 local renameBuffer = ''
+
+-- The keyframe being dragged, held by its TABLE and not its index. Moving a
+-- keyframe re-sorts the camera's list, so the index under the hand changes
+-- mid-drag -- the same trap the rename avoids by holding an id.
+local draggingKeyframe = nil
+local keyframeToken = 0
+
 -- Whether the mouse was already down on this widget last frame. The press is
 -- the frame it goes from up to down, and only a press may take the handle:
 -- otherwise a drag that started elsewhere picks it up as it crosses over.
@@ -77,12 +84,14 @@ end
 ---@return number|nil keyframe @or a keyframe of the selected camera
 ---@return table|nil move @{ position = , gesture = } while a start is dragged
 ---@return table|nil rename @{ index = , name = } when a name is committed
+---@return table|nil moveKeyframe @{ keyframe = , position = , gesture = }
 function band.draw(state, width)
   local height = theme.bandHeight
   local origin = ui.getCursor()
 
   local clicked = ui.invisibleButton('##trackBand', vec2(width, height))
   local hovered = ui.itemHovered()
+
 
   ui.drawRectFilled(origin, vec2(origin.x + width, origin.y + height),
     theme.mapBackground, theme.rounding)
@@ -273,6 +282,34 @@ function band.draw(state, width)
   wasActive = active
 
   if active and at ~= nil then
+    -- A diamond before the camera handle: it is four pixels wide and drawn on
+    -- top, so anything else would make it impossible to grab.
+    if pressed and draggingKeyframe == nil and not dragging
+        and type(keyframes) == 'table' then
+      local best, bestDistance = nil, nil
+      for i = 1, #keyframes do
+        local position = keyframes[i].keyframe
+        if type(position) == 'number' then
+          local distance = math.abs(xOf(position, width) - (mouse.x - origin.x))
+          if distance <= theme.bandClickRadius
+              and (bestDistance == nil or distance < bestDistance) then
+            best, bestDistance = keyframes[i], distance
+          end
+        end
+      end
+      if best ~= nil then
+        draggingKeyframe, keyframeToken = best, keyframeToken + 1
+      end
+    end
+
+    if draggingKeyframe ~= nil then
+      return nil, nil, nil, renamed, {
+        keyframe = draggingKeyframe,
+        position = at,
+        gesture = 'keyframe:' .. keyframeToken,
+      }
+    end
+
     if pressed and handleAt ~= nil
         and math.abs(xOf(handleAt, width) - (mouse.x - origin.x))
           <= theme.bandClickRadius then
@@ -281,8 +318,8 @@ function band.draw(state, width)
     if dragging then
       return nil, nil, { position = at, gesture = 'band:' .. dragToken }, renamed
     end
-  elseif dragging then
-    dragging = false
+  elseif dragging or draggingKeyframe ~= nil then
+    dragging, draggingKeyframe = false, nil
   end
 
   -- A double click opens the name of whatever is under it. Checked before the
@@ -325,6 +362,7 @@ end
 function band.reset()
   dragging, wasActive = false, false
   renaming, renameBuffer = nil, ''
+  draggingKeyframe = nil
 end
 
 return band
