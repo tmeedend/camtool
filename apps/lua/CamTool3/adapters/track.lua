@@ -22,6 +22,8 @@
   frame, and the outline does not change while a session runs.
 ]]
 
+local sectionsCore = require('core/sections')
+
 local track = {}
 
 ---Metres between samples. Five puts about 1000 points on a 5 km circuit,
@@ -216,6 +218,44 @@ function track.currentOutline(spacingM)
   return outline, reason
 end
 
+---The named stretches of the lap, read once and kept. Keyed by track and
+---layout, like the outline.
+local sectionCache = nil
+
+---Pull the raw IN / OUT / TEXT out of `sections.ini`.
+---
+---Everything here is behind pcall and the answers are handed to core/sections
+---to be made sense of. A sections.ini is written by hand by the track author,
+---and this app is not the place to find out what happens when one is not.
+---@return table[] @{ { from, to, text } } in file order, possibly empty
+local function readSections()
+  local raw = {}
+
+  local reader = ac.INIConfig ~= nil and ac.INIConfig.trackData or nil
+  if not callable(reader) then return raw end
+
+  local ok, config = pcall(reader, 'sections.ini')
+  if not ok or type(config) ~= 'table' or not callable(config.iterate) then
+    return raw
+  end
+
+  local read = pcall(function()
+    for _, name in config:iterate('SECTION') do
+      -- The default given decides the type that comes back, which is the
+      -- whole reason IN and OUT are asked for with a number and TEXT with a
+      -- string.
+      raw[#raw + 1] = {
+        from = config:get(name, 'IN', 0 / 0),
+        to = config:get(name, 'OUT', 0 / 0),
+        text = config:get(name, 'TEXT', ''),
+      }
+    end
+  end)
+  if not read then return {} end
+
+  return raw
+end
+
 ---What this part of the track is called, if it is called anything.
 ---
 ---Tracks carry a `sections.ini` giving IN / OUT / TEXT per section -- Spa has
@@ -241,9 +281,34 @@ function track.sectionNameAt(position)
   return name
 end
 
+---The named stretches of the lap, from the track's own `sections.ini`.
+---
+---WHY THE FILE AND NOT ac.getTrackSectorName. That call answers one position
+---at a time. The ruler above the ribbon draws a name ACROSS the stretch it
+---covers, so it needs the bounds, and finding them by probing would mean a
+---thousand calls a frame to discover what the file states outright.
+---
+---The file is read once per track and kept. It is a handful of lines, but it
+---is a file, and a file has no business being opened in a frame.
+---
+---An absent or unreadable file is an empty list, not an error: plenty of
+---circuits name nothing, and the ruler then shows distances alone.
+---@return table[] @{ { from, to, text, wrapped } }, possibly empty
+function track.sections()
+  local key = ac.getTrackID() .. '/' .. ac.getTrackLayout()
+
+  if sectionCache ~= nil and sectionCache.key == key then
+    return sectionCache.list
+  end
+
+  sectionCache = { key = key, list = sectionsCore.normalise(readSections()) }
+  return sectionCache.list
+end
+
 ---Forget what was sampled. For tests, and for a reload during development.
 function track.clearCache()
   cache = nil
+  sectionCache = nil
 end
 
 return track

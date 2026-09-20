@@ -232,6 +232,38 @@ function fakes.install(opts)
     -- tests have no opinion, and the probe has to survive that.
     getTrackSectorName = opts.sectorName,
 
+    -- The track's own INI files, of which the app reads exactly one:
+    -- sections.ini, for the names on the ruler. opts.trackSections is a list
+    -- of { TEXT, IN, OUT }; absent, the file is simply not there, which is
+    -- the common case on mod circuits and has to stay harmless.
+    INIConfig = {
+      trackData = function(fileName)
+        if fileName ~= 'sections.ini' then return nil end
+        if opts.trackSections == nil then
+          if opts.trackDataRaises then error('no such file', 0) end
+          return nil
+        end
+
+        return {
+          iterate = function(self, prefix)
+            local i = 0
+            return function()
+              i = i + 1
+              if i > #opts.trackSections then return nil end
+              return i, prefix .. '_' .. (i - 1)
+            end
+          end,
+          get = function(self, name, key, default)
+            local index = tonumber(name:match('_(%d+)$'))
+            local entry = index ~= nil and opts.trackSections[index + 1] or nil
+            local value = entry ~= nil and entry[key] or nil
+            if value == nil then return default end
+            return value
+          end,
+        }
+      end,
+    },
+
     getTrackID = function() return opts.trackID or 'fake_track' end,
     getTrackLayout = function() return opts.trackLayout or '' end,
     getTrackName = function() return 'Fake Track' end,
