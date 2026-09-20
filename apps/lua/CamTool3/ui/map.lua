@@ -103,7 +103,9 @@ end
 ---@param width number
 ---@param maxHeight number @the most the map may take; it often takes less
 ---@return number|nil @a camera the user clicked on
----@return table|nil @{ position = , gesture = } while a start is dragged, if any
+---@return table|nil @{ position = , gesture = } while a start is dragged
+---@return number|nil @a lap position to bring the car to
+---@return string|nil @what to say in the status line while the pointer is here, if any
 function map.draw(state, width, maxHeight)
   local outline = state.outline
   local points = outline ~= nil and outline.points or nil
@@ -322,17 +324,33 @@ function map.draw(state, width, maxHeight)
           return nil, { position = at.p, gesture = 'map:' .. dragToken }
         end
       end
-      return nil, nil
+      return nil, nil, nil, hovered and
+        'Drag: move where this camera takes over.' or nil
     end
   elseif dragging then
     dragging = false
   end
 
-  if clicked and hoverIndex ~= nil and owners[hoverIndex] then
-    return owners[hoverIndex]
+  -- The same gesture as the ribbon, for the same reason: the pointer is
+  -- already on the spot being asked about. Shift holds the replay still.
+  --
+  -- And here it costs nothing at all. Every point of the outline IS a lap
+  -- position -- that is what picking the AI spline over a picture of the
+  -- track bought -- so the click has one already in hand.
+  local hint = nil
+  if hovered then
+    hint = 'Click: select the camera and bring the car here.  ' ..
+      'Shift+click: select only.'
   end
 
-  return nil
+  if clicked and hoverIndex ~= nil then
+    local at = points[hoverIndex]
+    local seekTo = (at ~= nil and not ui.hotkeyShift()) and at.p or nil
+    if owners[hoverIndex] then return owners[hoverIndex], nil, seekTo, hint end
+    return nil, nil, seekTo, hint
+  end
+
+  return nil, nil, nil, hint
 end
 
 ---Forget what was cached. For tests, and for a track change.

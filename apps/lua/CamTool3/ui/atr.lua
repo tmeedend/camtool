@@ -669,9 +669,11 @@ function atr.draw(state)
     local ceiling = math.min(theme.mapHeightMax,
       math.max(theme.mapHeightMin,
         math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
-    local picked, mapMove = trackMap.draw(state, width, ceiling)
+    local picked, mapMove, mapSeek, mapHint = trackMap.draw(state, width, ceiling)
     if picked ~= nil then actions.selectCamera = picked end
     if mapMove ~= nil then actions.moveCameraIn = mapMove end
+    if mapSeek ~= nil then actions.seekTo = mapSeek end
+    if mapHint ~= nil then actions.hint = mapHint end
   end
   ui.newLine(2)
 

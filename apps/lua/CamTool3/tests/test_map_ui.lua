@@ -661,3 +661,77 @@ test('with no camera selected the map has no handle to drag', function()
   eq(handleOf({ outline = outline(120), cameras = cameras({ 0.25 }) }), nil)
   trackMap.reset()
 end)
+
+--------------------------------------------------------------------------
+-- Click the map to bring the car there
+--------------------------------------------------------------------------
+
+---Click the map at a point of the outline, optionally with shift held.
+local function clickOutline(state, index, shift)
+  trackMap.reset()
+  local _, drawn = clickAt(state, -999, -999, false)
+  local points = {}
+  for i = 1, #drawn do
+    if drawn[i].op == 'pathLineTo' then points[#points + 1] = drawn[i] end
+  end
+  trackMap.reset()
+
+  local target = points[index]
+  local handle = fakes.install({
+    clicks = { ['##trackMap'] = true },
+    itemHovered = true, shiftHeld = shift == true,
+    mouseX = target.x, mouseY = target.y,
+  })
+  local picked, move, seekTo, hint = trackMap.draw(state, WIDTH, HEIGHT)
+  handle.restoreIo()
+  trackMap.reset()
+  return picked, seekTo, hint
+end
+
+test('clicking the outline selects the camera and asks for the car', function()
+  -- The same gesture as the ribbon, and here it costs nothing: every point of
+  -- the outline IS a lap position, which is what choosing the AI spline over
+  -- a picture of the track bought.
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
+  }
+  local picked, seekTo = clickOutline(state, 40)
+
+  eq(picked ~= nil, true, 'a camera was selected')
+  eq(type(seekTo), 'number', 'and the car was asked for')
+  near(seekTo, 39 / 120, 0.02, 'at the point clicked')
+end)
+
+test('shift selects on the map without moving the replay either', function()
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
+  }
+  local picked, seekTo = clickOutline(state, 40, true)
+  eq(picked ~= nil, true)
+  eq(seekTo, nil)
+end)
+
+test('hovering the map says what clicking it does', function()
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
+  }
+  local _, _, hint = clickOutline(state, 40)
+  eq(type(hint), 'string')
+  eq(hint:find('Shift', 1, true) ~= nil, true)
+end)
+
+test('clicking the empty middle of the map moves nothing', function()
+  trackMap.reset()
+  local handle = fakes.install({
+    clicks = { ['##trackMap'] = true }, itemHovered = true,
+    mouseX = ORIGIN_X + WIDTH / 2, mouseY = ORIGIN_Y + HEIGHT / 2,
+  })
+  local picked, _, seekTo = trackMap.draw({
+    outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
+  }, WIDTH, HEIGHT)
+  handle.restoreIo()
+  trackMap.reset()
+
+  eq(picked, nil)
+  eq(seekTo, nil, 'a click on nothing asks for nothing')
+end)

@@ -220,29 +220,49 @@ function band.draw(state, width)
     local label = data.cameraLabel(camera, span.index)
     local rank = tostring(span.index)
 
-    local text, x1, x2 = nil, span.x1, span.x2
+    -- Room enough to hold the text AND not be ellipsised. Asking only whether
+    -- it fits exactly gets "22" drawn as "..." -- the ellipsis wants room of
+    -- its own, and a name that just fits has none to give it.
+    local function fits(text)
+      return room >= theme.bandLabelMin
+        and ui.measureText(text).x + theme.bandLabelSlack <= room
+    end
 
-    if room >= theme.bandLabelMin and ui.measureText(label).x <= room then
+    local text, x1, x2, y1 = nil, span.x1, span.x2, top
+
+    if fits(label) then
       text = label
-    elseif room >= theme.bandLabelMin and ui.measureText(rank).x <= room then
+    elseif fits(rank) then
       text = rank
     elseif focused then
-      -- Too thin for even a digit, but this is the one being pointed at or
-      -- worked on, so it says what it is and borrows the room from its
-      -- neighbours. Overlapping them is right here: they are not the one
-      -- being looked at, and the alternative is a segment that stays silent
-      -- exactly when it is asked.
+      -- Too thin for even a digit, and this is the one being pointed at. It
+      -- says what it is ABOVE the ribbon, where there is room, rather than
+      -- squeezed into a segment five pixels wide -- which is what produced
+      -- " ..." for camera 22 and "1..." for camera 16.
       text = label
-      local wanted = math.max(ui.measureText(label).x + 8, theme.bandLabelMin)
+      y1 = origin.y
+
+      local wanted = ui.measureText(label).x
+        + 2 * theme.bandLabelPadding + theme.bandLabelSlack
       local middle = (span.x1 + span.x2) / 2
-      x1 = math.max(origin.x, middle - wanted / 2)
-      x2 = math.min(origin.x + width, x1 + wanted)
+      x1 = middle - wanted / 2
+      x2 = x1 + wanted
+
+      -- At the edges the box MOVES rather than shrinks. Clamping both sides
+      -- independently is what squeezed the label of the last camera on the
+      -- lap, which starts a few pixels from the end of the ribbon.
+      if x1 < origin.x then x1, x2 = origin.x, origin.x + wanted end
+      if x2 > origin.x + width then
+        x2 = origin.x + width
+        x1 = x2 - wanted
+      end
+      if x1 < origin.x then x1 = origin.x end
     end
 
     if text ~= nil then
       ui.drawTextClipped(text,
-        vec2(x1 + theme.bandLabelPadding, top),
-        vec2(x2 - theme.bandLabelPadding, origin.y + height),
+        vec2(x1 + theme.bandLabelPadding, y1),
+        vec2(x2 - theme.bandLabelPadding, y1 == top and (origin.y + height) or top),
         theme.bandLabel, vec2(0.5, 0.5), true)
     end
   end

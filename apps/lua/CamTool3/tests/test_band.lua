@@ -776,3 +776,70 @@ test('the menu offers to bring the car, in so many words', function()
   near(did.seekTo, 0.4, 0.01)
   eq(did.addCamera, nil, 'and not the entry beside it')
 end)
+
+test('the last camera on the lap can still say its number', function()
+  -- ATR's Spa file again: camera 22 starts at 0.99579, five pixels from the
+  -- end of the ribbon. Clamping both sides of its label independently
+  -- squeezed the box to nothing and drew " ..." where "22" belonged.
+  local starts = {}
+  for i = 1, 21 do starts[i] = (i - 1) / 22 end
+  starts[22] = 0.99579
+
+  -- Pointing at the very end of the ribbon.
+  local handle = fakes.install({
+    itemHovered = true,
+    mouseX = ORIGIN_X + WIDTH - 2, mouseY = ORIGIN_Y + 10,
+  })
+  band.draw({ cameras = cameras(starts), cameraIndex = 22 }, WIDTH)
+
+  local written = nil
+  for i = 1, #handle.drawn do
+    local call = handle.drawn[i]
+    if call.op == 'label' and call.text == '22' then written = call end
+  end
+  handle.restoreIo()
+
+  eq(written ~= nil, true, 'the label was drawn at all')
+  eq(written.x2 - written.x >= ui.measureText('22').x, true,
+    'and with room enough for it, got ' .. tostring(written.x2 - written.x))
+  eq(written.x >= ORIGIN_X, true, 'still inside the band')
+  eq(written.x2 <= ORIGIN_X + WIDTH, true)
+end)
+
+test('a squeezed label is written above the ribbon, not inside it', function()
+  -- Five pixels of segment cannot hold a word however the box is arranged.
+  local starts = {}
+  for i = 1, 40 do starts[i] = (i - 1) / 40 end
+
+  local handle = fakes.install({
+    itemHovered = true,
+    mouseX = ORIGIN_X + WIDTH * 0.5, mouseY = ORIGIN_Y + 10,
+  })
+  band.draw({ cameras = cameras(starts), cameraIndex = 20 }, WIDTH)
+
+  local written = nil
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'label' then written = handle.drawn[i] end
+  end
+  handle.restoreIo()
+
+  eq(written ~= nil, true)
+  eq(written.y < ORIGIN_Y + theme.bandHeight - theme.bandRibbon, true,
+    'above the coloured strip, where there is room')
+end)
+
+test('a label that fits is not ellipsised for want of a few pixels', function()
+  -- The ellipsis wants room of its own, so "fits exactly" is not enough: the
+  -- text comes out as "..." instead of itself.
+  local handle = fakes.install({})
+  band.draw({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 }, WIDTH)
+
+  local written = nil
+  for i = 1, #handle.drawn do
+    if handle.drawn[i].op == 'label' then written = handle.drawn[i] break end
+  end
+  handle.restoreIo()
+
+  eq(written.x2 - written.x >= ui.measureText(written.text).x
+    + theme.bandLabelSlack - 2 * theme.bandLabelPadding, true)
+end)

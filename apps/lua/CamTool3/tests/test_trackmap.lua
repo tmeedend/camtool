@@ -138,22 +138,54 @@ end)
 -- Project
 --------------------------------------------------------------------------
 
-test('the vertical axis is flipped: north is up on screen', function()
-  local b = { minX = 0, maxX = 100, minY = 0, maxY = 100 }
-  local fit = trackmap.fit(b, 100, 100, 0)
+test('the map is not a mirror of the track', function()
+  -- The bug this replaces, and the reason the test is written this way.
+  --
+  -- The projection used to flip the vertical axis, on the reasoning that
+  -- screens grow downwards while the world does not. Sound for a right-handed
+  -- world; Assetto Corsa's is left-handed, so the map came out mirrored and a
+  -- corner the car took to the left bent right on screen.
+  --
+  -- What matters is therefore not which way is up but whether the drawing
+  -- turns the same way the track does, which is the sign of the transform.
+  -- Two unit steps of the world, projected: if the sense between them
+  -- survives, the map is a rotation of the track and not a reflection of it.
+  local fit = trackmap.fit({ minX = 0, maxX = 100, minY = 0, maxY = 100 },
+    100, 100, 0)
 
-  local _, top = trackmap.project(fit, 0, 100)
-  local _, bottom = trackmap.project(fit, 0, 0)
-  near(top, 0, 1e-12, 'the northernmost point is at the top of the box')
-  near(bottom, 100, 1e-12)
+  local ox, oy = trackmap.project(fit, 0, 0)
+  local ax, ay = trackmap.project(fit, 1, 0)
+  local bx, by = trackmap.project(fit, 0, 1)
+
+  local cross = (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
+  eq(cross > 0, true, 'a reflection would make this negative')
+end)
+
+test('turning the map does not mirror it either', function()
+  -- A rotation cannot introduce a reflection, and the test says so at several
+  -- angles rather than trusting that it cannot.
+  for degrees = 0, 150, 30 do
+    local angle = math.rad(degrees)
+    local fit = trackmap.fit(
+      trackmap.bounds(circle(100, 90), angle), 200, 200, 0, angle)
+
+    local ox, oy = trackmap.project(fit, 0, 0)
+    local ax, ay = trackmap.project(fit, 1, 0)
+    local bx, by = trackmap.project(fit, 0, 1)
+
+    local cross = (ax - ox) * (by - oy) - (ay - oy) * (bx - ox)
+    eq(cross > 0, true, 'mirrored at ' .. degrees .. ' degrees')
+  end
 end)
 
 test('the corners of the box are the corners of the track', function()
   local fit = trackmap.fit(trackmap.bounds(circle(500, 360)), 200, 200, 20)
-  local sx, sy = trackmap.project(fit, -500, 500)
+
+  local sx, sy = trackmap.project(fit, -500, -500)
   near(sx, 20, 1e-9)
   near(sy, 20, 1e-9)
-  sx, sy = trackmap.project(fit, 500, -500)
+
+  sx, sy = trackmap.project(fit, 500, 500)
   near(sx, 180, 1e-9)
   near(sy, 180, 1e-9)
 end)
@@ -489,12 +521,11 @@ test('a turned track still projects inside its box', function()
   end
 end)
 
-test('no rotation projects exactly as before', function()
-  -- The unturned path has to stay bit for bit what it was, or every existing
-  -- expectation about the map moves.
+test('an unturned map is a plain scale and offset, nothing more', function()
   local points = circle(500, 90)
   local fit = trackmap.fit(trackmap.bounds(points), 200, 200, 20)
-  local sx, sy = trackmap.project(fit, -500, 500)
+
+  local sx, sy = trackmap.project(fit, -500, -500)
   near(sx, 20, 1e-9)
   near(sy, 20, 1e-9)
   eq(fit.angle, 0)

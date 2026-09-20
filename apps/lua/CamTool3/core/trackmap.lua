@@ -133,8 +133,17 @@ end
 
 ---World position -> position inside the rectangle, in pixels from its corner.
 ---
----The vertical axis is flipped: north on the map is up on screen. The caller
----adds the rectangle's own origin.
+---THE VERTICAL AXIS IS NOT FLIPPED, and that is the whole of the matter.
+---
+---It was, on the reasoning that screens grow downwards while the world does
+---not. That reasoning is sound for a right-handed world and Assetto Corsa's
+---is left-handed, so the map came out MIRRORED: a corner the car took to the
+---left bent right on screen. Théo saw it immediately, which is the only way
+---this was ever going to be settled -- the derivation is exactly what got it
+---wrong, so the answer here is the one the game gave, not the one the axes
+---argue for.
+---
+---The caller adds the rectangle's own origin.
 ---@param fit table|nil @from trackmap.fit
 ---@param x number
 ---@param y number
@@ -148,7 +157,7 @@ function trackmap.project(fit, x, y)
   local ry = x * fit.sin + y * fit.cos
 
   local sx = fit.offsetX + (rx - fit.minX) * fit.scale
-  local sy = fit.offsetY + (fit.spanY - (ry - fit.minY)) * fit.scale
+  local sy = fit.offsetY + (ry - fit.minY) * fit.scale
   return sx, sy
 end
 

@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (531 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (539 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -141,11 +141,12 @@ rien.
 | 18 | **Interrupteur `[strips]`** | Masquer les bandes numérotées et **travailler une vraie session** avec le seul ruban. La question à te poser : est-ce qu'elles manquent ? |
 | 19 | **Ruban, édition** | **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Glisser la poignée = **une** entrée d'`Undo`. Un losange ne doit **pas** bouger. |
 | 20 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
-| 21 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
-| 22 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
-| 23 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
-| 24 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 25 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 21 | **Carte à l'endroit** | Un virage pris à gauche doit pencher à gauche sur la carte. La carte était en miroir. |
+| 22 | **Clic = amener la voiture** | Cliquer le ruban doit déplacer le replay à cet endroit précis, **sur le tour le plus proche** et pas au premier. **Maj+clic** ne doit rien déplacer. Le son ne doit pas claquer. |
+| 23 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
+| 24 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer le ruban : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
+| 25 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 26 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -519,6 +520,18 @@ cache, pas une identité. **Il n'existait donc aucun identifiant stable.**
 La migration est à sens unique comme les autres, et un fichier v2 sans `id`
 est **réparé** plutôt que cru.
 
+### ⚠️ La carte n'inverse PAS l'axe vertical
+
+Elle l'a fait, sur le raisonnement que l'écran grandit vers le bas alors que le
+monde non. Juste pour un monde droitier ; celui d'Assetto Corsa est **gaucher**,
+donc la carte sortait **en miroir** — un virage pris à gauche penchait à droite
+à l'écran. Théo l'a vu tout de suite, et c'est la seule façon dont ça pouvait se
+trancher : le raisonnement est précisément ce qui s'est trompé.
+
+Le test ne demande donc pas « où est le nord » mais **si le dessin tourne dans
+le même sens que la piste** — le signe de la transformation, vérifié aussi à
+plusieurs angles de rotation.
+
 ### Les deux axes, à ne pas confondre
 
 - **`version`** — comment les valeurs sont **encodées** sur le disque. v0 : FOV
@@ -600,8 +613,10 @@ diagnostic.
 
 ## 🎯 Amener la voiture depuis le ruban — branche `replay-seek`
 
-Clic simple sur le ruban : sélectionne la caméra **et** déplace le replay pour
-que la voiture soit à l'endroit cliqué. **Maj+clic** sélectionne sans toucher
+Clic simple sur le ruban **ou sur la carte** : sélectionne la caméra **et**
+déplace le replay pour que la voiture soit à l'endroit cliqué. Sur la carte ça
+ne coûte rien de plus — chaque point du tracé **est** une position de piste,
+ce que le choix de la spline IA plutôt qu'une image avait acheté. **Maj+clic** sélectionne sans toucher
 au replay. Le menu du clic droit porte « Bring the car here » en toutes
 lettres, et la ligne de statut annonce les deux gestes au survol — sans coûter
 un pixel de hauteur.

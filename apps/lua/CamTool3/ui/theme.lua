@@ -163,6 +163,11 @@ theme.bandDiamond = 4
 ---Room left either side of a label inside its segment, so text never touches
 ---the edge of its own colour.
 theme.bandLabelPadding = 3
+---Room a label needs beyond its own width before it is drawn without an
+---ellipsis. Asking only whether the text fits exactly gets it drawn as "..."
+---instead: the ellipsis wants room of its own.
+theme.bandLabelSlack = 6
+
 ---A label needs this much of a segment before it is worth drawing at all.
 ---Below it the segment stays blank unless it is the one being pointed at.
 theme.bandLabelMin = 14
