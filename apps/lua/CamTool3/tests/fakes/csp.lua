@@ -185,6 +185,10 @@ function fakes.install(opts)
     end,
 
     -- Track identity, used to build the camera-file prefix.
+    -- Named sections, the sections.ini question. nil by default: most of the
+    -- tests have no opinion, and the probe has to survive that.
+    getTrackSectorName = opts.sectorName,
+
     getTrackID = function() return opts.trackID or 'fake_track' end,
     getTrackLayout = function() return opts.trackLayout or '' end,
     getTrackName = function() return 'Fake Track' end,
@@ -301,6 +305,15 @@ function fakes.install(opts)
     textAligned = function(text)
       handle.drawn[#handle.drawn + 1] = { op = 'text', text = tostring(text) }
     end,
+    -- Recorded so a test can see whether a widget was put beside the last one
+    -- or under it, which is the difference between a clickable row and one
+    -- drawn off the edge of the window.
+    sameLine = function(offset, spacing)
+      handle.drawn[#handle.drawn + 1] = { op = 'sameLine', spacing = spacing }
+    end,
+    newLine = function()
+      handle.drawn[#handle.drawn + 1] = { op = 'newLine' }
+    end,
     text = function(text)
       handle.drawn[#handle.drawn + 1] = { op = 'text', text = tostring(text) }
     end,
@@ -327,6 +340,7 @@ function fakes.install(opts)
     -- them, the undo depth among them, and a test has no other way to see it.
     button = function(label)
       handle.buttons[#handle.buttons + 1] = label
+      handle.drawn[#handle.drawn + 1] = { op = 'button', text = tostring(label) }
       return clicked(label)
     end,
     hotkeyCtrl = function() return false end,

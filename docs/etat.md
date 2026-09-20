@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (468 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (471 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -438,7 +438,12 @@ décider à ta place où va la caméra, un clic droit l'a déjà dit. Et une
 suppression derrière un menu ne s'atteint pas par mégarde, ce qui compte plus
 ici qu'un clic épargné : le `−` de la bande numérotée est collé à son `+`.
 
-Reste sur ce point : une source de noms par défaut. **`sections.ini` du circuit** définit des
+Reste sur ce point : une source de noms par défaut. **Une sonde est en place
+pour trancher** — panneau de diagnostic, section « 11. Track section names » :
+elle lit `ac.getTrackSectorName` à la voiture et en huit points du tour. Huit
+noms différents = de vrais noms de sections, et je branche la suggestion dans
+le champ de renommage. Un même mot répété huit fois = réponse générique, et on
+n'y touche pas : suggérer « Sector 2 » est pire que ne rien suggérer. **`sections.ini` du circuit** définit des
 `IN` / `OUT` / `TEXT` (« Tamburello »), et `ac.getTrackSectorName(progress)`
 de CSP lit très probablement ce fichier — à vérifier en jeu avant de le
 promettre. Ça donnerait un nom automatique neutre du type « 14 — Tamburello »

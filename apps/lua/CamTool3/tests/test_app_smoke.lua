@@ -417,3 +417,36 @@ test('shake and depth of field run without leaving the camera adrift', function(
 
   handle.restoreIo()
 end)
+
+test('the section-name probe survives a build that has no such call', function()
+  -- The probe exists to answer whether ac.getTrackSectorName is worth
+  -- wiring a naming suggestion to. It must not take the diagnostic panel
+  -- down while asking.
+  local handle = loadApp({ cameraFile = rawFile, sectorName = nil })
+  local ok, err = pcall(_G.script.windowMain, 0.016)
+  eq(ok, true, ok and '' or ('windowMain raised: ' .. tostring(err)))
+  handle.restoreIo()
+end)
+
+test('a call that raises is reported, not propagated', function()
+  local handle = loadApp({
+    cameraFile = rawFile,
+    sectorName = function() error('not available here') end,
+  })
+  local ok = pcall(_G.script.windowMain, 0.016)
+  eq(ok, true, 'the panel keeps drawing')
+  handle.restoreIo()
+end)
+
+test('the probe reads the lap at eight points as well as at the car', function()
+  -- One name repeated is a generic answer; eight different ones are real
+  -- section names. Reading only at the car could not tell them apart.
+  local asked = {}
+  local handle = loadApp({
+    cameraFile = rawFile,
+    sectorName = function(at) asked[#asked + 1] = at return 'Tamburello' end,
+  })
+  pcall(_G.script.windowMain, 0.016)
+  eq(#asked >= 8, true, 'got ' .. #asked .. ' readings')
+  handle.restoreIo()
+end)

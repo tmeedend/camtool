@@ -592,7 +592,13 @@ function atr.draw(state)
   local clicked = {}
 
   for i, item in ipairs(items) do
-    if breaks[i] then
+    if breaks[i] or (i == 1 and stripWidth <= 0) then
+      -- The second half of that matters: with the strips hidden there is no
+      -- keyframe strip beside this row, so there is no line to continue. The
+      -- first version carried on regardless and put the first button after
+      -- the full-width header -- the whole row landed off the right edge of
+      -- the window, where nothing could click it, and the switch that had
+      -- hidden the strips went with it.
       ui.newLine(2)
     else
       ui.sameLine(0, item.gap or 3)

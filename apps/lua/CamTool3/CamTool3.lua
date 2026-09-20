@@ -645,6 +645,47 @@ local function drawContext()
 
 end
 
+---Can Assetto Corsa tell us what this part of the track is called?
+---
+---A probe rather than a feature, and the question is narrow: `sections.ini`
+---in a track's data folder defines IN / OUT / TEXT per section -- Théo's
+---example is Imola's `TEXT=Tamburello` -- and CSP's ac.getTrackSectorName is
+---very probably the accessor for exactly that file. Very probably is not good
+---enough to wire a naming suggestion on, because if it answers "Sector 2"
+---everywhere then suggesting it is worse than suggesting nothing.
+---
+---So: read it out loud, at the car and at eight points around the lap, and
+---look. If the names are real, the rename field can offer one; if they are
+---generic, nothing is lost but this panel.
+local function drawSectionNames()
+  ui.separator()
+  ui.header('11. Track section names (sections.ini)')
+
+  if type(ac.getTrackSectorName) ~= 'function'
+      and ac.getTrackSectorName == nil then
+    ui.textColored('ac.getTrackSectorName is not in this CSP build', COLOR_IDLE)
+    return
+  end
+
+  local here = focusedTrackPosition()
+  if here ~= nil then
+    local ok, name = pcall(ac.getTrackSectorName, here)
+    ui.text(string.format('at the car (%.3f): %s',
+      here, ok and tostring(name) or ('raised: ' .. tostring(name))))
+  end
+
+  -- Eight points around the lap: one name repeated is a generic answer, eight
+  -- different ones are real section names.
+  local line = {}
+  for i = 0, 7 do
+    local at = i / 8
+    local ok, name = pcall(ac.getTrackSectorName, at)
+    line[#line + 1] = string.format('%.2f=%s', at,
+      ok and tostring(name) or '?')
+  end
+  ui.text(table.concat(line, '  '))
+end
+
 local function drawLiveCamera()
   ui.separator()
   ui.header('10. AC live camera (read without holding)')
@@ -1403,6 +1444,7 @@ end
 
 function script.windowMain(dt)
   drawContext()
+  drawSectionNames()
   drawLiveCamera()
   drawGrab()
   drawPlayback()

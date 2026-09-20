@@ -1570,19 +1570,39 @@ test('the numbered strips can be hidden, and the ribbon carries on alone', funct
   eq(hiddenLabels, shownLabels, 'and the ribbon is untouched')
 end)
 
-test('hiding the strips does not push the action row off the window', function()
-  -- The row is laid out from what the keyframe strip took, and with no strip
-  -- it takes nothing.
+test('with the strips hidden the action row starts its own line', function()
+  -- The bug this pins, found in game: the row is placed beside the keyframe
+  -- strip, and with no strip it was placed beside the full-width header
+  -- instead. The whole row landed off the right edge where nothing could
+  -- click it -- including the switch that had just hidden the strips, so
+  -- there was no way back.
   local doc = data.load(rawFile)
-  local handle = fakes.install({})
-  parameter.cancelEditing()
 
-  local ok = pcall(atr.draw, {
-    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
-    cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
-    trackPos = 0, trackLength = 4300, listName = 'pos',
-    showMap = false, showStrips = false,
-  })
-  eq(ok, true)
-  handle.restoreIo()
+  local function firstActionPlacement(showStrips)
+    local handle = fakes.install({})
+    parameter.cancelEditing()
+    atr.draw({
+      doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+      cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+      trackPos = 0, trackLength = 4300, listName = 'pos',
+      showMap = false, showStrips = showStrips,
+    })
+
+    -- Whatever was done to the layout immediately before the Undo button,
+    -- which is the first of the action row. Not simply the first button of
+    -- the panel: the file bar draws several before this.
+    local last = nil
+    for i = 1, #handle.drawn do
+      local call = handle.drawn[i]
+      if call.op == 'sameLine' or call.op == 'newLine' then last = call.op end
+      if call.op == 'button' and call.text:find('###undo', 1, true) then break end
+    end
+    handle.restoreIo()
+    return last
+  end
+
+  eq(firstActionPlacement(false), 'newLine',
+    'nothing beside it, so it begins a line')
+  eq(firstActionPlacement(true), 'sameLine',
+    'and it still sits beside the strip when there is one')
 end)
