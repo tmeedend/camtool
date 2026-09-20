@@ -216,6 +216,31 @@ function track.currentOutline(spacingM)
   return outline, reason
 end
 
+---What this part of the track is called, if it is called anything.
+---
+---Tracks carry a `sections.ini` giving IN / OUT / TEXT per section -- Spa has
+---Kemmel Straight, Les Combes, Eau Rouge -- and ac.getTrackSectorName reads
+---it. Confirmed in game rather than assumed, which was worth doing: a build
+---answering "Sector 2" everywhere would have made this worse than useless as
+---a suggested camera name.
+---
+---The sections do NOT cover the whole lap. Between them the answer is an
+---empty string, which is why this hands back nil rather than a blank: a
+---camera on a stretch nobody named should be offered nothing, not "".
+---@param position number @0..1
+---@return string|nil
+function track.sectionNameAt(position)
+  if not isFinite(position) then return nil end
+  if not callable(ac.getTrackSectorName) then return nil end
+
+  local ok, name = pcall(ac.getTrackSectorName, position)
+  if not ok or type(name) ~= 'string' then return nil end
+
+  name = name:gsub('^%s+', ''):gsub('%s+$', '')
+  if name == '' then return nil end
+  return name
+end
+
 ---Forget what was sampled. For tests, and for a reload during development.
 function track.clearCache()
   cache = nil

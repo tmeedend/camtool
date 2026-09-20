@@ -368,3 +368,52 @@ test('the log carries the numbers, not just the verdict', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- What this part of the track is called
+--------------------------------------------------------------------------
+
+test('a named stretch of track gives its name', function()
+  local handle = withTrack({
+    sectorName = function(at) return at > 0.2 and 'Kemmel Straight' or '' end,
+  })
+  eq(track.sectionNameAt(0.25), 'Kemmel Straight')
+  handle.restoreIo()
+end)
+
+test('a stretch nobody named gives nil, not an empty name', function()
+  -- Confirmed on Spa: the sections do not cover the whole lap, and between
+  -- them the answer is "". A camera there should be offered nothing rather
+  -- than a blank where a name should be.
+  local handle = withTrack({ sectorName = function() return '' end })
+  eq(track.sectionNameAt(0.1), nil)
+  handle.restoreIo()
+
+  handle = withTrack({ sectorName = function() return '   ' end })
+  eq(track.sectionNameAt(0.1), nil, 'and neither does whitespace count')
+  handle.restoreIo()
+end)
+
+test('a name comes back trimmed', function()
+  local handle = withTrack({ sectorName = function() return '  Les Combes ' end })
+  eq(track.sectionNameAt(0.4), 'Les Combes')
+  handle.restoreIo()
+end)
+
+test('a build without the call, or one that raises, simply has no names', function()
+  local handle = withTrack({})
+  ac.getTrackSectorName = nil
+  eq(track.sectionNameAt(0.5), nil)
+  handle.restoreIo()
+
+  handle = withTrack({ sectorName = function() error('nope') end })
+  eq(track.sectionNameAt(0.5), nil)
+  handle.restoreIo()
+end)
+
+test('a position that is not a position has no name', function()
+  local handle = withTrack({ sectorName = function() return 'Eau Rouge' end })
+  eq(track.sectionNameAt(0 / 0), nil)
+  eq(track.sectionNameAt(nil), nil)
+  handle.restoreIo()
+end)

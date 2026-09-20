@@ -374,6 +374,16 @@ function band.draw(state, width)
     if type(camera) == 'table' and type(camera.id) == 'number' then
       renaming = camera.id
       renameBuffer = type(camera.name) == 'string' and camera.name or ''
+
+      -- A camera with no name is offered the name of the place it stands,
+      -- from the track's own sections.ini. Offered, never imposed: the field
+      -- selects all, so the first keystroke replaces it and Escape drops it.
+      -- Plenty of stretches are not named at all, and there the field opens
+      -- empty rather than with something invented.
+      if renameBuffer == '' and type(state.sectionNameAt) == 'function' then
+        renameBuffer = state.sectionNameAt(camera.camera_in) or ''
+      end
+
       return { rename = renamed }
     end
   end

@@ -648,3 +648,71 @@ test('a menu choice outranks anything else happening that frame', function()
   eq(did.camera, nil)
   eq(did.keyframe, nil)
 end)
+
+--------------------------------------------------------------------------
+-- The name the track suggests
+--------------------------------------------------------------------------
+
+---Double click a segment and read what the field was filled with.
+---
+---An empty field comes back as '' rather than nil: the band reports what was
+---typed, and core/edit is what turns an empty name into no name at all. That
+---split is deliberate -- the band should not be deciding what an empty string
+---means.
+local function renameSuggestion(state, mouseX)
+  band.reset()
+  local handle = fakes.install({
+    itemHovered = true, mouseDoubleClicked = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + 10,
+  })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  -- Whatever is in the field is what a plain Enter would commit.
+  handle = fakes.install({ enterPressed = true })
+  local rename = band.draw(state, WIDTH).rename
+  handle.restoreIo()
+  band.reset()
+  return rename ~= nil and rename.name or nil
+end
+
+test('naming an unnamed camera offers the name of where it stands', function()
+  -- Spa really does answer Kemmel Straight there. Offered, not imposed: the
+  -- field selects all, so a keystroke replaces it.
+  eq(renameSuggestion({
+    cameras = named({ { 0, nil }, { 0.5, nil } }), cameraIndex = 1,
+    sectionNameAt = function(at) return at >= 0.5 and 'Kemmel Straight' or nil end,
+  }, WIDTH * 0.75), 'Kemmel Straight')
+end)
+
+test('a camera on an unnamed stretch gets an empty field', function()
+  -- Most of a lap is not in any section, and inventing something there would
+  -- be worse than leaving it blank.
+  eq(renameSuggestion({
+    cameras = named({ { 0, nil } }), cameraIndex = 1,
+    sectionNameAt = function() return nil end,
+  }, WIDTH * 0.5), '', 'nothing offered, so nothing in the field')
+end)
+
+test('a camera that already has a name keeps it, suggestion or not', function()
+  eq(renameSuggestion({
+    cameras = named({ { 0, 'My Corner' } }), cameraIndex = 1,
+    sectionNameAt = function() return 'Eau Rouge' end,
+  }, WIDTH * 0.5), 'My Corner')
+end)
+
+test('the suggestion is asked for where the camera takes over', function()
+  -- Not where the double click landed, which can be anywhere in the segment.
+  local askedAt = nil
+  renameSuggestion({
+    cameras = named({ { 0.25, nil } }), cameraIndex = 1,
+    sectionNameAt = function(at) askedAt = at return nil end,
+  }, WIDTH * 0.9)
+  near(askedAt, 0.25, 1e-9)
+end)
+
+test('a panel with no track to ask still renames', function()
+  eq(renameSuggestion({
+    cameras = named({ { 0, nil } }), cameraIndex = 1,
+  }, WIDTH * 0.5), '', 'no suggestion to be had, and no error either')
+end)

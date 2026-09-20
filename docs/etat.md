@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (471 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (481 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -140,8 +140,9 @@ rien.
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Interrupteur `[strips]`** | Masquer les bandes numérotées et **travailler une vraie session** avec le seul ruban. La question à te poser : est-ce qu'elles manquent ? |
 | 19 | **Ruban, édition** | Glisser un losange le déplace. **Clic droit** sur un segment : ajouter une caméra ici, supprimer celle-ci. Chaque geste = **une** entrée d'`Undo`. |
-| 20 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
-| 21 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
+| 20 | **Nom suggéré** | Double-clic sur une caméra sans nom, sur une portion nommée du circuit : le champ s'ouvre **prérempli** (« Les Combes »). Sur une portion sans nom : champ vide. Taper efface la suggestion. |
+| 21 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 22 | Infobulles et aide | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 
 ## ⏳ En attente de Théo
 
@@ -438,12 +439,20 @@ décider à ta place où va la caméra, un clic droit l'a déjà dit. Et une
 suppression derrière un menu ne s'atteint pas par mégarde, ce qui compte plus
 ici qu'un clic épargné : le `−` de la bande numérotée est collé à son `+`.
 
-Reste sur ce point : une source de noms par défaut. **Une sonde est en place
-pour trancher** — panneau de diagnostic, section « 11. Track section names » :
-elle lit `ac.getTrackSectorName` à la voiture et en huit points du tour. Huit
-noms différents = de vrais noms de sections, et je branche la suggestion dans
-le champ de renommage. Un même mot répété huit fois = réponse générique, et on
-n'y touche pas : suggérer « Sector 2 » est pire que ne rien suggérer. **`sections.ini` du circuit** définit des
+**Les noms de virages marchent** — vérifié en jeu par Théo sur Spa :
+`ac.getTrackSectorName` lit bien le `sections.ini` du circuit et rend
+« Kemmel Straight », « Les Combes ». La sonde qui a servi à le confirmer reste
+dans le panneau de diagnostic (section « 11 »).
+
+Renommer une caméra **sans nom** propose donc celui de l'endroit où elle se
+tient. Proposé, jamais imposé : le champ sélectionne tout, donc la première
+frappe l'efface et Échap abandonne.
+
+⚠️ **Les sections ne couvrent pas tout le tour.** Sur la lecture de Spa,
+`0.00` et `0.12` reviennent vides là où `0.25` donne « Kemmel Straight ».
+`track.sectionNameAt` rend donc `nil` et pas `""` : une caméra sur une portion
+que personne n'a nommée ouvre un champ vide, pas un blanc qui ressemble à un
+nom. **`sections.ini` du circuit** définit des
 `IN` / `OUT` / `TEXT` (« Tamburello »), et `ac.getTrackSectorName(progress)`
 de CSP lit très probablement ce fichier — à vérifier en jeu avant de le
 promettre. Ça donnerait un nom automatique neutre du type « 14 — Tamburello »

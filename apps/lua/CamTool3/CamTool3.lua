@@ -1147,6 +1147,8 @@ function script.windowAtr(dt)
     showMap = atrShowMap,
     showHelp = atrShowHelp,
     showStrips = atrShowStrips,
+    -- Offered when naming a camera that has none: see ui/band.
+    sectionNameAt = trackAdapter.sectionNameAt,
     dt = dt,
     cameras = cameras,
     -- Not from the file: CamTool 2 never saved which car a camera framed.
