@@ -287,9 +287,9 @@ atr.LEGEND = {
     'too.',
   'Shortcuts   stepping to the next or previous keyframe and camera takes ' ..
     'the playhead with it, and stops at the ends rather than wrapping. ' ..
-    "NONE OF THEM HAS A KEY until you give it one below: Assetto Corsa's " ..
-    'free camera owns the arrows, and this is a tool you use while flying ' ..
-    'it.',
+    "NONE OF THEM HAS A KEY until you give it one: Assetto Corsa's free " ..
+    'camera owns the arrows, and this is a tool you use while flying it. ' ..
+    'The keys button is where you choose.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
@@ -660,6 +660,12 @@ function atr.draw(state)
       label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
     { id = 'toggleHelp', width = 30,
       label = (state.showHelp and '[?]' or ' ? ') .. '###showHelp' },
+    -- Its own button, not a footnote to the legend. Reading what a gesture
+    -- does and deciding which key should do it are two different errands, and
+    -- putting the second inside the first meant the only way to reach the
+    -- bindings was through a wall of text about diamonds.
+    { id = 'toggleKeys', width = 58,
+      label = (state.showKeys and '[keys]' or ' keys ') .. '###showKeys' },
     -- The keyframe pair, which the strip used to carry. A keyframe is born at
     -- the playhead and belongs to the selected camera, so neither button
     -- needs somewhere to point at -- unlike a camera, which is added where
@@ -719,6 +725,7 @@ function atr.draw(state)
   if clicked.reset then actions.reset = true end
   if clicked.toggleMap then actions.toggleMap = true end
   if clicked.toggleHelp then actions.toggleHelp = true end
+  if clicked.toggleKeys then actions.toggleKeys = true end
   if clicked.addCamera then actions.addCamera = true end
   if clicked.removeCamera then actions.removeCamera = true end
   if clicked.addKeyframe then actions.addKeyframe = true end
@@ -894,15 +901,25 @@ function atr.draw(state)
       ui.text(line)
     end
     ui.popStyleColor()
-
-    -- Rebinding, beside the legend rather than in a settings panel of its
-    -- own: this is where someone reads what a key does, so it is where they
-    -- will want to change it. The widget is CSP's, and what it writes goes to
-    -- controls.ini where every other binding in the game lives.
-    ui.newLine(4)
+  elseif state.showKeys then
+    -- Rebinding, on a button of its own. It used to hang off the end of the
+    -- legend, on the reasoning that someone reading what a key does is where
+    -- they will want to change it -- which turned out to be backwards: they
+    -- are two errands, and the bindings were reachable only through a wall of
+    -- text about diamonds and colour codes.
+    --
+    -- The widget is CSP's, and what it writes goes to controls.ini where
+    -- every other binding in the game lives.
     ui.pushStyleColor(ui.StyleColor.Text, theme.columns.camera.accent)
     ui.text('SHORTCUTS')
     ui.popStyleColor()
+
+    ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
+    ui.text('None of these has a key until you give it one: ' ..
+      "Assetto Corsa's free camera owns the arrows, and this is a tool you " ..
+      'use while flying it.')
+    ui.popStyleColor()
+    ui.newLine(4)
 
     for _, definition in ipairs(shortcuts.DEFINITIONS) do
       ui.pushStyleColor(ui.StyleColor.Text, theme.label)

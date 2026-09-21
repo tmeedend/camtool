@@ -1907,7 +1907,28 @@ test('the legend says the shortcuts start with no key, and why', function()
   eq(all:find('arrows', 1, true) ~= nil, true)
 end)
 
-test('the legend offers a rebinding widget for every shortcut', function()
+test('the keys button offers a rebinding widget for every shortcut', function()
+  -- Its own button, not a footnote to the legend. Reading what a gesture does
+  -- and deciding which key should do it are two errands, and the second was
+  -- reachable only through a wall of text about diamonds.
+  local handle = fakes.install({})
+  parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
+  trackShortcuts.reset()
+  trackShortcuts.install()
+
+  atr.draw({
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false, showKeys = true,
+  })
+
+  eq(handle.controlsDrawn, #trackShortcuts.DEFINITIONS,
+    'one row per shortcut, drawn by CSP itself')
+  handle.restoreIo()
+  trackShortcuts.reset()
+end)
+
+test('the legend is about gestures, and no longer about keys', function()
   local handle = fakes.install({})
   parameter.cancelEditing()
   require('ui/atr').cancelEditing()
@@ -1919,10 +1940,24 @@ test('the legend offers a rebinding widget for every shortcut', function()
     trackPos = 0, trackLength = 1000, showMap = false, showHelp = true,
   })
 
-  eq(handle.controlsDrawn, #trackShortcuts.DEFINITIONS,
-    'one row per shortcut, drawn by CSP itself')
+  eq(handle.controlsDrawn or 0, 0, 'the bindings are not buried in here')
   handle.restoreIo()
   trackShortcuts.reset()
+end)
+
+test('the two panels never open together', function()
+  -- Both at once would push the map and the parameters off the bottom of any
+  -- window.
+  local handle = fakes.install({ clicks = { [' keys ###showKeys'] = true } })
+  parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
+
+  local actions = atr.draw({
+    cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false, showHelp = true,
+  })
+  eq(actions.toggleKeys, true, 'the button is there and answers')
+  handle.restoreIo()
 end)
 
 test('the legend says how to add a camera, in words', function()

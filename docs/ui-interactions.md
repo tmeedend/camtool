@@ -83,6 +83,7 @@ Le bloc d'explications en bas de fenêtre est supprimé. Il est remplacé par :
 1. ~~**Une infobulle par élément.**~~ **Une phrase par élément**, qui dit d'abord **ce que fait le paramètre**, puis les gestes utiles. Priorité aux noms cryptiques : `STRENGTH LO.`, `STRENGTH RO.`, `OFF TRACKING`, `STR PITCH`, `STR HEADING`, `MIX`, `AF`.
 2. ~~**Un délai avant affichage.**~~ Sans objet.
 3. **Une ligne de statut contextuelle**, une seule, en bas de la fenêtre : décrit ce qui est sous le curseur. Toujours visible, donc découvrable — contrairement à une infobulle, qu'il faut savoir aller chercher. **C'est le seul canal** : elle porte le nom de l'élément, sa phrase et ses gestes.
+4. **Un bouton `?`** affichant la légende complète (losanges, code couleur du bandeau, raccourcis). Seul endroit où l'aide est exhaustive.
 
 > ⚠️ **Écart assumé avec le contrat d'origine, tranché par Théo en jeu.** Le
 > contrat demandait une infobulle par élément, avec un délai. **Il n'y en a
@@ -96,7 +97,6 @@ Le bloc d'explications en bas de fenêtre est supprimé. Il est remplacé par :
 > recouvre rien. Le point 3 devient le canal unique au lieu d'être le second.
 > Un test balaie le panneau entier et échoue si quoi que ce soit affiche
 > encore une bulle.
-4. **Un bouton `?`** affichant la légende complète (losanges, code couleur du bandeau, raccourcis). Seul endroit où l'aide est exhaustive.
 
 Les noms de fonctions varient selon le binding Lua de CSP : vérifier dans le SDK avant de reprendre les noms C++ cités ici.
 

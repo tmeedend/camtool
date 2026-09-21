@@ -1333,6 +1333,9 @@ local atrStatus = nil
 ---Whether the panel is showing the map. Not saved anywhere yet: CamTool 3
 ---has no settings file, so this lasts as long as the session.
 local atrShowMap = true
+---And whether it is showing the key bindings, which are on a button of their
+---own rather than hanging off the end of the legend.
+local atrShowKeys = false
 ---Whether the ? legend is open instead of the status line. Session state too.
 local atrShowHelp = false
 ---The last reason the map had nothing to draw, so a change is said once
@@ -1609,6 +1612,7 @@ function script.windowAtr(dt)
     outlineReason = outlineReason,
     showMap = atrShowMap,
     showHelp = atrShowHelp,
+    showKeys = atrShowKeys,
     confirmReset = atrConfirmReset,
     paused = playing.paused,
     -- Offered when naming a camera that has none: see ui/band.
@@ -1713,7 +1717,16 @@ function script.windowAtr(dt)
   end
 
   if actions.toggleMap then atrShowMap = not atrShowMap end
-  if actions.toggleHelp then atrShowHelp = not atrShowHelp end
+  if actions.toggleHelp then
+    atrShowHelp = not atrShowHelp
+    -- One panel at a time under the ribbon. Two open at once would push the
+    -- map and the parameters off the bottom of any window.
+    if atrShowHelp then atrShowKeys = false end
+  end
+  if actions.toggleKeys then
+    atrShowKeys = not atrShowKeys
+    if atrShowKeys then atrShowHelp = false end
+  end
   if actions.selectKeyframe ~= nil then
     atrKeyframe = actions.selectKeyframe
     atrParameter.cancelEditing()
