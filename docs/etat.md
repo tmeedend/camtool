@@ -14,7 +14,7 @@
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (656 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (689 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -155,6 +155,11 @@ rien.
 | 31 | **Amener, cas limite** | Cliquer une portion que le replay n'a jamais jouée : la voiture se place au plus proche et le panneau **dit** que le passage n'existe pas. Pas de saut silencieux ailleurs. |
 | 32 | **Sonde replay + amener** | Activer le pilotage de replay du panneau de sondes, puis cliquer la règle : le saut doit tenir, et la sonde ne doit pas ramener le replay en arrière à la frame suivante. |
 | 33 | **Noms sur le ruban** | Le segment porte le nom, ou le numéro, ou rien s'il est trop fin — mais celui sous la souris parle toujours. **Double-clic** pour renommer, Entrée valide, Échap abandonne, `Undo` reprend. |
+| 33b | **Renommer une caméra** | Double-clic sur un segment : le champ doit s'ouvrir **avec le curseur dedans** — taper doit écrire tout de suite. Cliquer ailleurs le referme, y compris sur une caméra qui n'avait aucun nom. |
+| 33c | **Nom de fichier** | Le bandeau du haut n'affiche que le nom (`theo`), sans `spa_-` ni `.json`. Double-clic, taper `theo`, Entrée : le fichier apparaît **sélectionné**, sans toucher aux flèches. Retaper `spa_-theo.json` en entier doit donner le même fichier, pas un doublon. |
+| 33d | **Créer en partant de rien** | Session neuve, replay lancé, **`+cam` directement** : une caméra doit naître et le bandeau dire « unsaved set ». `Save` doit alors **ouvrir le champ de nom**, pas refuser. |
+| 33e | **Plus d'infobulles** | Survoler n'importe quoi : **aucune bulle** ne doit apparaître. La phrase et les gestes sont dans la ligne du bas. |
+| 33f | **Bouton `keys`** | À côté du `?`. Il ouvre les affectations seules ; ouvrir l'un doit refermer l'autre. |
 | 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 | 35 | **La règle** | Le bandeau du haut se distingue du reste au premier coup d'œil. Les distances sont lisibles et ne se chevauchent pas ; **redimensionner la fenêtre** doit en ajouter ou en retirer, jamais les entasser. Sur Spa, « Kemmel Straight » et « Eau Rouge » doivent s'afficher à leur place. |
 | 36 | **Scrub** | Presser la règle et **glisser sans lâcher** : l'image doit suivre la main, un peu en retard mais en continu, sans à-coup ni saut en arrière. Au relâchement, la voiture se pose **exactement** où le trait a été lâché. |
@@ -793,6 +798,31 @@ icône qui clignote est le même mensonge dit plus vite.
 contournement — CamTool pilotant le curseur en permanence — changerait le
 comportement du replay pour tout le monde. Écarté par Théo.
 
+## 🚫 Plus d'infobulles
+
+Tranché par Théo devant le jeu, et la raison se généralise : **une bulle
+s'affiche par-dessus le panneau qu'elle explique**. Ce qu'elle recouvre, c'est
+la ligne sous le curseur et ses voisines — précisément ce qu'on regarde
+pendant qu'on glisse une valeur. Une aide qui cache le travail n'est pas une
+aide.
+
+Aucune phrase n'est perdue : les 32 sont écrites et les 32 atteignent l'écran,
+dans la **ligne de statut**, toujours visible, qui ne coûte pas un pixel de
+hauteur et porte maintenant aussi les gestes — la seconde moitié de ce que la
+bulle contenait. Le délai, qui n'existait que pour empêcher les bulles de
+clignoter, part avec.
+
+Le nom de fichier et l'indicateur ▶/⏸ en avaient chacun une, et celle du nom
+de fichier tombait pile sur le ruban. Un test balaie le panneau entier : il
+échoue si quoi que ce soit en affiche encore une. L'écart est noté dans
+`docs/ui-interactions.md`, à côté de celui sur Échap.
+
+**Les affectations clavier ont leur propre bouton `keys`**, à côté du `?`.
+Elles pendaient au bout de la légende, au motif que celui qui lit ce que fait
+une touche est là où il voudra la changer — c'était l'inverse : ce sont deux
+courses, et les affectations n'étaient atteignables qu'en ouvrant un mur de
+texte sur les losanges. Un seul des deux panneaux s'ouvre à la fois.
+
 ## 🔎 Trois manques trouvés par l'usage
 
 Aucun n'était visible hors jeu, et tous les trois venaient d'un geste de
@@ -817,6 +847,31 @@ d'aucune aide, puisqu'il n'y avait aucun fichier à soi. **Double-cliquer le nom
 sans rien de chargé crée le fichier** (`data.newDocument`), et le préfixe de la
 piste est ajouté s'il manque, sans quoi le fichier n'aurait jamais été reproposé
 sur ce circuit.
+
+### Les noms de fichiers ne montrent plus que le nom
+
+`spa_-theo.json`, c'est trois choses collées : la piste, le nom choisi, le
+format. Une seule appartient à l'utilisateur. Le panneau montrait la chaîne
+entière **et la donnait au champ qui renomme** — donc le préfixe et
+l'extension, modifiables, dans une boîte qui demande un nom, et en effacer un
+bout produit un fichier que l'app ne reproposera jamais sur cette piste.
+
+`core/filename` sépare et recolle, en supposant que ce qui a été tapé peut être
+n'importe quoi : un préfixe et une extension qu'on venait de voir, l'un des
+deux en double, un slash égaré, un point final que Windows mange en silence.
+Un nom qui ne reste rien une fois nettoyé est refusé plutôt qu'écrit en
+`.json`.
+
+Et **la position de parcours suit la sauvegarde**. Nommer un set, c'est ce qui
+le rend vôtre ; laisser les flèches où elles étaient faisait que le fichier
+qu'on venait d'écrire avait l'air de ne pas exister.
+
+### `+cam` peut être la première chose qu'on fait
+
+`+cam` sans fichier répondait « no file yet ». Vrai, et sans aide : nommer un
+fichier est une corvée de machine, demandée au seul moment où personne n'en
+veut — celui où on regarde le virage. `+cam` crée donc le set, le bandeau dit
+« unsaved set », et `Save` **ouvre le champ de nom** au lieu de refuser.
 
 **Sauvegarder sous un nom** : il n'y en avait aucun moyen. `Save` écrasait le
 fichier chargé, donc un set ne pouvait jamais devenir le vôtre. **Double-clic
