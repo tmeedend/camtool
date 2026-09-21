@@ -2304,3 +2304,116 @@ test('a name that is nothing but machinery is refused', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- Starting a set by putting a camera in it
+--------------------------------------------------------------------------
+
+---Load the app with no file loaded and press +cam.
+local function addCameraFromNothing(opts)
+  opts = opts or {}
+  opts.splinePosition = opts.splinePosition or 0.3
+  opts.clicks = { ['+cam##camadd'] = true }
+
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 3 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  opts.clicks['+cam##camadd'] = nil
+
+  return handle, opts
+end
+
+test('adding a camera with nothing loaded starts a set', function()
+  -- It used to answer "no file yet -- double click the name above to start
+  -- one". Naming a file is the machine's errand, not something anyone wants
+  -- at the moment they are looking at a corner.
+  local handle = addCameraFromNothing()
+
+  local depth = nil
+  for i = #handle.buttons, 1, -1 do
+    local n = tostring(handle.buttons[i]):match('^Undo %((%d+)%)')
+    if n then depth = tonumber(n) break end
+  end
+  eq(depth ~= nil and depth >= 1, true,
+    'a camera went into a set that did not exist a moment ago, got '
+      .. tostring(depth))
+
+  handle.restoreIo()
+end)
+
+test('a set with no name says so, rather than saying there is no file', function()
+  local handle = addCameraFromNothing()
+
+  local shown = nil
+  for i = #handle.buttons, 1, -1 do
+    local text = tostring(handle.buttons[i]):match('^(.-)###fileName$')
+    if text ~= nil then shown = text break end
+  end
+  eq(shown, 'unsaved set')
+
+  handle.restoreIo()
+end)
+
+test('Save on a set with no name opens the box instead of refusing', function()
+  -- "Nothing loaded to save" was true and no use: what has to happen next is
+  -- the name, so the panel offers the field rather than describing it.
+  local handle, opts = addCameraFromNothing()
+
+  opts.clicks['Save *###save'] = true
+  opts.clicks['Save###save'] = true
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks = {}
+
+  -- The field replaces the button, so the header button is gone and the
+  -- keyboard has been asked for.
+  handle.buttons = {}
+  handle.focusRequests = 0
+  pcall(_G.script.windowAtr, 0.016)
+
+  local stillAButton = false
+  for i = 1, #handle.buttons do
+    if tostring(handle.buttons[i]):find('###fileName') then stillAButton = true end
+  end
+  eq(stillAButton, false, 'the name is still a button, not a field')
+  eq(handle.focusRequests, 1, 'and the caret was never put in it')
+
+  handle.restoreIo()
+end)
+
+test('naming that set writes it, and the panel lands on it', function()
+  local storage = require('adapters/storage')
+  local handle, opts = addCameraFromNothing()
+
+  opts.clicks['Save *###save'] = true
+  opts.clicks['Save###save'] = true
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks = {}
+
+  opts.typed, opts.enterPressed = 'first go', true
+  pcall(_G.script.windowAtr, 0.016)
+  opts.typed, opts.enterPressed = nil, false
+
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+
+  eq(type(handle.written[storage.CAMTOOL3_DATA_DIR
+    .. '/fake_track_-first go.json']), 'string', 'the set was written')
+
+  local shown = nil
+  for i = #handle.buttons, 1, -1 do
+    local text = tostring(handle.buttons[i]):match('^(.-)###fileName$')
+    if text ~= nil then shown = text break end
+  end
+  eq(shown, 'first go')
+
+  handle.restoreIo()
+end)

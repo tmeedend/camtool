@@ -243,6 +243,17 @@ atr.SPLINE = {
 ---The legend the ? button shows. Everything the panel means, in one place,
 ---which docs/ui-interactions.md asks for -- and the only place help is
 ---exhaustive. Tooltips answer about one field; this answers about the panel.
+---Open the file name field, as a double click on it does.
+---
+---For Save on a set that has never been named. Answering "nothing loaded to
+---save" there was true and no help at all: the thing to do next is give it a
+---name, so the panel offers the box rather than describing it.
+---@param startFrom string|nil @what to put in the field
+function atr.renameFile(startFrom)
+  renamingFile, fileNameWasActive = true, false
+  fileNameBuffer = type(startFrom) == 'string' and startFrom or ''
+end
+
 atr.LEGEND = {
   'Diamond   filled = keyframed here, hollow = keyframed elsewhere in this ' ..
     'camera, empty = never keyframed. A tinted field is animated.',

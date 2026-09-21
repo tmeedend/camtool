@@ -398,6 +398,7 @@ local playing = playstate.new()
 ---written above everything it needs.
 local handleShortcuts = nil
 
+
 ---How close counts as arrived: half a bucket, which is a few metres.
 local SEEK_TOLERANCE = 0.5 / seek.BUCKETS
 ---Probes before giving up and keeping the closest landing. Three to five was
@@ -1302,6 +1303,24 @@ end
 -- you edit one camera while another is on screen.
 local atrCamera = nil
 local atrKeyframe = 1
+---Start an empty set, if there is not one already.
+---
+---EVERY WAY IN USED TO GO THROUGH LOADING. A fresh session could only work on
+---somebody else's file, and the first thing anyone does -- put a camera
+---where the car is -- answered "no file yet, go and name one first". Naming a
+---file is not what someone wants at that moment; it is a thing the machine
+---needs, and it can be asked for later, when there is something worth keeping.
+---@return boolean @true when this call is what made it
+local function startNewDocument()
+  if doc ~= nil then return false end
+
+  doc, docError = dataModule.newDocument(), nil
+  playbackCore.applyMode(pb, doc.interpolation_mode)
+  atrCamera, atrKeyframe = nil, 1
+  mode = MODE_PLAYBACK
+  log('new camera file')
+  return true
+end
 
 -- Every edit, newest last. edit.apply hands back a record that can be put
 -- back, so undo is this stack and nothing more.
@@ -1557,9 +1576,14 @@ function script.windowAtr(dt)
     -- The NAME only, without the track prefix or the extension: see
     -- core/filename for why the machine's half has no business in a box
     -- somebody types into.
-    fileName = fileIndex >= 1 and files[fileIndex] ~= nil
-      and (filenames.display(files[fileIndex].name, storage.trackPrefix())
-        .. (files[fileIndex].own and '' or '   [CamTool 2]')) or nil,
+    -- A set started with +cam and not yet named comes first. Not "no file":
+    -- there IS one, it is the one being worked on. And not the browse
+    -- position either -- showing somebody else's file name while you edit
+    -- your own new set is a lie the arrows are not worth telling.
+    fileName = (doc ~= nil and docName == '' and 'unsaved set')
+      or (fileIndex >= 1 and files[fileIndex] ~= nil
+        and (filenames.display(files[fileIndex].name, storage.trackPrefix())
+          .. (files[fileIndex].own and '' or '   [CamTool 2]'))) or nil,
     undoDepth = #undoStack,
     redoDepth = #redoStack,
     status = atrStatus,
@@ -1773,10 +1797,20 @@ function script.windowAtr(dt)
 
   -- A button that cannot act says so. Refusing in silence is what made these
   -- look broken.
+  -- ADDING A CAMERA WITH NOTHING LOADED STARTS A SET. It used to refuse and
+  -- send you off to name a file first, which is the machine's errand, not
+  -- yours: the name can be asked for later, when there is something worth
+  -- keeping. Done before `cameras` is read below, so the camera lands in the
+  -- set this call just made.
+  if actions.addCamera and doc == nil and playhead ~= nil then
+    if startNewDocument() then
+      cameras = doc[pb.options.listName]
+      atrStatus = 'new set -- Save when you want to name it'
+    end
+  end
+
   if (actions.addCamera or actions.addKeyframe) and playhead == nil then
     atrStatus = 'no car to put it at -- start the replay first'
-  elseif actions.addCamera and cameras == nil then
-    atrStatus = 'no file yet -- double click the name above to start one'
   elseif actions.removeCamera and atrCamera == nil then
     atrStatus = 'pick a camera before removing one'
   elseif actions.addKeyframe and camera == nil then
@@ -1903,6 +1937,7 @@ function script.windowAtr(dt)
   -- Saving under a name of your own. The file is written into CamTool 3's
   -- folder like every other save, so this never touches a CamTool 2 original
   -- whatever it is called.
+  --
   if type(actions.saveAs) == 'string' then
     -- Everything about the file name that is not the name lives in
     -- core/filename: the prefix that belongs to this track, the extension,
@@ -1911,16 +1946,7 @@ function script.windowAtr(dt)
     if name == nil then
       atrStatus = why or 'a file needs a name'
     else
-      -- Naming a file when none is loaded MAKES one. Every path into the app
-      -- went through loading before, so a fresh session could only ever work
-      -- on somebody else's set.
-      if doc == nil then
-        doc, docError = dataModule.newDocument(), nil
-        playbackCore.applyMode(pb, doc.interpolation_mode)
-        atrCamera, atrKeyframe = nil, 1
-        mode = MODE_PLAYBACK
-        log('new camera file')
-      end
+      startNewDocument()
 
       local saved, err = storage.saveCameraFile(name, doc)
       if saved then
@@ -1949,7 +1975,13 @@ function script.windowAtr(dt)
   end
 
   if actions.save then
-    if doc == nil or docName == '' then
+    if doc ~= nil and docName == '' then
+      -- A set made with +cam and never named. "Nothing loaded to save" was
+      -- true and no use: what has to happen next is the name, so the field
+      -- opens rather than being described.
+      atrPanel.renameFile()
+      atrStatus = 'give it a name, then press enter'
+    elseif doc == nil then
       atrStatus = 'nothing loaded to save'
     else
       local saved, err = storage.saveCameraFile(docName, doc)
