@@ -8,10 +8,15 @@
 
 | Branche | Rôle |
 |---|---|
-| `main` | CamTool 2 en production. Les correctifs 2.x se font ici. |
-| `camtool-3` | **Branche de travail.** CamTool 3 en Lua, dans `apps/lua/CamTool3/`. |
+| `main` | **CamTool 3.** Le travail y est intégré au fil de l'eau ; `camtool-3` la suit. |
+| `camtool-3` | Même contenu que `main`, tenue en phase. Les branches de chantier partent d'ici ou de `main`, indifféremment. |
 | `poc/lua` | Le POC qui a fondé la décision Lua. Conservée comme repère, figée. |
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
+
+⚠️ **Ce tableau disait le contraire jusqu'ici** — « `main` : CamTool 2 en
+production » — et c'était faux depuis longtemps : `main` portait déjà plus de
+cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
+dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
 `luajit tests/run.lua` (689 tests au dernier point). Le binaire n'est pas dans
@@ -882,6 +887,32 @@ appliqué à la chose dont il change le nom.
 sait *où* on visait. Mais il coûte un clic pour le cas courant, et Théo a
 raison qu'un clic compte dans un geste fait quarante fois. Donc : boutons pour
 « ici et maintenant », menu pour « à cet endroit précis ».
+
+## 📌 Tranché, pas encore codé
+
+Deux décisions prises en session et écrites dans le contrat
+(`docs/ui-interactions.md`, section « Le ruban »). **Rien n'est implémenté.**
+
+**Le segment porte son numéro, et rien d'autre ; le nom va dans la ligne de
+statut.** Aujourd'hui l'étiquette a trois états — le nom s'il tient, sinon le
+numéro s'il tient, sinon rien, sauf celui sous le curseur écrit au-dessus du
+ruban — et rien à l'écran ne dit dans lequel on est. *« Ce n'est pas clair de
+parfois afficher un numéro, parfois le nom »*, et c'est juste : un libellé qui
+change de nature selon la place ne se lit pas, il se devine. Le numéro reste
+parce que c'est lui qui rend un set **dénombrable** ; le nom a désormais un
+endroit qui ne manque jamais de place.
+
+Reste une question ouverte, notée dans le contrat : un segment trop fin même
+pour un chiffre doit-il rester tout à fait muet ?
+
+**Le même nom au survol de la carte.** Réponse à la question de Théo : oui,
+mais **pas écrit sur le tracé**. Un tracé est une courbe, un nom un rectangle ;
+les poser l'un sur l'autre demande de faire tourner le texte ou de tirer un
+trait de rappel, deux choses qui coûtent cher et se lisent mal sur un circuit
+qui se replie sur lui-même comme Spa. La carte sait déjà quelle caméra est sous
+le curseur — elle dessine l'anneau de survol avec —, donc le nom part dans la
+**ligne de statut**, la même que celle du ruban. Un seul endroit pour la même
+question, quelle que soit la surface survolée.
 
 ## ❓ À demander au designer d'ATR
 

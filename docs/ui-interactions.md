@@ -182,6 +182,28 @@ Photoshop. « Amener la tête de lecture au début d'une caméra » est couvert
 deux fois par ailleurs — Haut/Bas au clavier, et le menu du clic droit, qui a
 l'avantage d'être libellé en toutes lettres.
 
+**Ce qui est écrit sur un segment : son numéro, et rien d'autre.** Le nom va
+dans la ligne de statut, au survol.
+
+Ce n'est pas ce qui était fait, et l'ancienne règle est la raison du
+changement : le nom s'il tenait, sinon le numéro s'il tenait, sinon rien — sauf
+celui sous le curseur, écrit au-dessus du ruban. Trois états pour la même
+étiquette, et rien à l'écran pour dire dans lequel on est. *« Ce n'est pas
+clair de parfois afficher un numéro, parfois le nom »* — Théo, et il a raison :
+un libellé qui change de nature selon la place disponible ne se lit pas, il se
+devine.
+
+Le numéro seul est le bon choix pour la surface, parce que c'est lui qui rend
+un set **dénombrable** : il est court, il tient presque toujours, et il est le
+même d'un segment à l'autre. Le nom est plus long, plus utile, et a un endroit
+fait pour lui qui ne manque jamais de place — la ligne de statut, seul canal
+d'aide depuis que les infobulles sont parties.
+
+> ❓ **Reste à trancher** : un segment trop fin même pour un chiffre. Aujourd'hui
+> il reste vide, et celui sous le curseur écrit son nom au-dessus du ruban. Si
+> la ligne de statut porte le nom, cette écriture au-dessus n'a plus lieu
+> d'être — mais faut-il alors laisser le segment tout à fait muet ?
+
 **Les losanges ne se déplacent pas au ruban.** Un losange fait quatre pixels
 sur une surface qu'on clique aussi pour sélectionner : un clic manqué de peu
 déplacerait un keyframe, et un keyframe déplacé par mégarde ne se remarque
@@ -199,6 +221,16 @@ boucler ferait repartir un tour en arrière sous une touche maintenue.
 
 La carte suit la règle du ruban : **un clic sélectionne, rien de plus**. Elle
 doit dire la même chose que le ruban ou aucune des deux ne peut être crue.
+
+**Elle ne porte aucun nom écrit sur le tracé**, et c'est un choix de forme, pas
+un oubli : un tracé est une courbe, un nom est un rectangle, et poser l'un sur
+l'autre demande de faire tourner le texte ou de tirer un trait de rappel — deux
+choses qui coûtent cher et se lisent mal sur un circuit qui se replie sur
+lui-même comme Spa. La carte dit **où**, le ruban dit **qui**.
+
+Le nom de la caméra sous le curseur va donc là où va celui du ruban : **la
+ligne de statut**. Un seul endroit pour la même question, quelle que soit la
+surface qu'on survole.
 
 ### Ce que rien de tout ça n'est
 
