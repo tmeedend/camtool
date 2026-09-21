@@ -274,10 +274,11 @@ atr.LEGEND = {
   'Map   the same cameras on the circuit. Click selects, exactly as on the ' ..
     'ribbon and with as little effect on the replay; the handle drags there ' ..
     'too.',
-  "Arrows   left and right step through this camera's keyframes, up and " ..
-    'down through the cameras, and each takes the playhead with it -- the ' ..
-    'jump-to-edit-point keys of an editing suite. They stop at the ends ' ..
-    'rather than wrap. Rebind them below.',
+  'Shortcuts   stepping to the next or previous keyframe and camera takes ' ..
+    'the playhead with it, and stops at the ends rather than wrapping. ' ..
+    "NONE OF THEM HAS A KEY until you give it one below: Assetto Corsa's " ..
+    'free camera owns the arrows, and this is a tool you use while flying ' ..
+    'it.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',

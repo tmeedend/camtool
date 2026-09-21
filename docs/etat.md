@@ -139,10 +139,11 @@ rien.
 | 16 | **Poignée de `camera_in`** | La caméra sélectionnée porte une poignée (point sur la carte, trait sur le ruban). La glisser déplace son début. Elle doit **buter** sur les caméras voisines. Un `Undo` annule **tout le glissé**, pas une frame. |
 | 17 | `STARTING POINT` | Ses flèches, son glissé et sa saisie marchent **enfin** — ils ne faisaient rien jusqu'ici. Un pas ≈ 5 m. |
 | 18 | **Infobulles** | Rester sur une valeur : la phrase apparaît après un instant. Elles **ne marchaient pas du tout** — le panneau reconstruisait la ligne et laissait la phrase en route. |
+| 19b | **Relâcher puis voler** | `Take camera` sur une caméra, `Release camera`, puis voler ailleurs : `X`, `Y`, `Z` doivent **suivre la vue**, pas rester figés sur le plan qu'on vient de quitter. La tête de lecture doit continuer à suivre le replay, et **aucun** segment du ruban ne doit rester pâle. |
 | 19 | **Champs en caméra libre** | Voler en caméra libre : `X`, `Y`, `Z`, `PITCH`, `HEADING`, `FOV` doivent afficher la valeur **en gris**, et le losange l'épingler telle quelle. `ROLL` et `FOCUS POINT` restent à `--`, c'est voulu. |
 | 20 | **Créer un fichier** | Session neuve, **double-clic sur « no file »**, taper un nom, Entrée. Puis `+cam` doit marcher. Le fichier doit apparaître dans la liste avec le préfixe de la piste. |
 | 21 | **Sauver sous un nom** | Fichier d'ATR chargé, **double-clic sur son nom** : le champ doit s'ouvrir **et rester ouvert** (il se refermait aussitôt). Taper, Entrée. L'original ne doit pas changer de date. |
-| 22 | **Flèches** | Gauche/droite parcourent les keyframes, haut/bas les caméras, et la tête de lecture suit — comme les touches de saut d'un point de montage à l'autre. Aux extrémités ça s'arrête. Caméra sans keyframe : la ligne de statut le dit. Les variantes **Maj** n'existent plus : si elles sont restées dans `controls.ini`, elles ne doivent rien faire. |
+| 22 | **Raccourcis** | Par défaut **aucune touche**. Voler en caméra libre aux flèches ne doit plus rien déplacer dans le panneau. Affecter une touche dans `?` → SHORTCUTS : elle parcourt les keyframes ou les caméras, la tête de lecture suit, et aux extrémités ça s'arrête. Les anciennes entrées `camtool3/Next keyframe` et les variantes Maj restent dans `controls.ini` et ne doivent rien faire. |
 | 23 | **Le piège du clavier** | **Taper une valeur ou nommer une caméra, avec Espace et les flèches** : ça doit écrire et déplacer le curseur, jamais piloter le panneau. |
 | 24 | **Réaffecter une touche** | Panneau `?` → SHORTCUTS → changer une touche, vérifier qu'elle prend effet et qu'elle survit à un redémarrage (elle est dans `controls.ini`). |
 | 25 | **Indicateur ▶ / ⏸** | Mettre le replay en pause **depuis la barre d'AC** : l'icône doit suivre. Elle ne doit pas clignoter au ralenti. |
@@ -727,11 +728,27 @@ changements de position), sauf si la sonde audio tient déjà le volume.
 
 ## ⌨️ Raccourcis clavier et indicateur de lecture
 
-**Les flèches** parcourent les keyframes (gauche/droite) et les caméras
-(haut/bas), et **déplacent la tête de lecture** — exactement les touches de
+**Les raccourcis** parcourent les keyframes et les caméras, et **déplacent
+la tête de lecture** — exactement les touches de
 saut d'un point de montage à l'autre de Premiere et de Resolve. Aux extrémités
 ça **s'arrête** — boucler ferait repartir un tour en arrière sous une touche
 maintenue, et l'ordre est la seule chose qu'un set de caméras possède.
+
+⚠️ **Aucun n'a de touche par défaut, et c'est le point important.** C'étaient
+les quatre flèches, ce qui se lit bien sur le papier — une flèche saute au
+point de montage suivant, comme partout. Ici c'est faux : ce qu'on passe la
+session à faire, c'est **voler en caméra libre** pour placer un plan, et la
+caméra libre d'AC se déplace aux flèches. Chaque appui destiné à bouger la vue
+déplaçait aussi la sélection et emmenait le replay avec elle. Trouvé par Théo
+en posant sa deuxième caméra.
+
+Aucune touche libre évidente pour les remplacer — la caméra libre a les
+flèches, WASD et la souris —, donc ils sont déclarés, listés dans le panneau
+`?`, et c'est à qui en veut de choisir. **Les noms ont changé en même temps que
+les défauts** : `ac.ControlButton` retient une affectation sous son nom, donc
+retirer le défaut ne fait rien pour qui a déjà l'ancienne enregistrée — c'est-
+à-dire exactement la personne qui a signalé le problème. Un nom neuf est une
+entrée neuve, sans touche.
 
 ⚠️ **Les quatre variantes Maj ont été supprimées.** Elles parcouraient sans
 déplacer le replay : la moitié clavier du Maj+clic du ruban. Le clic ne

@@ -28,26 +28,37 @@ local buttons = nil
 
 ---What each shortcut is for, in the order the settings panel shows them.
 ---
----FOUR, NOT EIGHT. There were Shift variants that stepped without moving the
----replay -- the keyboard's half of a Shift+click on the ribbon. The ribbon no
----longer moves the replay on a click, so there is nothing left for them to
----abstain from: an arrow moves the playhead, the way the jump-to-edit-point
----keys do in Premiere and Resolve, and that is all an arrow does.
+---NONE OF THEM IS BOUND TO ANYTHING BY DEFAULT, and that is the interesting
+---part of this file now.
 ---
----Anyone who had them bound keeps four dead entries in controls.ini. Harmless,
----and cheaper than carrying a shortcut that does what the plain key does.
+---They were the four arrows, which read well on paper -- an arrow steps to
+---the next edit point, as in any editing suite. In this one it is wrong,
+---because the thing you spend the session doing is FLYING THE FREE CAMERA to
+---place a shot, and Assetto Corsa's free camera moves on the arrows. So every
+---press meant to nudge the view also stepped the selection and took the
+---replay with it. Théo found it while placing a second camera, which is about
+---as early as anyone would.
+---
+---There is no obvious key left to move them to: the free camera has the
+---arrows, WASD and the mouse, and guessing wrong costs another session. So
+---they are declared, listed in the ? panel, and left for whoever wants them
+---to choose a key. A shortcut nobody asked for is worth less than a free
+---camera that behaves.
+---
+---THE NAMES CHANGED WITH THE DEFAULTS, and that is deliberate rather than
+---tidy-mindedness. ac.ControlButton keeps a binding under its name in
+---controls.ini; changing a default does nothing for anyone who already has
+---the old one saved, so the arrows would have gone on firing for exactly the
+---person who reported them. A new name is a new entry, unbound. The old ones
+---stay in controls.ini doing nothing, like the Shift variants before them.
 shortcuts.DEFINITIONS = {
-  { id = 'keyframeNext', label = 'Next keyframe',
-    key = 'Right' },
-  { id = 'keyframePrevious', label = 'Previous keyframe',
-    key = 'Left' },
-  { id = 'cameraNext', label = 'Next camera',
-    key = 'Down' },
-  { id = 'cameraPrevious', label = 'Previous camera',
-    key = 'Up' },
+  { id = 'keyframeNext', label = 'Step to next keyframe' },
+  { id = 'keyframePrevious', label = 'Step to previous keyframe' },
+  { id = 'cameraNext', label = 'Step to next camera' },
+  { id = 'cameraPrevious', label = 'Step to previous camera' },
 }
 
----How long a held arrow waits before repeating, in seconds. Read from
+---How long a held key waits before repeating, in seconds. Read from
 ---controls.ini as REPEAT_PERIOD once a user changes it.
 shortcuts.REPEAT_PERIOD = 0.18
 

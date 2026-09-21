@@ -1903,8 +1903,17 @@ test('the legend explains that the panel reads the state and cannot set it', fun
   -- has no call for.
   local all = table.concat(atr.LEGEND, ' | '):lower()
   eq(all:find('cannot change it', 1, true) ~= nil, true)
-  eq(all:find('arrows', 1, true) ~= nil, true, 'and the arrows are in there')
-  eq(all:find('rebind', 1, true) ~= nil, true, 'with a word on rebinding them')
+end)
+
+test('the legend says the shortcuts start with no key, and why', function()
+  -- A shortcut list that names no key reads as a bug unless it says it is
+  -- deliberate. The reason is the one that matters: the free camera has the
+  -- arrows, and flying it is what you do between placing one shot and the
+  -- next.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('none of them has a key', 1, true) ~= nil, true)
+  eq(all:find('free camera', 1, true) ~= nil, true, 'and why')
+  eq(all:find('arrows', 1, true) ~= nil, true)
 end)
 
 test('the legend offers a rebinding widget for every shortcut', function()
