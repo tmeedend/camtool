@@ -28,6 +28,7 @@ local atrParameter = require('ui/parameter')
 local angles = require('core/angles')
 local spline = require('core/spline')
 local seek = require('core/seek')
+local filenames = require('core/filename')
 local navigate = require('core/navigate')
 local playstate = require('core/playstate')
 local shortcuts = require('adapters/shortcuts')
@@ -1548,15 +1549,24 @@ function script.windowAtr(dt)
 
   local actions = atrPanel.draw({
     doc = doc,
+    -- Where the arrows are pointing, which after a load or a save is the file
+    -- that is open. It used not to be after a save -- the browse position sat
+    -- wherever it had last been left -- so a set you had just named looked as
+    -- though it had not been made, and finding it meant walking the list.
+    --
+    -- The NAME only, without the track prefix or the extension: see
+    -- core/filename for why the machine's half has no business in a box
+    -- somebody types into.
     fileName = fileIndex >= 1 and files[fileIndex] ~= nil
-      and (files[fileIndex].name
+      and (filenames.display(files[fileIndex].name, storage.trackPrefix())
         .. (files[fileIndex].own and '' or '   [CamTool 2]')) or nil,
     undoDepth = #undoStack,
     redoDepth = #redoStack,
     status = atrStatus,
     mode = doc ~= nil and doc.interpolation_mode or nil,
     listName = pb.options.listName,
-    loadedName = doc ~= nil and docName or nil,
+    loadedName = doc ~= nil
+      and filenames.display(docName, storage.trackPrefix()) or nil,
     held = cameraActive(),
     camera = camera,
     cameraIndex = atrCamera,
@@ -1894,9 +1904,12 @@ function script.windowAtr(dt)
   -- folder like every other save, so this never touches a CamTool 2 original
   -- whatever it is called.
   if type(actions.saveAs) == 'string' then
-    local name = actions.saveAs:gsub('^%s+', ''):gsub('%s+$', '')
-    if name == '' then
-      atrStatus = 'a file needs a name'
+    -- Everything about the file name that is not the name lives in
+    -- core/filename: the prefix that belongs to this track, the extension,
+    -- and taking back off whatever of either the user typed anyway.
+    local name, why = filenames.build(actions.saveAs, storage.trackPrefix())
+    if name == nil then
+      atrStatus = why or 'a file needs a name'
     else
       -- Naming a file when none is loaded MAKES one. Every path into the app
       -- went through loading before, so a fresh session could only ever work
@@ -1909,23 +1922,24 @@ function script.windowAtr(dt)
         log('new camera file')
       end
 
-      if not name:lower():find('%.json$') then name = name .. '.json' end
-
-      -- A file belongs to the track it was made on, the same prefix CamTool 2
-      -- uses, or it will not be offered again when this track is next loaded.
-      local prefix = storage.trackPrefix()
-      if name:sub(1, #prefix) ~= prefix then name = prefix .. name end
-
       local saved, err = storage.saveCameraFile(name, doc)
       if saved then
         docName = name
-        atrStatus = 'saved ' .. name
+        atrStatus = 'saved ' .. filenames.display(name, storage.trackPrefix())
         undoStack, redoStack = {}, {}
-        -- The new file has to appear in the list, and the list is only rescanned
-        -- when the track changes. Forgetting what was scanned is what asks for
-        -- a fresh look; emptying the list itself would leave the panel indexing
-        -- a nil.
-        scannedPrefix = nil
+
+        -- The new file has to appear in the list, and the list is only
+        -- rescanned when the track changes -- so rescan now rather than
+        -- waiting for one.
+        refreshFileList()
+
+        -- AND THE ARROWS HAVE TO POINT AT IT. Saving under a name is how a
+        -- set becomes yours; leaving the browse position on some other file
+        -- meant stepping through the list to find what you had just written.
+        for i = 1, #files do
+          if files[i].own and files[i].name == name then fileIndex = i end
+        end
+
         log('saved as ' .. name)
       else
         atrStatus = 'SAVE FAILED: ' .. tostring(err)
@@ -1940,7 +1954,7 @@ function script.windowAtr(dt)
     else
       local saved, err = storage.saveCameraFile(docName, doc)
       if saved then
-        atrStatus = 'saved ' .. docName
+        atrStatus = 'saved ' .. filenames.display(docName, storage.trackPrefix())
         -- The stack is what says there is work not on disk; once it is on
         -- disk, there is not.
         undoStack, redoStack = {}, {}

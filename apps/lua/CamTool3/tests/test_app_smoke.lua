@@ -466,7 +466,7 @@ local function clickRibbon(at, opts)
   opts.framesPerLap = opts.framesPerLap or 6000
   opts.clicks = {
     ['no file###fileName'] = true,
-    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    ['cameras   [CamTool 2]###fileName'] = true,
   }
   local handle = fakes.install(opts)
   -- The ribbon is a module and outlives one app. A case that ended with the
@@ -480,7 +480,7 @@ local function clickRibbon(at, opts)
   for _ = 1, 5 do handle.tick(0.016) end
   pcall(_G.script.windowAtr, 0.016)
   opts.clicks['no file###fileName'] = nil
-  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  opts.clicks['cameras   [CamTool 2]###fileName'] = nil
 
   -- The click: the ruler held down at a known fraction of its width, then
   -- let go. The landing is asked for on the release.
@@ -642,7 +642,7 @@ local function dragRuler(path, dt, opts)
   opts.framesPerLap = opts.framesPerLap or 6000
   opts.clicks = {
     ['no file###fileName'] = true,
-    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    ['cameras   [CamTool 2]###fileName'] = true,
   }
   local handle = fakes.install(opts)
   require('ui/band').reset()
@@ -654,7 +654,7 @@ local function dragRuler(path, dt, opts)
   for _ = 1, 5 do handle.tick(0.016) end
   pcall(_G.script.windowAtr, 0.016)
   opts.clicks['no file###fileName'] = nil
-  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  opts.clicks['cameras   [CamTool 2]###fileName'] = nil
 
   handle.replayPositions = {}
   handle.audioWrites = {}
@@ -778,7 +778,7 @@ test('a released camera stops answering for what is on screen', function()
     splinePosition = 0.1,
     clicks = {
       ['no file###fileName'] = true,
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Take camera###hold'] = true,
     },
   }
@@ -805,7 +805,7 @@ test('a released camera stops answering for what is on screen', function()
     handle.tick(0.016)
   end
   opts.clicks['no file###fileName'] = nil
-  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  opts.clicks['cameras   [CamTool 2]###fileName'] = nil
   opts.clicks['Take camera###hold'] = nil
 
   eq(handle.grabbed, true, 'the camera was taken')

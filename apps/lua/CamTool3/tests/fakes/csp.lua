@@ -499,7 +499,27 @@ function fakes.install(opts)
   io.scanDir = function(dir)
     -- CamTool 3's own folder is empty unless a test says otherwise, so the
     -- default listing is the CamTool 2 one it always was.
-    if dir == 'apps/lua/CamTool3/data' then return opts.ownFiles or {} end
+    --
+    -- PLUS WHATEVER HAS BEEN SAVED INTO IT. A real folder contains the file
+    -- you just wrote; this one did not, so anything that looks for a set
+    -- immediately after saving it found nothing and the test passed on a
+    -- fiction.
+    if dir == 'apps/lua/CamTool3/data' then
+      local listed = {}
+      local seen = {}
+      for _, name in ipairs(opts.ownFiles or {}) do
+        listed[#listed + 1] = name
+        seen[name] = true
+      end
+      for path in pairs(handle.written) do
+        local name = path:match('^apps/lua/CamTool3/data/(.+)$')
+        if name ~= nil and not seen[name] then
+          listed[#listed + 1] = name
+          seen[name] = true
+        end
+      end
+      return listed
+    end
     return opts.files or { 'fake_track_-cameras.json', 'settings.json', 'other_track_-x.json' }
   end
   io.createDir = function() return true end

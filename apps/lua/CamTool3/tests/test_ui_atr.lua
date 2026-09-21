@@ -293,7 +293,7 @@ test('the session bar can load a file and take the camera', function()
     clicks = {
       ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Take camera###hold'] = true,
     },
   })
@@ -692,7 +692,7 @@ test('the panel can save the file it loaded, and says so', function()
     clicks = {
       ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Save###save'] = true,
       ['Save *###save'] = true,
     },
@@ -738,7 +738,7 @@ test('Reset asks before it clears anything', function()
     clicks = {
       ['no file###fileName'] = true,
       -- The list marks where a file came from, so the label carries it.
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Reset###reset'] = true,
     },
   })
@@ -846,7 +846,7 @@ test('a camera with an AC camera set hands the view over', function()
     splinePosition = 0.5,
     clicks = {
       ['no file###fileName'] = true,
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Take camera###hold'] = true,
     },
   })
@@ -889,7 +889,7 @@ test('a camera that drives itself takes the view back', function()
     splinePosition = 0.1,
     clicks = {
       ['no file###fileName'] = true,
-      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
       ['Take camera###hold'] = true,
     },
   })
@@ -1244,7 +1244,7 @@ local function runHandOver(opts)
   opts.splinePosition = 0.5
   opts.clicks = {
     ['no file###fileName'] = true,
-    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    ['cameras   [CamTool 2]###fileName'] = true,
     ['Take camera###hold'] = true,
   }
   local handle = fakes.install(opts)
@@ -1627,7 +1627,7 @@ local function clickInPanel(label, opts)
   opts.cameraFile = rawFile
   opts.clicks = {
     ['no file###fileName'] = true,
-    ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+    ['cameras   [CamTool 2]###fileName'] = true,
   }
   if label ~= nil then opts.clicks[label] = true end
   for extra in pairs(opts.extraClicks or {}) do opts.clicks[extra] = true end
@@ -1642,7 +1642,7 @@ local function clickInPanel(label, opts)
   pcall(_G.script.windowAtr, 0.016)
   handle.tick(0.016)
   opts.clicks['no file###fileName'] = nil
-  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  opts.clicks['cameras   [CamTool 2]###fileName'] = nil
   pcall(_G.script.windowAtr, 0.016)
 
   -- More frames: the panel is drawn before the clicks it reported are acted
@@ -2196,4 +2196,111 @@ test('the legend covers the ruler and the playhead', function()
     eq(all:find(word, 1, true) ~= nil, true,
       'the legend never mentions ' .. word)
   end
+end)
+
+--------------------------------------------------------------------------
+-- The file name, as a name and nothing else
+--------------------------------------------------------------------------
+-- `spa_-theo.json` is three things stuck together: the track, the name, and
+-- the format. Only the middle one belongs to whoever typed it, and only the
+-- middle one is shown -- the panel used to hand all three to a box asking for
+-- a name, where deleting either end produced a file the app would never offer
+-- again.
+
+---Load the app, then name the file by double clicking the header and typing.
+---@return table handle, table opts
+local function nameTheFile(typed, opts)
+  opts = opts or {}
+  opts.clicks = opts.clicks or {}
+  opts.clicks['no file###fileName'] = true
+  opts.itemHovered = true
+  opts.mouseDoubleClicked = true
+
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- The double click opens the field.
+  pcall(_G.script.windowAtr, 0.016)
+  opts.mouseDoubleClicked = false
+  opts.itemHovered = false
+
+  -- Type into it and press enter.
+  opts.typed, opts.enterPressed = typed, true
+  pcall(_G.script.windowAtr, 0.016)
+  opts.typed, opts.enterPressed = nil, false
+  pcall(_G.script.windowAtr, 0.016)
+
+  return handle, opts
+end
+
+---Whatever the header button currently says, without its ImGui identity.
+local function headerName(handle)
+  for i = #handle.buttons, 1, -1 do
+    local label = tostring(handle.buttons[i])
+    local text = label:match('^(.-)###fileName$')
+    if text ~= nil then return text end
+  end
+  return nil
+end
+
+test('a name typed on its own becomes a file of this track', function()
+  local storage = require('adapters/storage')
+  local handle = nameTheFile('theo')
+
+  eq(type(handle.written[storage.CAMTOOL3_DATA_DIR .. '/fake_track_-theo.json']),
+    'string', 'the track prefix and the extension are added for you')
+
+  handle.restoreIo()
+end)
+
+test('the header shows the name, not the machinery round it', function()
+  local handle = nameTheFile('theo')
+  eq(headerName(handle), 'theo',
+    'the prefix and the extension have no business in a box you type into')
+  handle.restoreIo()
+end)
+
+test('the file just written is the one the panel is on', function()
+  -- It used to stay on whatever had been browsed last, so a set you had just
+  -- named looked as though it had not been made, and you had to walk the
+  -- arrows to find it.
+  local handle, opts = nameTheFile('theo')
+
+  -- A frame with nothing clicked: the header still says the new file.
+  opts.clicks = {}
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+  eq(headerName(handle), 'theo')
+
+  handle.restoreIo()
+end)
+
+test('typing the whole file name back in does not double it', function()
+  -- What anyone who had looked at the old header would type.
+  local storage = require('adapters/storage')
+  local handle = nameTheFile('fake_track_-theo.json')
+
+  eq(type(handle.written[storage.CAMTOOL3_DATA_DIR .. '/fake_track_-theo.json']),
+    'string')
+  eq(handle.written[storage.CAMTOOL3_DATA_DIR
+    .. '/fake_track_-fake_track_-theo.json.json'], nil,
+    'a prefix and an extension each got added twice')
+
+  handle.restoreIo()
+end)
+
+test('a name that is nothing but machinery is refused', function()
+  local storage = require('adapters/storage')
+  local handle = nameTheFile('.json')
+
+  for path in pairs(handle.written) do
+    eq(path:find('/fake_track_%-%.json$'), nil, 'wrote a file called .json')
+  end
+  eq(handle.written[storage.CAMTOOL3_DATA_DIR .. '/fake_track_-.json'], nil)
+
+  handle.restoreIo()
 end)
