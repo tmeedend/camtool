@@ -335,9 +335,24 @@ function map.draw(state, width, maxHeight)
   -- and it has to be the same in both or neither can be relied on. It used to
   -- move the replay too, with Shift to hold it still; the ribbon's ruler is
   -- where the playhead is moved now, and it is the only place.
+  -- AND IT SAYS WHOSE IT IS, in the status line, exactly as the ribbon does.
+  -- Nothing is written on the track itself: a track is a curve and a name is
+  -- a rectangle, so putting one on the other means rotating the text or
+  -- running a leader line, and both read badly on a circuit that folds back
+  -- on itself like Spa. The map says WHERE, the ribbon says WHO, and one line
+  -- answers for whichever is under the pointer.
   local hint = nil
   if hovered then
-    hint = 'Click: select this camera.'
+    local index = hoverIndex ~= nil and owners[hoverIndex] or nil
+    local camera = index ~= nil and state.cameras ~= nil
+      and state.cameras[index] or nil
+    local named = index ~= nil
+      and ('Camera ' .. index
+        .. (type(camera) == 'table' and type(camera.name) == 'string'
+          and camera.name ~= '' and ('  --  ' .. camera.name) or ''))
+      or nil
+
+    hint = (named ~= nil and (named .. '.  ') or '') .. 'Click: select.'
   end
 
   if clicked and hoverIndex ~= nil then

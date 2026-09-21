@@ -263,7 +263,9 @@ atr.LEGEND = {
     'the step, Shift quadruples it. The wheel never edits, and Escape is the ' ..
     "game's own key for leaving the replay.",
   'Ribbon   the lap from the start line to the finish, tinted by camera, ' ..
-    "with this camera's keyframes above it.",
+    "with this camera's keyframes above it. Each stretch carries its NUMBER " ..
+    'and never its name -- point at one and the line below names it. A ' ..
+    'stretch too thin for a digit is blank, and still there to point at.',
   'Ruler   the thin strip along the top: how far round the lap, and what the ' ..
     'track calls its own corners where it names them. A name takes the place ' ..
     'of the distance under it; the marks stay either way.',
@@ -284,7 +286,8 @@ atr.LEGEND = {
     'here and now; the menu is for somewhere in particular.',
   'Map   the same cameras on the circuit. Click selects, exactly as on the ' ..
     'ribbon and with as little effect on the replay; the handle drags there ' ..
-    'too.',
+    'too. Pointing at one names it below, as the ribbon does -- nothing is ' ..
+    'written on the track, which is a curve and has no room for a word.',
   'Shortcuts   stepping to the next or previous keyframe and camera takes ' ..
     'the playhead with it, and stops at the ends rather than wrapping. ' ..
     "NONE OF THEM HAS A KEY until you give it one: Assetto Corsa's free " ..

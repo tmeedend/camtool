@@ -324,9 +324,20 @@ local function drawBand(state, width)
   ui.drawRectFilled(vec2(origin.x, bandTop), vec2(origin.x + width, bottom),
     theme.mapBackground, theme.rounding)
 
+  -- Who owns what, worked out before anything is written: the hint below is
+  -- mostly the name of the camera under the pointer, and it needs the spans
+  -- to find it.
+  local segments = trackmap.segments(state.cameras)
+  local spans = trackmap.bandSpans(segments)
+
   -- The pointer says the ribbon does something, and the line at the bottom of
   -- the panel says what. Between them they cost no height at all, which is
   -- the whole reason for putting it there.
+  local hoveredIndex = nil
+  if hovered and pointerAt ~= nil then
+    hoveredIndex = trackmap.ownerAt(segments, pointerAt)
+  end
+
   local hint = nil
   if rulerHovered or scrubbing then
     -- The same arrow a value shows when it can be dragged sideways, which is
@@ -337,12 +348,22 @@ local function drawBand(state, width)
   end
   if hovered then
     ui.setMouseCursor(ui.MouseCursor.Hand)
-    hint = 'Click: select this camera.  Double click: rename it.  ' ..
+
+    -- The name lives here now, and this is the whole reason the segments
+    -- carry a number alone. A camera nobody has named answers with its
+    -- number, which is what data.cameraLabel does.
+    local camera = hoveredIndex ~= nil and state.cameras ~= nil
+      and state.cameras[hoveredIndex] or nil
+    local named = hoveredIndex ~= nil
+      and ('Camera ' .. hoveredIndex
+        .. (type(camera) == 'table' and type(camera.name) == 'string'
+          and camera.name ~= '' and ('  --  ' .. camera.name) or ''))
+      or nil
+
+    hint = (named ~= nil and (named .. '.  ') or '') ..
+      'Click: select.  Double click: rename.  ' ..
       'Right click: bring the car here, add a camera, or remove one.'
   end
-
-  local segments = trackmap.segments(state.cameras)
-  local spans = trackmap.bandSpans(segments)
 
   ------------------------------------------------------------------
   -- The lap, camera by camera
@@ -406,60 +427,39 @@ local function drawBand(state, width)
 
   local pointerX = pointerAt ~= nil and (pointer.x - origin.x) or nil
 
+  ------------------------------------------------------------------
+  -- Which camera is which
+  ------------------------------------------------------------------
+  -- THE NUMBER, AND NOTHING ELSE. It used to be the name if it fitted, else
+  -- the number if it fitted, else nothing -- except the one under the pointer,
+  -- which wrote its name above the ribbon. Three states for one label, and
+  -- nothing on screen to say which of them you were reading. Théo's words:
+  -- "it is not clear to show sometimes a number and sometimes the name", and
+  -- he is right -- a label that changes its nature with the room available is
+  -- not read, it is guessed.
+  --
+  -- The number is the right thing to keep here because it is what makes a set
+  -- COUNTABLE: short, the same shape on every segment, and it fits almost
+  -- everywhere. The name is longer and more useful, and it now has somewhere
+  -- that never runs out of room -- the status line, which names whatever is
+  -- under the pointer.
+  --
+  -- A segment too thin even for a digit is left blank. It is still perfectly
+  -- visible -- its colour and its hand-over tick are drawn whatever its width
+  -- -- and hovering it says what it is.
   for i = 1, #spans do
     local span = spans[i]
     local room = span.x2 - span.x1 - 2 * theme.bandLabelPadding
-    local under = pointerX ~= nil and hovered
-      and pointerX >= span.x1 - origin.x and pointerX < span.x2 - origin.x
-
-    local focused = under or span.index == state.cameraIndex
-    local camera = state.cameras ~= nil and state.cameras[span.index] or nil
-    local label = data.cameraLabel(camera, span.index)
     local rank = tostring(span.index)
 
     -- Room enough to hold the text AND not be ellipsised. Asking only whether
     -- it fits exactly gets "22" drawn as "..." -- the ellipsis wants room of
-    -- its own, and a name that just fits has none to give it.
-    local function fits(text)
-      return room >= theme.bandLabelMin
-        and ui.measureText(text).x + theme.bandLabelSlack <= room
-    end
-
-    local text, x1, x2, y1 = nil, span.x1, span.x2, top
-
-    if fits(label) then
-      text = label
-    elseif fits(rank) then
-      text = rank
-    elseif focused then
-      -- Too thin for even a digit, and this is the one being pointed at. It
-      -- says what it is ABOVE the ribbon, where there is room, rather than
-      -- squeezed into a segment five pixels wide -- which is what produced
-      -- " ..." for camera 22 and "1..." for camera 16.
-      text = label
-      y1 = bandTop
-
-      local wanted = ui.measureText(label).x
-        + 2 * theme.bandLabelPadding + theme.bandLabelSlack
-      local middle = (span.x1 + span.x2) / 2
-      x1 = middle - wanted / 2
-      x2 = x1 + wanted
-
-      -- At the edges the box MOVES rather than shrinks. Clamping both sides
-      -- independently is what squeezed the label of the last camera on the
-      -- lap, which starts a few pixels from the end of the ribbon.
-      if x1 < origin.x then x1, x2 = origin.x, origin.x + wanted end
-      if x2 > origin.x + width then
-        x2 = origin.x + width
-        x1 = x2 - wanted
-      end
-      if x1 < origin.x then x1 = origin.x end
-    end
-
-    if text ~= nil then
-      ui.drawTextClipped(text,
-        vec2(x1 + theme.bandLabelPadding, y1),
-        vec2(x2 - theme.bandLabelPadding, y1 == top and bottom or top),
+    -- its own, and a number that just fits has none to give it.
+    if room >= theme.bandLabelMin
+        and ui.measureText(rank).x + theme.bandLabelSlack <= room then
+      ui.drawTextClipped(rank,
+        vec2(span.x1 + theme.bandLabelPadding, top),
+        vec2(span.x2 - theme.bandLabelPadding, bottom),
         theme.bandLabel, vec2(0.5, 0.5), true)
     end
   end

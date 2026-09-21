@@ -2466,3 +2466,12 @@ test('the panel never shows a tooltip anywhere', function()
     'something still popped a bubble: ' .. tostring(handle.tooltips[1]))
   handle.restoreIo()
 end)
+
+test('the legend says where a camera says its name', function()
+  -- The segments carry a number alone now, so someone looking for the name
+  -- has to be told where it went. The ? panel is the only place help is
+  -- exhaustive.
+  local all = table.concat(atr.LEGEND, ' | '):lower()
+  eq(all:find('never its name', 1, true) ~= nil, true)
+  eq(all:find('names it', 1, true) ~= nil, true)
+end)

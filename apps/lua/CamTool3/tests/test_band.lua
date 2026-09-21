@@ -337,19 +337,22 @@ test('a segment wide enough shows the camera number', function()
   eq(written[2].text, '2')
 end)
 
-test('a named camera shows its name instead', function()
-  -- The whole point of names: "Eau Rouge" says where the shot is, 14 does not.
+test('a named camera still shows its number, never its name', function()
+  -- The label used to be the name if it fitted and the number if it did not,
+  -- so it changed nature with the room available -- which is not read, it is
+  -- guessed. The number is what makes a set countable; the name goes to the
+  -- status line, which never runs out of room.
   local _, _, drawn = draw({
     cameras = named({ { 0, 'Eau Rouge' }, { 0.5, nil } }), cameraIndex = 1,
   })
   local written = labels(drawn)
-  eq(written[1].text, 'Eau Rouge')
-  eq(written[2].text, '2', 'and an unnamed one still shows its rank')
+  eq(written[1].text, '1')
+  eq(written[2].text, '2')
 end)
 
-test('a name too long for its segment falls back to the number', function()
-  -- Twenty cameras on a 400 pixel band is 20 pixels each: room for a digit,
-  -- not for a name.
+test('a long name never widens what is written on a segment', function()
+  -- Twenty cameras on a 400 pixel band is 20 pixels each. Named or not, each
+  -- one says the same thing it would have said empty.
   local starts, names = {}, {}
   for i = 1, 20 do
     starts[i] = (i - 1) / 20
@@ -370,15 +373,19 @@ test('a segment too thin for anything stays blank', function()
   eq(#labels(drawn), 0, 'sixty cameras on 400 pixels: nothing legible to write')
 end)
 
-test('the selected camera says who it is however thin it gets', function()
-  -- What keeps a hundred cameras readable rather than a row of clipped stubs.
+test('a segment too thin for a digit writes nothing, selected or not', function()
+  -- The selected one used to write its name ABOVE the ribbon when it was too
+  -- thin, which is the third state that made the label unreadable. Nothing is
+  -- lost: the segment is still perfectly visible -- its colour and its
+  -- hand-over tick are drawn whatever its width -- and hovering it names it.
   local starts = {}
   for i = 1, 60 do starts[i] = (i - 1) / 60 end
 
   local _, _, drawn = draw({ cameras = cameras(starts), cameraIndex = 30 })
-  local written = labels(drawn)
-  eq(#written, 1)
-  eq(written[1].text, '30')
+  eq(#labels(drawn), 0)
+
+  -- And the thin ones are still there to look at and to click.
+  eq(#ribbon(drawn), 60, 'every camera still has its stretch of colour')
 end)
 
 test('a label is drawn inside its own segment, not across its neighbour', function()
@@ -853,37 +860,31 @@ test('the menu offers to bring the car, in so many words', function()
   eq(did.addCamera, nil, 'and not the entry beside it')
 end)
 
-test('the last camera on the lap can still say its number', function()
-  -- ATR's Spa file again: camera 22 starts at 0.99579, five pixels from the
-  -- end of the ribbon. Clamping both sides of its label independently
-  -- squeezed the box to nothing and drew " ..." where "22" belonged.
+test('the last camera on the lap stays countable without a label', function()
+  -- ATR's Spa file: camera 22 starts at 0.99579, five pixels from the end of
+  -- the ribbon. Too thin for a digit, and that is fine now -- what says it is
+  -- there is its colour and its hand-over tick, both drawn whatever the
+  -- width, and hovering it says which one it is.
   local starts = {}
   for i = 1, 21 do starts[i] = (i - 1) / 22 end
   starts[22] = 0.99579
 
-  -- Pointing at the very end of the ribbon.
   local handle = fakes.install({
     itemHovered = true,
-    mouseX = ORIGIN_X + WIDTH - 2, mouseY = ORIGIN_Y + 10,
+    mouseX = ORIGIN_X + WIDTH - 1, mouseY = ORIGIN_Y + 10,
   })
-  band.draw({ cameras = cameras(starts), cameraIndex = 22 }, WIDTH)
-
-  local written = nil
-  for i = 1, #handle.drawn do
-    local call = handle.drawn[i]
-    if call.op == 'label' and call.text == '22' then written = call end
-  end
+  local did = band.draw({ cameras = cameras(starts), cameraIndex = 22 }, WIDTH)
   handle.restoreIo()
 
-  eq(written ~= nil, true, 'the label was drawn at all')
-  eq(written.x2 - written.x >= ui.measureText('22').x, true,
-    'and with room enough for it, got ' .. tostring(written.x2 - written.x))
-  eq(written.x >= ORIGIN_X, true, 'still inside the band')
-  eq(written.x2 <= ORIGIN_X + WIDTH, true)
+  eq(#ribbon(handle.drawn), 22, 'every camera has its stretch')
+  eq(did.hint:find('Camera 22', 1, true) ~= nil, true,
+    'and the line at the foot of the panel says which: ' .. tostring(did.hint))
 end)
 
-test('a squeezed label is written above the ribbon, not inside it', function()
-  -- Five pixels of segment cannot hold a word however the box is arranged.
+test('nothing is ever written outside the coloured strip', function()
+  -- The third state of the old label: too thin for a digit AND focused, so it
+  -- wrote its name above the ribbon, in the row the keyframes live in. That
+  -- is what made the label unpredictable.
   local starts = {}
   for i = 1, 40 do starts[i] = (i - 1) / 40 end
 
@@ -891,17 +892,17 @@ test('a squeezed label is written above the ribbon, not inside it', function()
     itemHovered = true,
     mouseX = ORIGIN_X + WIDTH * 0.5, mouseY = ORIGIN_Y + 10,
   })
+  band.draw({ cameras = named({ { 0, 'Eau Rouge' } }), cameraIndex = 1 }, WIDTH)
   band.draw({ cameras = cameras(starts), cameraIndex = 20 }, WIDTH)
 
-  local written = nil
   for i = 1, #handle.drawn do
-    if handle.drawn[i].op == 'label' then written = handle.drawn[i] end
+    local call = handle.drawn[i]
+    if call.op == 'label' and call.colour == theme.bandLabel then
+      eq(call.y >= BAND_BOTTOM - theme.bandRibbon - 0.001, true,
+        '"' .. call.text .. '" was written above the strip')
+    end
   end
   handle.restoreIo()
-
-  eq(written ~= nil, true)
-  eq(written.y < BAND_BOTTOM - theme.bandRibbon, true,
-    'above the coloured strip, where there is room')
 end)
 
 test('a label that fits is not ellipsised for want of a few pixels', function()
@@ -1275,4 +1276,68 @@ test('holding the ruler does not move a camera', function()
   eq(did.move, nil, 'the camera handle is in the other zone')
   eq(did.camera, nil)
   band.reset()
+end)
+
+--------------------------------------------------------------------------
+-- The name, where the name lives now
+--------------------------------------------------------------------------
+-- The segments carry a number alone, so the status line is the only place a
+-- camera says what it is called. That makes these the tests that keep names
+-- worth giving at all.
+
+---Hover a segment and hand back what the ribbon wants said.
+local function hoverSegment(state, mouseX)
+  local handle = fakes.install({
+    itemHovered = true,
+    mouseX = ORIGIN_X + mouseX, mouseY = ORIGIN_Y + theme.bandRulerHeight + 10,
+  })
+  local did = band.draw(state, WIDTH)
+  handle.restoreIo()
+  return did.hint
+end
+
+test('hovering a segment names the camera under the pointer', function()
+  local state = {
+    cameras = named({ { 0, 'Eau Rouge' }, { 0.5, 'Bus Stop' } }),
+    cameraIndex = 1,
+  }
+
+  local first = hoverSegment(state, WIDTH * 0.25)
+  eq(first:find('Camera 1', 1, true) ~= nil, true, first)
+  eq(first:find('Eau Rouge', 1, true) ~= nil, true, 'and what it is called')
+
+  local second = hoverSegment(state, WIDTH * 0.75)
+  eq(second:find('Camera 2', 1, true) ~= nil, true)
+  eq(second:find('Bus Stop', 1, true) ~= nil, true)
+end)
+
+test('a camera nobody has named still says which one it is', function()
+  local hint = hoverSegment({ cameras = cameras({ 0, 0.5 }), cameraIndex = 1 },
+    WIDTH * 0.75)
+  eq(hint:find('Camera 2', 1, true) ~= nil, true, hint)
+end)
+
+test('the name reaches the line even when the segment cannot hold a digit', function()
+  -- The case the whole change turns on: sixty cameras on four hundred pixels.
+  -- Nothing is written on any of them, and the line still answers.
+  local starts, names = {}, {}
+  for i = 1, 60 do
+    starts[i] = (i - 1) / 60
+    names[i] = { starts[i], 'Corner ' .. i }
+  end
+
+  local hint = hoverSegment({ cameras = named(names), cameraIndex = 1 },
+    WIDTH * 0.5)
+  eq(hint:find('Corner 31', 1, true) ~= nil, true, hint)
+end)
+
+test('the hint still says what the gestures are', function()
+  -- The name is added to it, not put in its place: someone who has never
+  -- opened the legend learns the gestures from this line.
+  local hint = hoverSegment({ cameras = named({ { 0, 'Eau Rouge' } }),
+    cameraIndex = 1 }, WIDTH * 0.5)
+
+  for _, word in ipairs({ 'Click', 'Double click', 'Right click' }) do
+    eq(hint:find(word, 1, true) ~= nil, true, 'the line dropped ' .. word)
+  end
 end)

@@ -199,10 +199,11 @@ même d'un segment à l'autre. Le nom est plus long, plus utile, et a un endroit
 fait pour lui qui ne manque jamais de place — la ligne de statut, seul canal
 d'aide depuis que les infobulles sont parties.
 
-> ❓ **Reste à trancher** : un segment trop fin même pour un chiffre. Aujourd'hui
-> il reste vide, et celui sous le curseur écrit son nom au-dessus du ruban. Si
-> la ligne de statut porte le nom, cette écriture au-dessus n'a plus lieu
-> d'être — mais faut-il alors laisser le segment tout à fait muet ?
+**Un segment trop fin même pour un chiffre reste vide, et c'est sans
+conséquence** : il est toujours parfaitement visible — sa teinte et son trait
+de relais sont dessinés quelle que soit sa largeur — et le survoler le nomme.
+Ce qui disparaît, c'est l'écriture au-dessus du ruban, qui était le troisième
+état et occupait la ligne des losanges.
 
 **Les losanges ne se déplacent pas au ruban.** Un losange fait quatre pixels
 sur une surface qu'on clique aussi pour sélectionner : un clic manqué de peu

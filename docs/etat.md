@@ -19,7 +19,7 @@ cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
 dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (689 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (697 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -165,6 +165,7 @@ rien.
 | 33d | **Créer en partant de rien** | Session neuve, replay lancé, **`+cam` directement** : une caméra doit naître et le bandeau dire « unsaved set ». `Save` doit alors **ouvrir le champ de nom**, pas refuser. |
 | 33e | **Plus d'infobulles** | Survoler n'importe quoi : **aucune bulle** ne doit apparaître. La phrase et les gestes sont dans la ligne du bas. |
 | 33f | **Bouton `keys`** | À côté du `?`. Il ouvre les affectations seules ; ouvrir l'un doit refermer l'autre. |
+| 33g | **Numéros et noms** | Les segments ne portent que des **chiffres**, jamais un nom, même quand un nom tiendrait. Survoler un segment **ou un point du tracé** : la ligne du bas dit « Camera 4 — Fagnes ». Un segment trop fin pour un chiffre reste visible et se nomme au survol. |
 | 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 | 35 | **La règle** | Le bandeau du haut se distingue du reste au premier coup d'œil. Les distances sont lisibles et ne se chevauchent pas ; **redimensionner la fenêtre** doit en ajouter ou en retirer, jamais les entasser. Sur Spa, « Kemmel Straight » et « Eau Rouge » doivent s'afficher à leur place. |
 | 36 | **Scrub** | Presser la règle et **glisser sans lâcher** : l'image doit suivre la main, un peu en retard mais en continu, sans à-coup ni saut en arrière. Au relâchement, la voiture se pose **exactement** où le trait a été lâché. |
@@ -888,10 +889,7 @@ sait *où* on visait. Mais il coûte un clic pour le cas courant, et Théo a
 raison qu'un clic compte dans un geste fait quarante fois. Donc : boutons pour
 « ici et maintenant », menu pour « à cet endroit précis ».
 
-## 📌 Tranché, pas encore codé
-
-Deux décisions prises en session et écrites dans le contrat
-(`docs/ui-interactions.md`, section « Le ruban »). **Rien n'est implémenté.**
+## 🏷️ Le numéro sur le segment, le nom dans la ligne de statut
 
 **Le segment porte son numéro, et rien d'autre ; le nom va dans la ligne de
 statut.** Aujourd'hui l'étiquette a trois états — le nom s'il tient, sinon le
@@ -902,8 +900,11 @@ change de nature selon la place ne se lit pas, il se devine. Le numéro reste
 parce que c'est lui qui rend un set **dénombrable** ; le nom a désormais un
 endroit qui ne manque jamais de place.
 
-Reste une question ouverte, notée dans le contrat : un segment trop fin même
-pour un chiffre doit-il rester tout à fait muet ?
+**Un segment trop fin même pour un chiffre reste vide**, et ça ne coûte rien :
+il garde sa teinte et son trait de relais, donc il se voit et se clique, et le
+survoler le nomme. Ce qui part, c'est l'écriture du nom **au-dessus** du ruban
+quand le segment était trop étroit — le troisième état, celui qui empiétait sur
+la ligne des losanges.
 
 **Le même nom au survol de la carte.** Réponse à la question de Théo : oui,
 mais **pas écrit sur le tracé**. Un tracé est une courbe, un nom un rectangle ;
@@ -912,7 +913,8 @@ trait de rappel, deux choses qui coûtent cher et se lisent mal sur un circuit
 qui se replie sur lui-même comme Spa. La carte sait déjà quelle caméra est sous
 le curseur — elle dessine l'anneau de survol avec —, donc le nom part dans la
 **ligne de statut**, la même que celle du ruban. Un seul endroit pour la même
-question, quelle que soit la surface survolée.
+question, quelle que soit la surface survolée. Un test échoue si la carte
+écrit quoi que ce soit sur le tracé.
 
 ## ❓ À demander au designer d'ATR
 

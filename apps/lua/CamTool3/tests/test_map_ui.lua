@@ -736,3 +736,48 @@ test('clicking the empty middle of the map moves nothing', function()
   eq(picked, nil)
   eq(seekTo, nil, 'a click on nothing asks for nothing')
 end)
+
+--------------------------------------------------------------------------
+-- The map says which camera, and not on the track
+--------------------------------------------------------------------------
+
+test('hovering the outline names the camera under the pointer', function()
+  -- The same answer the ribbon gives, in the same line. One place for the
+  -- question, whichever surface is under the pointer.
+  local named = cameras({ 0.0, 0.5 })
+  named[1].name = 'Eau Rouge'
+
+  local state = { outline = outline(120), cameras = named, cameraIndex = 1 }
+  local _, _, hint = clickOutline(state, 10)
+
+  eq(type(hint), 'string')
+  eq(hint:find('Camera 1', 1, true) ~= nil, true, hint)
+  eq(hint:find('Eau Rouge', 1, true) ~= nil, true, 'and what it is called')
+end)
+
+test('a camera nobody has named still says which one it is', function()
+  local state = {
+    outline = outline(120), cameras = cameras({ 0.0, 0.5 }), cameraIndex = 1,
+  }
+  local _, _, hint = clickOutline(state, 80)
+  eq(hint:find('Camera 2', 1, true) ~= nil, true, hint)
+end)
+
+test('no name is ever drawn on the track itself', function()
+  -- A track is a curve and a name is a rectangle. Putting one on the other
+  -- means rotating the text or running a leader line, and both read badly on
+  -- a circuit that folds back on itself. The map says where, the ribbon says
+  -- who, and the status line answers.
+  local named = cameras({ 0.0, 0.5 })
+  named[1].name = 'Eau Rouge'
+  named[2].name = 'Bus Stop'
+
+  local drawn = drawOnce({
+    outline = outline(120), cameras = named, cameraIndex = 1,
+  })
+
+  for i = 1, #drawn do
+    eq(drawn[i].op ~= 'label' and drawn[i].op ~= 'text', true,
+      'the map wrote "' .. tostring(drawn[i].text) .. '" on the circuit')
+  end
+end)
