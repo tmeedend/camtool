@@ -735,3 +735,93 @@ test('letting go lands exactly, and gives the sound back', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- Letting the camera go
+--------------------------------------------------------------------------
+-- The per-frame loop returns early while the camera is not held, so the
+-- playback never runs to clear its own output. Everything it last decided sat
+-- there reading as current, and the panel believed it.
+
+test('letting go throws away what the playback last decided', function()
+  local playback = require('core/playback')
+  local state = playback.new()
+  state.out.x, state.out.trackPos, state.out.activeCam = 12, 0.3, 4
+  local out = state.out
+
+  playback.clearOutput(state)
+
+  eq(state.out.x, nil)
+  eq(state.out.trackPos, nil)
+  eq(state.out.activeCam, nil)
+  eq(rawequal(state.out, out), true,
+    'the table is kept: the app took a reference to it at startup')
+end)
+
+test('a released camera stops answering for what is on screen', function()
+  -- What this cost in game: take the camera on a shot, press Release, fly
+  -- somewhere else, and the panel still showed the position of the shot you
+  -- had left. Pinning X, Y and Z then pinned the old view. It only bit from
+  -- the SECOND camera onwards, because the first was made before the playback
+  -- had ever run.
+  local doc = {
+    pos = {
+      { camera_in = 0, camera_pit = false, camera_use_tracking_point = 1,
+        keyframes = { { keyframe = 0,
+          interpolation = { loc_x = 500, loc_y = 500, loc_z = 20 } } } },
+    },
+    time = {},
+  }
+
+  local opts = {
+    cameraFile = doc,
+    splinePosition = 0.1,
+    clicks = {
+      ['no file###fileName'] = true,
+      ['fake_track_-cameras.json   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
+    },
+  }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  ---What the panel currently shows for one parameter.
+  local function shown(key)
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    for i = 1, #handle.buttons do
+      local label = tostring(handle.buttons[i])
+      local text = label:match('^(.-)###.*' .. key .. 'val$')
+      if text ~= nil then return text end
+    end
+    return nil
+  end
+
+  for _ = 1, 6 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  opts.clicks['no file###fileName'] = nil
+  opts.clicks['fake_track_-cameras.json   [CamTool 2]###fileName'] = nil
+  opts.clicks['Take camera###hold'] = nil
+
+  eq(handle.grabbed, true, 'the camera was taken')
+  local held = shown('rot_y')
+  eq(held ~= nil and held ~= '--', true,
+    'while it drives, the playback answers -- got ' .. tostring(held))
+
+  -- Let go, and give the app a frame to notice.
+  opts.clicks['Release camera###hold'] = true
+  pcall(_G.script.windowAtr, 0.016)
+  handle.tick(0.016)
+  opts.clicks['Release camera###hold'] = nil
+  handle.tick(0.016)
+
+  eq(shown('rot_y'), '--',
+    'once it lets go it has nothing to say, and must not say the old thing')
+
+  handle.restoreIo()
+end)

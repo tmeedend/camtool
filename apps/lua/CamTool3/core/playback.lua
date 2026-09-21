@@ -96,6 +96,27 @@ function playback.new(options)
   return state
 end
 
+---Throw away everything the last frame produced.
+---
+---WHEN THE PLAYBACK STOPS RUNNING, and that is the case worth spelling out.
+---`playback.frame` clears its own output at the top of every frame, so a frame
+---that produces nothing says nothing -- but only if it runs at all. The app
+---skips it entirely while the camera is not held, and the numbers from the
+---last frame that DID run then sit there looking current.
+---
+---What that cost: release the camera, fly somewhere, and the panel still
+---showed the position of the shot you had just left. Pinning X, Y and Z pinned
+---the old view, not the one on screen. The playhead stopped following the
+---replay for the same reason, and the ribbon went on calling a camera live
+---when nothing was.
+---
+---The table itself is kept: the app took a reference to it when it started.
+---@param state table
+function playback.clearOutput(state)
+  if type(state) ~= 'table' or type(state.out) ~= 'table' then return end
+  for key in pairs(state.out) do state.out[key] = nil end
+end
+
 ---Pick the keyframed value, else the camera-level one, else a default.
 local function pick(keyframed, cameraLevel, fallback)
   if keyframed ~= nil then return keyframed end

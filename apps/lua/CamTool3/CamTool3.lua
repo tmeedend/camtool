@@ -314,6 +314,12 @@ local function releaseCamera()
     cam = nil
     log('camera released')
   end
+
+  -- And everything the playback last decided goes with it. The per-frame loop
+  -- returns early while the camera is not held, so nothing would clear these
+  -- otherwise and they would go on reading as current: see
+  -- playback.clearOutput for what that cost.
+  playbackCore.clearOutput(pb)
 end
 
 --------------------------------------------------------------------------------
