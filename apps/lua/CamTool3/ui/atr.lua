@@ -534,11 +534,14 @@ function atr.draw(state)
       actions.loadFile = true
     end
     if ui.itemHovered() then
-      ui.setTooltip(state.loadedName ~= nil
-        and ('Click to load another file.  ' ..
-          'Double click to save this one under a new name.')
-        or ('Click to load a file.  ' ..
-          'Double click to start a new set of your own.'))
+      -- The status line rather than a bubble: see ui/parameter for why there
+      -- are none left. This one was the worst of them, sitting over the
+      -- ribbon and the first row of parameters.
+      actions.hint = state.loadedName ~= nil
+        and ('Click: load another file.  ' ..
+          'Double click: save this one under a new name.')
+        or ('Click: load a file.  ' ..
+          'Double click: start a new set of your own.')
       if ui.mouseDoubleClicked(0) then
         renamingFile, fileNameWasActive = true, false
         fileNameBuffer = state.loadedName or ''
@@ -588,10 +591,14 @@ function atr.draw(state)
       vec2(iconAt.x + 13, mid), vec2(iconAt.x + 3, mid + 6), theme.label)
   end
 
-  ui.dummy(vec2(18, 20))
+  -- An invisible button rather than a dummy, so the icon is an item with an
+  -- identity: it reserves the same space and can be asked whether the pointer
+  -- is on IT, rather than on anything at all.
+  ui.invisibleButton('##playState', vec2(18, 20))
   if ui.itemHovered() then
-    ui.setTooltip(state.paused and 'The replay is paused.'
-      or 'The replay is playing.')
+    actions.hint = state.paused
+      and 'The replay is paused. CamTool reads this and cannot change it.'
+      or 'The replay is playing.'
   end
   ui.sameLine(0, 4)
 
@@ -911,11 +918,12 @@ function atr.draw(state)
   else
     -- Whatever the pointer is over: a parameter, or the ribbon, which has
     -- gestures of its own worth saying out loud.
-    local label, help = parameter.hovered()
+    local label, help, gestures = parameter.hovered()
     ui.pushStyleColor(ui.StyleColor.Text, theme.statusLine)
-    ui.text(label ~= nil and (label .. '  --  ' .. (help or ''))
+    ui.text(label ~= nil
+        and (label .. '  --  ' .. (help or '') .. '  ' .. (gestures or ''))
       or actions.hint
-      or 'Hover a value to read what it does.')
+      or 'Hover anything to read what it does.')
     ui.popStyleColor()
   end
 

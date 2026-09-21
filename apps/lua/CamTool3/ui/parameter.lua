@@ -44,15 +44,13 @@ local parameter = {}
 
 local DIAMOND_SIZE = 9
 
----The second half of every tooltip. The first half says what the parameter
----does; this says what you can do to it, and it is the same on every row --
----which is the point of having one component.
+---What you can do to a row, the same on every one of them -- which is the
+---point of having one component. It goes to the status line after the
+---sentence saying what the parameter does.
 local GESTURES =
   'Diamond: keyframe here. Arrows: one step. Drag: scrub. ' ..
   'Double click: type. Escape: cancel. Ctrl: finer. Shift: coarser.'
 local GESTURES_READONLY = 'Read only.'
----Between what a parameter does and what you can do to it.
-local BLANK_LINE = string.char(10) .. string.char(10)
 local GESTURES_NO_KEYFRAME = 'Arrows: one step. Drag: scrub. ' ..
   'Double click: type. Escape: cancel. Not keyframable.'
 
@@ -81,19 +79,21 @@ local dragId = nil
 local dragState = 'idle'
 local dragToken = 0
 
--- What the mouse is over, and for how long.
+-- What the mouse is over, for the status line at the foot of the panel.
 --
--- The delay is ours to keep because CSP does not expose ImGui's
--- ImGuiHoveredFlags_DelayNormal. Without one, crossing the panel sets off a
--- trail of bubbles; with one, a tooltip is something you ask for by resting
--- on a field.
+-- THERE ARE NO TOOLTIPS. There were, with a delay of their own, and Théo had
+-- them taken out: a bubble appears over the panel you are working in, and
+-- what it covers is the row under the pointer and its neighbours -- the very
+-- things you are looking at while you drag a value. Help that hides the work
+-- is not help. The sentences are all still written and all still shown; they
+-- go to the status line, which is always on screen, costs no height, and
+-- covers nothing.
 --
--- hoverLabel is also what the status line reads, and that one has NO delay:
--- it is always on screen, so it can afford to answer immediately.
-local hoverId = nil
-local hoverHeld = 0
+-- The status line has no delay either. It can afford to answer at once
+-- precisely because it does not appear and disappear.
 local hoverLabel = nil
 local hoverHelp = nil
+local hoverGestures = nil
 
 -- Which row is being typed into, and what is in the field. One at a time,
 -- so this is a plain pair rather than a table: opening a second field closes
@@ -106,7 +106,7 @@ local editingWasActive = false
 ---
 ---Called once before any row is drawn: the rows themselves cannot tell that
 ---the mouse has left the panel entirely, only that it is not on them.
----@param dt number|nil @seconds since the last frame, for the tooltip delay
+---@param dt number|nil @seconds since the last frame, kept for callers
 function parameter.beginFrame(dt)
   parameter.frameDt = type(dt) == 'number' and dt or 0
   parameter.frameHovered = false
@@ -115,32 +115,23 @@ end
 ---Finish a frame: forget the hover if nothing claimed it.
 function parameter.endFrame()
   if not parameter.frameHovered then
-    hoverId, hoverHeld, hoverLabel, hoverHelp = nil, 0, nil, nil
+    hoverLabel, hoverHelp, hoverGestures = nil, nil, nil
   end
 end
 
 ---What the mouse is over, for the status line.
----@return string|nil label, string|nil help
+---
+---Three parts, because the line has to carry what the tooltip used to: the
+---name of the row, what the parameter does, and what can be done to it.
+---@return string|nil label, string|nil help, string|nil gestures
 function parameter.hovered()
-  return hoverLabel, hoverHelp
+  return hoverLabel, hoverHelp, hoverGestures
 end
 
----Note that this row is under the mouse, and show its tooltip once the mouse
----has stayed long enough.
+---Note that this row is under the mouse, for the status line to name.
 local function noteHover(id, spec)
   parameter.frameHovered = true
-
-  if hoverId ~= id then
-    hoverId, hoverHeld = id, 0
-  else
-    hoverHeld = hoverHeld + (parameter.frameDt or 0)
-  end
-
-  hoverLabel, hoverHelp = spec.label, spec.help
-
-  if spec.help ~= nil and hoverHeld >= theme.tooltipDelay then
-    ui.setTooltip(spec.help .. BLANK_LINE .. (spec.gestures or ''))
-  end
+  hoverLabel, hoverHelp, hoverGestures = spec.label, spec.help, spec.gestures
 end
 
 ---Draw the keyframe diamond and report whether it was clicked.

@@ -1391,65 +1391,47 @@ local function hoverRow(frames, dt, spec)
   return handle
 end
 
-test('a tooltip waits for the mouse to settle', function()
-  -- Twenty-one fields packed together: with no delay, crossing the panel sets
-  -- off a trail of bubbles. CSP has no DelayNormal flag, so the clock is ours
-  -- and therefore has to be tested.
+test('no row ever puts a bubble over the panel', function()
+  -- Théo had them taken out. A bubble appears over the panel you are working
+  -- in, and what it covers is the row under the pointer and its neighbours --
+  -- the things you are looking at while you drag a value. Help that hides the
+  -- work is not help.
   local spec = { label = 'STR PITCH', text = '50%', width = 140,
     help = 'How much the tracking drives the tilt.' }
 
   local brief = hoverRow(1, 0.016, spec)
-  eq(#brief.tooltips, 0, 'passing over shows nothing')
+  eq(#brief.tooltips, 0, 'passing over')
   brief.restoreIo()
 
-  local settled = hoverRow(40, 0.016, spec)
-  eq(#settled.tooltips > 0, true, 'resting on it does')
+  local settled = hoverRow(120, 0.016, spec)
+  eq(#settled.tooltips, 0, 'and resting on it for two seconds')
   settled.restoreIo()
 end)
 
-test('a tooltip says what the parameter does before how to change it', function()
-  local settled = hoverRow(40, 0.016, { label = 'MIX', text = '0%', width = 140,
+test('the status line carries what the bubble used to say', function()
+  -- Nothing was written twice and nothing is lost: the sentence and the
+  -- gestures are the two halves the tooltip had, in the one place that is
+  -- always on screen.
+  hoverRow(1, 0.016, { label = 'MIX', text = '0%', width = 140,
     help = 'Blends the aim between the active car and the extra one.' })
 
-  local tip = settled.tooltips[1]
-  eq(tip:find('Blends the aim', 1, true), 1, 'what it does comes first')
-  eq(tip:find('Drag', 1, true) ~= nil, true, 'and the gestures follow')
-  settled.restoreIo()
+  local label, help, gestures = parameter.hovered()
+  eq(label, 'MIX')
+  eq(help, 'Blends the aim between the active car and the extra one.')
+  eq(type(gestures) == 'string' and gestures:find('Drag', 1, true) ~= nil, true,
+    'and what can be done to it')
 end)
 
 test('a read-only row does not promise gestures it has not got', function()
-  local settled = hoverRow(40, 0.016, {
+  hoverRow(1, 0.016, {
     label = 'ACTIVE CAR', text = 'car 0', width = 140, runtime = true,
     noDiamond = true, noTyping = true,
     help = 'The car being followed.',
   })
-  eq(settled.tooltips[1]:find('Read only', 1, true) ~= nil, true)
-  eq(settled.tooltips[1]:find('Drag', 1, true), nil)
-  settled.restoreIo()
-end)
 
-test('moving to another field restarts the wait', function()
-  local handle = fakes.install({ itemHovered = true })
-  parameter.cancelEditing()
-  require('ui/atr').cancelEditing()
-
-  local a = { label = 'FOV', text = '40', width = 140, help = 'Field of view.' }
-  local b = { label = 'PITCH', text = '0', width = 140, help = 'Tilt.' }
-
-  for _ = 1, 40 do
-    parameter.beginFrame(0.016)
-    parameter.draw('rowA', a)
-    parameter.endFrame()
-  end
-  local afterA = #handle.tooltips
-  eq(afterA > 0, true)
-
-  parameter.beginFrame(0.016)
-  parameter.draw('rowB', b)
-  parameter.endFrame()
-  eq(#handle.tooltips, afterA, 'the new field starts its own wait')
-
-  handle.restoreIo()
+  local _, _, gestures = parameter.hovered()
+  eq(gestures:find('Read only', 1, true) ~= nil, true)
+  eq(gestures:find('Drag', 1, true), nil)
 end)
 
 test('the status line answers at once, with no delay at all', function()
@@ -1509,12 +1491,12 @@ test('the ? button shows the legend instead of the status line', function()
   end
 
   local closed = textsWith(false)
-  eq(closed:find('Hover a value', 1, true) ~= nil, true, 'the status line')
+  eq(closed:find('Hover anything', 1, true) ~= nil, true, 'the status line')
   eq(closed:find('never edits', 1, true), nil, 'and not the legend')
 
   local open = textsWith(true)
   eq(open:find('never edits', 1, true) ~= nil, true, 'the legend, in full')
-  eq(open:find('Hover a value', 1, true), nil)
+  eq(open:find('Hover anything', 1, true), nil)
 end)
 
 test('every parameter of the panel carries a sentence', function()
@@ -1810,18 +1792,22 @@ test('the panel hands the widget the sentence written for the row', function()
   eq(type(help), 'string', 'the sentence reached the widget')
   eq(#help > 10, true, 'and it is a sentence, not an empty slot')
 
-  -- And that same sentence, given to the widget, does become a tooltip.
+  -- And that same sentence, given to the widget, is what it reports back for
+  -- the status line. This is the join that was broken once: both halves had
+  -- tests and the seam between them did not, so not one sentence ever reached
+  -- the screen.
   handle.restoreIo()
   handle = fakes.install({ itemHovered = true })
   parameter.cancelEditing()
   require('ui/atr').cancelEditing()
-  for _ = 1, 40 do
-    parameter.beginFrame(0.016)
-    parameter.draw('join', { label = label, help = help, text = '1', width = 140 })
-    parameter.endFrame()
-  end
-  eq(#handle.tooltips > 0, true, 'and the widget shows it')
-  eq(handle.tooltips[1]:find(help, 1, true), 1)
+
+  parameter.beginFrame(0.016)
+  parameter.draw('join', { label = label, help = help, text = '1', width = 140 })
+  parameter.endFrame()
+
+  local joinedLabel, joinedHelp = parameter.hovered()
+  eq(joinedLabel, label)
+  eq(joinedHelp, help, 'and the widget hands it straight back')
 
   handle.restoreIo()
 end)
@@ -1884,17 +1870,22 @@ test('the header says whether the replay is running', function()
 end)
 
 test('the indicator says what it means when hovered', function()
-  local handle = fakes.install({ itemHovered = true })
+  -- In the status line, like everything else that used to be a bubble. The
+  -- hover is scoped to the icon: with everything hovered at once the ribbon
+  -- has the last word, which is right on screen and useless in a test.
+  local handle = fakes.install({ itemHovered = '##playState' })
   parameter.cancelEditing()
   require('ui/atr').cancelEditing()
 
-  atr.draw({
+  local actions = atr.draw({
     cameraCount = 0, keyframeCount = 0, listName = 'pos',
     trackPos = 0, trackLength = 1000, showMap = false, paused = true,
   })
 
-  local said = table.concat(handle.tooltips, ' | ')
-  eq(said:find('paused', 1, true) ~= nil, true, 'got: ' .. said:sub(1, 80))
+  eq(type(actions.hint) == 'string'
+    and actions.hint:find('paused', 1, true) ~= nil, true,
+    'got: ' .. tostring(actions.hint))
+  eq(#handle.tooltips, 0, 'and not as a bubble')
   handle.restoreIo()
 end)
 
@@ -2415,5 +2406,28 @@ test('naming that set writes it, and the panel lands on it', function()
   end
   eq(shown, 'first go')
 
+  handle.restoreIo()
+end)
+
+test('the panel never shows a tooltip anywhere', function()
+  -- Théo's call, and a rule rather than a preference: a bubble covers the
+  -- panel it is explaining. A test that swept only the parameter rows would
+  -- miss the file name and the play indicator, which each had one of their
+  -- own -- and the file name's sat right over the ribbon.
+  local doc = data.load(rawFile)
+  local handle = fakes.install({ itemHovered = true })
+  parameter.cancelEditing()
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+
+  atr.draw({
+    doc = doc, camera = doc.pos[1], cameraIndex = 1, cameraCount = #doc.pos,
+    cameras = doc.pos, keyframeIndex = 1, keyframeCount = 2,
+    trackPos = 0.3, trackLength = 4300, listName = 'pos',
+    loadedName = 'theo', showMap = false, paused = true, dt = 0.016,
+  })
+
+  eq(#handle.tooltips, 0,
+    'something still popped a bubble: ' .. tostring(handle.tooltips[1]))
   handle.restoreIo()
 end)
