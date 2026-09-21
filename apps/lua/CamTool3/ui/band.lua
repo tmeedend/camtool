@@ -53,6 +53,11 @@ local dragToken = 0
 -- would land on the wrong camera.
 local renaming = nil
 local renameBuffer = ''
+-- Whether the field has yet had the keyboard. Two things hang on it, and both
+-- were wrong without it: the focus is asked for on the frame it opens and not
+-- after, and a click elsewhere only closes the field once it has actually
+-- been open.
+local renameWasActive = false
 
 
 -- Where the right click landed, kept from the moment the menu opens. By the
@@ -513,6 +518,14 @@ local function drawBand(state, width)
       if fieldX < origin.x then fieldX = origin.x end
 
       ui.setCursor(vec2(fieldX, bottom - theme.bandRibbon))
+
+      -- TAKE THE KEYBOARD ON THE FRAME IT OPENS, or every keystroke goes
+      -- somewhere else. Without this the field appeared -- a grey box over
+      -- the ribbon -- and typing did nothing at all, which reads as a rename
+      -- that is not implemented rather than a field waiting to be clicked.
+      -- ui/atr does the same for the file name and says the same thing.
+      if not renameWasActive then ui.setKeyboardFocusHere() end
+
       ui.setNextItemWidth(fieldWidth)
       local text, _, entered = ui.inputText('##bandRename', renameBuffer,
         ui.InputTextFlags.AutoSelectAll)
@@ -520,11 +533,19 @@ local function drawBand(state, width)
 
       if entered then
         renamed = { index = span.index, name = renameBuffer }
-        renaming = nil
-      elseif not ui.itemActive() and renameBuffer ~= '' then
+        renaming, renameWasActive = nil, false
+      elseif ui.itemActive() then
+        renameWasActive = true
+      elseif renameWasActive then
         -- Clicked away: dropped, like every other typed entry in this panel.
         -- Not Escape -- see ui/parameter for why that key is left alone.
-        renaming = nil
+        --
+        -- ONCE IT HAS BEEN ACTIVE, and not before: a field is not active on
+        -- the frame it appears. The old test asked instead whether the buffer
+        -- was empty, so naming a camera that had no name -- the only kind
+        -- anyone wants to name -- left the field open for ever, unfocused,
+        -- with nothing able to close it.
+        renaming, renameWasActive = nil, false
       end
     end
   end
@@ -686,7 +707,7 @@ function band.reset()
   scrubbing, scrubAt = false, nil
   scrubReport, scrubLanding = nil, nil
   menuAt, menuIndex = nil, nil
-  renaming, renameBuffer = nil, ''
+  renaming, renameBuffer, renameWasActive = nil, '', false
 end
 
 return band

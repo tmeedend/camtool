@@ -403,14 +403,44 @@ local function openRename(state, mouseX)
   handle.restoreIo()
 end
 
-test('double clicking a segment opens a field over it', function()
+test('a camera with no identity of its own cannot be renamed', function()
+  -- The rename is held by id, because a rank moves the moment a camera is
+  -- inserted ahead of it. A camera without one -- which no document written
+  -- since version 2 has -- would open a field that could never find its way
+  -- back, so it opens nothing.
   band.reset()
   local state = { cameras = cameras({ 0, 0.5 }), cameraIndex = 1 }
   openRename(state, WIDTH * 0.75)
 
-  -- The field is drawn on the next frame, with nothing typed yet.
+  local handle = fakes.install({ typed = 'nowhere', enterPressed = true })
+  eq(band.draw(state, WIDTH).rename, nil, 'a field opened over nothing')
+  eq(handle.focusRequests, 0)
+  handle.restoreIo()
+  band.reset()
+end)
+
+test('the field takes the keyboard on the frame it opens', function()
+  -- Without this it appears as a grey box over the ribbon and swallows every
+  -- keystroke, which reads as a rename that was never implemented. It is what
+  -- Théo hit: he double clicked, typed, and nothing happened.
+  band.reset()
+  local state = { cameras = named({ { 0, nil }, { 0.5, nil } }), cameraIndex = 1 }
+  openRename(state, WIDTH * 0.75)
+
   local handle = fakes.install({})
   band.draw(state, WIDTH)
+  eq(handle.focusRequests, 1, 'the caret was never put in the field')
+  handle.restoreIo()
+
+  -- And asked for once. Asking every frame would take the keyboard back from
+  -- wherever the user moved it.
+  handle = fakes.install({ itemActive = '##bandRename' })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  handle = fakes.install({ itemActive = '##bandRename' })
+  band.draw(state, WIDTH)
+  eq(handle.focusRequests, 0, 'it went on grabbing the keyboard')
   handle.restoreIo()
   band.reset()
 end)
@@ -430,21 +460,53 @@ test('typing a name and pressing enter reports it', function()
   band.reset()
 end)
 
-test('escape drops the rename', function()
+test('clicking away drops the rename', function()
+  -- Not Escape: that is the game's key for leaving the replay, and the panel
+  -- leaves it alone. See ui/parameter.
   band.reset()
   local state = { cameras = named({ { 0, nil } }), cameraIndex = 1 }
   openRename(state, WIDTH * 0.5)
 
-  local handle = fakes.install({ typed = 'nope', keyPressed = 27 })
+  -- The field has the keyboard.
+  local handle = fakes.install({ itemActive = '##bandRename', typed = 'nope' })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  -- And now the click lands somewhere else.
+  handle = fakes.install({})
   local rename = band.draw(state, WIDTH).rename
   handle.restoreIo()
   eq(rename, nil)
 
-  -- And the field is gone: nothing comes back on the next frame either.
+  -- The field is gone: nothing comes back on the next frame either.
   handle = fakes.install({ typed = 'nope', enterPressed = true })
   local after = band.draw(state, WIDTH).rename
   handle.restoreIo()
   eq(after, nil, 'the field closed rather than staying open')
+  band.reset()
+end)
+
+test('a camera with no name at all can still be clicked away from', function()
+  -- THE ONE THAT STUCK. The field used to close on a click elsewhere only if
+  -- something had been typed into it, so naming a camera that had no name --
+  -- the only kind anyone wants to name -- left a grey box sitting on the
+  -- ribbon with nothing able to shift it.
+  band.reset()
+  local state = { cameras = named({ { 0, nil } }), cameraIndex = 1 }
+  openRename(state, WIDTH * 0.5)
+
+  local handle = fakes.install({ itemActive = '##bandRename' })
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  handle = fakes.install({})
+  band.draw(state, WIDTH)
+  handle.restoreIo()
+
+  -- Gone: a frame that would otherwise commit finds no field to commit.
+  handle = fakes.install({ typed = 'late', enterPressed = true })
+  eq(band.draw(state, WIDTH).rename, nil)
+  handle.restoreIo()
   band.reset()
 end)
 

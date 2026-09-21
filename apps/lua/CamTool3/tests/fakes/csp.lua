@@ -51,6 +51,7 @@ function fakes.install(opts)
     replayPositions = {},
     cameraCalls = {},
     audioWrites = {},
+    focusRequests = 0,
     transform = {
       position = { x = 0, y = 0, z = 0 },
       look = { x = 0, y = 0, z = 1 },
@@ -422,6 +423,13 @@ function fakes.install(opts)
     end,
     setTooltip = function(text)
       handle.tooltips[#handle.tooltips + 1] = tostring(text)
+    end,
+
+    -- Asking ImGui to put the caret in the next field. Recorded, because a
+    -- field that opens without it swallows every keystroke and looks to the
+    -- user exactly like a field that does nothing.
+    setKeyboardFocusHere = function()
+      handle.focusRequests = handle.focusRequests + 1
     end,
 
     -- The context menu. Its contents are only drawn while it is open, so a
