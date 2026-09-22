@@ -27,7 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_PATH = os.path.join(HERE, '..', 'icon.png')
 
 S = 256          # the size it is drawn at
-OUT = 128        # the size it is saved at
+OUT = 64         # the size it is saved at
 
 # CamTool 2's own red and white, sampled from its icon.
 RED = (190, 2, 2, 255)
