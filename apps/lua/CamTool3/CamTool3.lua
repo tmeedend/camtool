@@ -1410,9 +1410,26 @@ handleShortcuts = function()
   end
 end
 
--- Reset asks once. CamTool 2 does not, and it is the one button that can
--- throw away an afternoon in a single click.
+-- The two buttons that can throw away an afternoon in a single click. Both
+-- ask once, and what arms them is a click on the button itself.
 local atrConfirmReset = false
+local atrConfirmLoad = false
+
+---Did the user actually DO something this frame?
+---
+---Not `next(actions) ~= nil`, which was the old test and was wrong in a way
+---nobody would guess: `hint` is an action, and it is set every frame the
+---pointer is anywhere over the ribbon or the play indicator. So an armed
+---confirmation disarmed itself the moment the mouse drifted across the panel
+---on its way back to the button -- which is the path it takes.
+---@param actions table
+---@return boolean
+local function actedOn(actions)
+  for key in pairs(actions) do
+    if key ~= 'hint' then return true end
+  end
+  return false
+end
 
 -- How far one press moves a keyframe along the track. CamTool 2 offers 1, 10
 -- and 100 m on separate buttons; one row plus the modifiers covers the same
@@ -1614,6 +1631,7 @@ function script.windowAtr(dt)
     showHelp = atrShowHelp,
     showKeys = atrShowKeys,
     confirmReset = atrConfirmReset,
+    confirmLoad = atrConfirmLoad,
     paused = playing.paused,
     -- Offered when naming a camera that has none: see ui/band.
     sectionNameAt = trackAdapter.sectionNameAt,
@@ -1917,12 +1935,33 @@ function script.windowAtr(dt)
     playbackCore.applyMode(pb, doc.interpolation_mode)
   end
 
+  -- LOADING ASKS FIRST WHEN THERE IS WORK TO LOSE -- issue #26. Loading
+  -- replaces the whole document and empties the undo stack, so there is no
+  -- way back from it, and the thing that opens a file is the same button
+  -- people click to read which one is open.
+  --
+  -- The undo depth is what counts as unsaved, which is the same signal the
+  -- star on the Save button uses: the warning appears exactly when the star
+  -- is showing, so the two never disagree.
   if actions.loadFile then
-    loadSelectedFile()
-    -- A name being typed was about the file that was in hand a moment ago.
-    atrPanel.cancelEditing()
-    atrStatus = nil
-    undoStack, redoStack = {}, {}
+    local pending = #undoStack
+
+    if pending > 0 and not atrConfirmLoad then
+      atrConfirmLoad = true
+      atrStatus = string.format(
+        '%d unsaved change%s would be lost. Click again to load anyway.',
+        pending, pending == 1 and '' or 's')
+    else
+      atrConfirmLoad = false
+      loadSelectedFile()
+      -- A name being typed was about the file that was in hand a moment ago.
+      atrPanel.cancelEditing()
+      atrStatus = nil
+      undoStack, redoStack = {}, {}
+    end
+  elseif atrConfirmLoad and actedOn(actions) then
+    -- Anything else done means they thought better of it.
+    atrConfirmLoad = false
   end
 
   -- Reset. CamTool 2 wipes both camera lists and both track splines with no
@@ -1942,8 +1981,8 @@ function script.windowAtr(dt)
       atrConfirmReset = true
       atrStatus = 'Reset clears every camera of this list. Click again.'
     end
-  elseif atrConfirmReset and next(actions) ~= nil then
-    -- Anything else clicked means they thought better of it.
+  elseif atrConfirmReset and actedOn(actions) then
+    -- Anything else done means they thought better of it.
     atrConfirmReset = false
   end
 

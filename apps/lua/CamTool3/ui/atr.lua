@@ -301,7 +301,10 @@ atr.LEGEND = {
   'Files   DOUBLE CLICK THE FILE NAME to save under a different one -- or, ' ..
     'with nothing loaded, to start an empty set of your own. Save writes ' ..
     'over the file it came from, keeping one copy of what was there before ' ..
-    'CamTool 3 first touched it. Reset asks first.',
+    'CamTool 3 first touched it.',
+  'Files   LOADING ASKS FIRST when there is unsaved work -- the button says ' ..
+    '"lose changes?" and wants a second click. Reset asks the same way. ' ..
+    'Anything else you do calls it off.',
 }
 
 --------------------------------------------------------------------------------
@@ -532,7 +535,17 @@ function atr.draw(state)
       renamingFile, fileNameWasActive = false, false
     end
   else
-    if ui.button((state.fileName or 'no file') .. '###fileName',
+    -- ARMED, THE BUTTON SAYS SO ITSELF, like Reset beside it. Warning only
+    -- in the line at the foot of the panel puts the warning a long way from
+    -- the thing that was clicked, and a first click then reads as nothing
+    -- happening -- which is how it went wrong for Reset.
+    --
+    -- The name stays in the label: what matters next is whether to go on, and
+    -- which file you were about to open is half of that.
+    local name = state.fileName or 'no file'
+    if state.confirmLoad then name = 'lose changes? ' .. name end
+
+    if ui.button(name .. '###fileName',
         vec2(nameWidth, theme.barHeight)) then
       actions.loadFile = true
     end
@@ -541,8 +554,8 @@ function atr.draw(state)
       -- are none left. This one was the worst of them, sitting over the
       -- ribbon and the first row of parameters.
       actions.hint = state.loadedName ~= nil
-        and ('Click: load another file.  ' ..
-          'Double click: save this one under a new name.')
+        and ('Click: load another file -- it asks first if there is ' ..
+          'unsaved work.  Double click: save this one under a new name.')
         or ('Click: load a file.  ' ..
           'Double click: start a new set of your own.')
       if ui.mouseDoubleClicked(0) then

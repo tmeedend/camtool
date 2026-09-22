@@ -19,7 +19,7 @@ cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
 dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (697 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (702 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -166,6 +166,7 @@ rien.
 | 33e | **Plus d'infobulles** | Survoler n'importe quoi : **aucune bulle** ne doit apparaître. La phrase et les gestes sont dans la ligne du bas. |
 | 33f | **Bouton `keys`** | À côté du `?`. Il ouvre les affectations seules ; ouvrir l'un doit refermer l'autre. |
 | 33g | **Numéros et noms** | Les segments ne portent que des **chiffres**, jamais un nom, même quand un nom tiendrait. Survoler un segment **ou un point du tracé** : la ligne du bas dit « Camera 4 — Fagnes ». Un segment trop fin pour un chiffre reste visible et se nomme au survol. |
+| 33h | **Charger par-dessus du non sauvé** | Faire une modification, puis cliquer le nom de fichier : le bouton doit devenir `lose changes? …` et **ne rien charger**. Un second clic charge. Passer la souris sur le ruban entre les deux ne doit **pas** annuler la question. Sans modification en cours, aucune question. |
 | 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 | 35 | **La règle** | Le bandeau du haut se distingue du reste au premier coup d'œil. Les distances sont lisibles et ne se chevauchent pas ; **redimensionner la fenêtre** doit en ajouter ou en retirer, jamais les entasser. Sur Spa, « Kemmel Straight » et « Eau Rouge » doivent s'afficher à leur place. |
 | 36 | **Scrub** | Presser la règle et **glisser sans lâcher** : l'image doit suivre la main, un peu en retard mais en continu, sans à-coup ni saut en arrière. Au relâchement, la voiture se pose **exactement** où le trait a été lâché. |
@@ -915,6 +916,30 @@ le curseur — elle dessine l'anneau de survol avec —, donc le nom part dans l
 **ligne de statut**, la même que celle du ruban. Un seul endroit pour la même
 question, quelle que soit la surface survolée. Un test échoue si la carte
 écrit quoi que ce soit sur le tracé.
+
+## 🛑 Charger ne détruit plus en silence — issue #26
+
+Charger un fichier remplace tout le document et vide la pile d'annulation :
+aucun retour possible. Et le bouton qui le fait est celui qu'on clique pour
+lire quel fichier est ouvert. Le ticket le dit mieux : *« si l'utilisateur a
+commencé à créer des caméras et appuie par accident, il perd tout »*.
+
+Donc : **s'il y a du travail non sauvé, le premier clic arme et le second
+charge**, comme Reset le fait déjà. Armé, le bouton le dit lui-même
+(`lose changes? <nom>`) plutôt que de le murmurer dans la ligne de statut —
+c'est la leçon que Reset avait déjà coûtée. Ce qui compte comme « non sauvé »
+est la profondeur de la pile d'annulation, c'est-à-dire **le même signal que
+l'étoile de `Save *`** : les deux ne peuvent pas se contredire.
+
+**Un trou trouvé en chemin, dans Reset.** L'annulation de la question testait
+`next(actions) ~= nil` — or `hint` est une action, et elle est posée à chaque
+frame où le pointeur est quelque part sur le ruban ou sur l'indicateur de
+lecture. Une confirmation armée se désarmait donc toute seule dès que la
+souris traversait le panneau — ce qu'elle fait pour revenir au bouton.
+`actedOn` ignore `hint`, et un test tombe si la règle revient en arrière.
+
+**Ce que ça ne fait pas** : les flèches `<` `>` ne chargent rien, elles
+déplacent seulement la position de parcours — rien à confirmer de ce côté.
 
 ## 📦 Sortir une version
 

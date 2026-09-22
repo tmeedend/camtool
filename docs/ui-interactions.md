@@ -239,6 +239,31 @@ Déplacer la tête de lecture **n'est pas une modification de données** : aucun
 entrée d'annulation, jamais. Un glissé qui traverse la moitié du tour laisse
 la pile d'annulation exactement où elle était.
 
+## Ce qui détruit du travail demande deux fois
+
+Deux gestes effacent ce qui n'est pas sauvé : **Reset**, qui vide la liste de
+caméras, et **charger un fichier**, qui remplace tout le document et vide la
+pile d'annulation. Les deux demandent confirmation, de la même façon.
+
+| | Premier clic | Second clic |
+|---|---|---|
+| Reset | le bouton devient `Reset?` | il vide la liste — et `Undo` la ramène |
+| Nom de fichier | le bouton devient `lose changes? <nom>` | il charge, et la pile part avec |
+
+**L'état armé se lit sur le bouton, pas seulement dans la ligne de statut.**
+Avertir uniquement en bas de la fenêtre met l'avertissement loin de ce qu'on
+vient de cliquer, et le premier clic se lit alors comme « il ne s'est rien
+passé ». Reset l'a appris le premier.
+
+**Charger ne demande que s'il y a quelque chose à perdre** — le même signal que
+l'étoile de `Save *`, donc l'avertissement apparaît exactement quand l'étoile
+est là et les deux ne peuvent pas se contredire. Poser la question à chaque
+fois est la façon de la transformer en réflexe et de la faire cesser d'être lue.
+
+**N'importe quelle autre action annule la question.** Pas n'importe quel
+mouvement : survoler le ruban n'est pas une décision, et c'est le chemin que
+la souris prend pour revenir au bouton.
+
 ## Ce qui n'a pas sa place dans l'UI
 
 - **Aucune note de chantier.** « Pas encore implémenté », listes de ce qui manque par rapport à CamTool 2 : cela va dans les issues GitHub ou le README, jamais dans la fenêtre.

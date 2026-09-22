@@ -2475,3 +2475,162 @@ test('the legend says where a camera says its name', function()
   eq(all:find('never its name', 1, true) ~= nil, true)
   eq(all:find('names it', 1, true) ~= nil, true)
 end)
+
+--------------------------------------------------------------------------
+-- Loading over work that is not saved -- issue #26
+--------------------------------------------------------------------------
+-- Loading replaces the whole document and empties the undo stack, so there is
+-- no way back from it, and the button that does it is the one people click to
+-- read which file is open.
+
+---Load the app, make one edit so there is something to lose, then click the
+---file name `clicks` times.
+---@return table handle, table opts
+local function loadOverWork(clicks, opts)
+  opts = opts or {}
+  opts.cameraFile = rawFile
+  opts.splinePosition = 0.3
+  opts.clicks = {
+    ['no file###fileName'] = true,
+    ['cameras   [CamTool 2]###fileName'] = true,
+  }
+
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- The fake takes hold of `opts.clicks` when it is installed, so this only
+  -- ever empties that table. Handing it a NEW one leaves the fake reading the
+  -- old one, and every click in the test silently does nothing.
+  local function pressOnly(...)
+    for key in pairs(opts.clicks) do opts.clicks[key] = nil end
+    for _, key in ipairs({ ... }) do opts.clicks[key] = true end
+  end
+
+  -- Open the file, then stop clicking its name.
+  for _ = 1, 3 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+
+  -- One edit, so there is unsaved work.
+  pressOnly('+cam##camadd')
+  for _ = 1, 3 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  pressOnly()
+
+  -- And now the clicks on the name being tested. Both labels, because the
+  -- button renames itself once it is armed.
+  for _ = 1, clicks do
+    pressOnly('cameras   [CamTool 2]###fileName',
+      'lose changes? cameras   [CamTool 2]###fileName')
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    pressOnly()
+    handle.tick(0.016)
+  end
+
+  return handle, opts
+end
+
+---How deep the undo stack is, read off the button that shows it.
+local function undoDepth(handle)
+  for i = #handle.buttons, 1, -1 do
+    local n = tostring(handle.buttons[i]):match('^Undo %((%d+)%)')
+    if n then return tonumber(n) end
+  end
+  return nil
+end
+
+local function labelled(handle, needle)
+  for i = 1, #handle.buttons do
+    if tostring(handle.buttons[i]):find(needle, 1, true) then return true end
+  end
+  return false
+end
+
+test('one click on the file name does not throw unsaved work away', function()
+  local handle = loadOverWork(1)
+
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+  eq(undoDepth(handle), 1, 'the edit is still there')
+
+  handle.restoreIo()
+end)
+
+test('and the button itself says what a second click would cost', function()
+  -- Not only the status line: that is a long way from the thing clicked, and
+  -- a first click then reads as nothing happening. Reset learned this first.
+  local handle = loadOverWork(1)
+
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+  eq(labelled(handle, 'lose changes?'), true, 'the button is not armed')
+
+  handle.restoreIo()
+end)
+
+test('a second click loads, and the stack goes with it', function()
+  local handle = loadOverWork(2)
+
+  handle.buttons = {}
+  pcall(_G.script.windowAtr, 0.016)
+  eq(undoDepth(handle), 0, 'the file was loaded over it')
+  eq(labelled(handle, 'lose changes?'), false, 'and the button is calm again')
+
+  handle.restoreIo()
+end)
+
+test('with nothing unsaved, loading asks nothing at all', function()
+  -- The question is worth asking once. Asking it every time is how a
+  -- confirmation becomes a reflex and stops being read.
+  local opts = {
+    cameraFile = rawFile,
+    clicks = {
+      ['no file###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
+    },
+  }
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 3 do
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+
+  eq(labelled(handle, 'lose changes?'), false)
+  handle.restoreIo()
+end)
+
+test('hovering the ribbon does not call the question off', function()
+  -- It used to. `hint` is an action, and it is set every frame the pointer is
+  -- anywhere over the ribbon -- which is the path the mouse takes on its way
+  -- back to the button. Reset had the same hole.
+  local handle, opts = loadOverWork(1)
+
+  opts.itemHovered = true
+  opts.mouseX, opts.mouseY = 100, 40
+  for _ = 1, 3 do
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  opts.itemHovered = false
+
+  eq(labelled(handle, 'lose changes?'), true,
+    'a mouse crossing the panel disarmed it')
+
+  handle.restoreIo()
+end)
