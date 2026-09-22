@@ -916,6 +916,70 @@ le curseur — elle dessine l'anneau de survol avec —, donc le nom part dans l
 question, quelle que soit la surface survolée. Un test échoue si la carte
 écrit quoi que ce soit sur le tracé.
 
+## 📦 Sortir une version
+
+**Un seul zip, les deux apps dedans.** CamTool 3 est en bêta et exige CSP ;
+CamTool 2 n'exige rien et fait tout. Livrer les deux, c'est livrer le repli
+avec le produit — quelqu'un qui bute sur un manque rouvre CamTool 2 dans la
+même session, ses fichiers intacts (CamTool 3 n'écrit jamais chez elle, et
+c'est testé). On scindera quand la 3 tiendra debout seule.
+
+La marche à suivre :
+
+```
+git tag v3.0.0-beta.1
+git push origin v3.0.0-beta.1
+```
+
+Le reste est dans `.github/workflows/release.yml` : il rejoue les tests et
+**s'arrête s'ils échouent** — un pipeline qui ne sait pas refuser n'est qu'une
+façon plus rapide de publier une build cassée, et le tag est justement le
+moment où personne ne regarde la sortie des tests. Puis il construit le zip,
+tamponne `VERSION` dans le manifeste depuis le tag, et crée une release **en
+brouillon**. Tu écris les notes et tu publies.
+
+**Ce qui part dans le zip est décidé par `.gitattributes`**, pas par une
+seconde liste dans le workflow qui dériverait de la première. Sont exclus :
+`tests/`, `tools/`, `docs/`, `CLAUDE.md`, `.github/`, et la maquette
+`atr-new-ui.png` (2 Mo, soit les quatre cinquièmes du poids). `LICENSE` part —
+obligation GPL v3, pas politesse — et `README.md` aussi, parce que c'est le
+seul mode d'emploi que quelqu'un ait une fois le zip ouvert.
+
+Le zip s'ouvre directement sur `apps/` et `content/` : **le dépôt a déjà la
+forme du dossier de jeu**, donc `git archive` produit l'arborescence
+d'installation sans aucune mise en forme. Pas de dossier enveloppe — c'est la
+façon classique pour un mod d'avoir l'air installé et de ne rien faire.
+
+Vérifié localement : 96 entrées, 1,0 Mo compressé, `VERSION = 3.0.0-beta.1`.
+
+**Le tag porte un `v`**, contrairement aux anciens (`2.2.0`…`2.2.2`), qui
+restent tels quels. Le `v` rend le déclencheur du workflow net et la ligne de
+version continue après 2.2.2.
+
+### Intégration continue
+
+`.github/workflows/tests.yml` tourne à chaque push et chaque PR : la suite
+LuaJIT, et `vermin` sur le Python. Aucun des deux ne peut dire que l'app marche
+en jeu — rien hors du jeu ne le peut. Ce qu'ils disent, c'est que ce qui se
+vérifie sans lui tient toujours, et ils le disent **sur une autre machine**,
+seul moyen de découvrir qu'un test ne passait que sur celle qui l'a écrit.
+
+### L'icône
+
+`apps/lua/CamTool3/icon.png`, 128 px, engendrée par `tools/make_icon.py`
+(Pillow, sur le Python du poste). Un générateur plutôt qu'un PNG dessiné à la
+main : une icône que personne ne peut rouvrir est une icône que personne ne
+peut changer.
+
+Le dessin n'est pas original, volontairement — même disque rouge, même anneau,
+même caméra que CamTool 2, et un `3`. On trouve CamTool dans une liste de
+trente apps à sa couleur ; l'icône d'un successeur doit être reconnue avant
+d'être lue. La palette est relevée sur `CamTool_2_ON.png`, pas inventée.
+
+⚠️ **À confirmer en jeu** : que CSP lise bien `icon.png` à côté du manifeste.
+Le SDK de `extension/internal/lua-sdk/` ne documente que l'API Lua, pas
+l'empaquetage — c'est donc une convention supposée, pas vérifiée.
+
 ## ❓ À demander au designer d'ATR
 
 `docs/ui-interactions.md` **a maintenant sa section « Le ruban »** : les deux

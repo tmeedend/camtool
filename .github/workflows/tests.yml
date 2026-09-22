@@ -1,0 +1,49 @@
+# Run what CLAUDE.md asks for before any change is proposed, on every push.
+#
+# Neither of these can say the app works in game -- nothing outside the game
+# can. What they do say is that the parts that can be checked without it still
+# hold, and they say it on someone else's machine, which is the only way to
+# find out that a test only ever passed on the machine that wrote it.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  camtool3:
+    name: CamTool 3 -- LuaJIT
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # LuaJIT and not Lua 5.4, because Custom Shaders Patch runs on LuaJIT.
+      # Its _VERSION is 5.1, which is the syntax the app is held to.
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+
+      - name: Run the suite
+        working-directory: apps/lua/CamTool3
+        run: luajit tests/run.lua
+
+  camtool2:
+    name: CamTool 2 -- Python 3.3 compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # vermin is a static analyser: 3.12 runs it, 3.3 is what it checks for.
+      # Assetto Corsa embeds Python 3.3, and an f-string that slips in is not
+      # found until the app fails to load in game -- silently, in a log file.
+      - name: Install vermin
+        run: pip install vermin
+
+      # keyboard/ is vendored third-party code and tests/ does not ship, so
+      # neither is held to the 3.3 target. Same list as CLAUDE.md's.
+      - name: Check the 3.3 target
+        working-directory: apps/python/CamTool_2
+        run: vermin --no-tips -t=3.3- --violations classes files ui CamTool_2.py

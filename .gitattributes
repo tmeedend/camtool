@@ -1,0 +1,28 @@
+# What is in the repository but not in a release.
+#
+# `git archive` honours these, so the release workflow does not carry a second
+# list of exclusions that would drift from this one. Anything not named here
+# ships -- which is the right default: a file nobody decided to exclude is a
+# file somebody may need.
+#
+# LICENSE and README.md ship. The first is a GPL v3 obligation, the second is
+# the only instructions anyone gets once the zip is open.
+
+/.gitattributes export-ignore
+/.gitignore    export-ignore
+/.github       export-ignore
+
+# The reasoning, and the instructions for working on it. Useful on GitHub,
+# noise in a game folder.
+/CLAUDE.md     export-ignore
+/docs          export-ignore
+
+# Out-of-game tests and developer scripts. CLAUDE.md already rules the tests
+# out of a release package; the tools need Python and Pillow, which a player
+# has no reason to have.
+apps/lua/CamTool3/tests export-ignore
+apps/lua/CamTool3/tools export-ignore
+
+# ATR's mockup of the new panel: two megabytes of design document, and four
+# fifths of what a release would otherwise weigh.
+apps/python/CamTool_2/atr-new-ui.png export-ignore

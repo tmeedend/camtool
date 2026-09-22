@@ -1,0 +1,96 @@
+# Build the release zip when a version tag is pushed.
+#
+# IT RUNS THE TESTS FIRST AND STOPS IF THEY FAIL. A release pipeline that
+# cannot refuse is only a faster way to publish a broken build, and the tag is
+# exactly the moment nobody is watching the test output.
+#
+# The release is left as a DRAFT. Pressing publish is a person's job: a tag
+# pushed by accident should cost a deleted draft, not a download that has
+# already reached someone's game folder.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------
+      # The gate
+      # ---------------------------------------------------------------
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+
+      - name: CamTool 3 tests
+        working-directory: apps/lua/CamTool3
+        run: luajit tests/run.lua
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install vermin
+        run: pip install vermin
+
+      - name: CamTool 2 -- Python 3.3 compatibility
+        working-directory: apps/python/CamTool_2
+        run: vermin --no-tips -t=3.3- --violations classes files ui CamTool_2.py
+
+      # ---------------------------------------------------------------
+      # The package
+      # ---------------------------------------------------------------
+      - name: Work out the version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # git archive, so what ships is decided by .gitattributes and not by a
+      # second list here that would drift from it. Into a folder rather than
+      # straight to a zip, because the manifest is stamped before it is sealed.
+      - name: Lay out the package
+        run: |
+          mkdir -p package
+          git archive --worktree-attributes HEAD | tar -x -C package
+
+      # The app reports its own version in game, and the tag is the only place
+      # that version is really decided. Left at 0.1 in the file, every release
+      # would claim to be 0.1 -- and the first thing anyone reporting a bug is
+      # asked is which version they are on.
+      - name: Stamp the version into the manifest
+        run: |
+          sed -i "s/^VERSION = .*/VERSION = ${{ steps.version.outputs.value }}/" \
+            package/apps/lua/CamTool3/manifest.ini
+          grep '^VERSION' package/apps/lua/CamTool3/manifest.ini
+
+      # Zipped from inside the folder, so the archive opens onto apps/ and
+      # content/ and drops straight onto an Assetto Corsa install. A wrapper
+      # folder would put every file one level too deep, which is the classic
+      # way for a mod to look installed and do nothing.
+      - name: Build the zip
+        run: cd package && zip -r -q "../camtool-${GITHUB_REF_NAME}.zip" .
+
+      - name: What is in it
+        run: unzip -l "camtool-${GITHUB_REF_NAME}.zip" | tail -5
+
+      - name: Draft the release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: CamTool ${{ github.ref_name }}
+          files: camtool-${{ github.ref_name }}.zip
+          body: |
+            Unzip into your Assetto Corsa folder — the one with
+            `AssettoCorsa.exe` in it.
+
+            Contains **CamTool 2** (stable) and **CamTool 3** (beta, needs
+            Custom Shaders Patch). They install side by side and neither
+            touches the other's camera files.
+
+            <!-- Write the notes here, then publish. -->
