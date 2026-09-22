@@ -216,7 +216,7 @@ Toute modification touchant `adapters/`, l'UI ou `acUpdate` se termine par une *
 - Ne pas "corriger au passage" un comportement bizarre du legacy : le signaler, il est peut-être voulu (ou utilisé par les vidéastes).
 - Supprimer le code commenté mort seulement quand l'équivalent est validé (le code commenté documente souvent les tentatives CSP échouées — reporter l'info dans le tableau DLL avant suppression).
 - Code, identifiants, commentaires et messages de commit en anglais. Échanges avec Théo en français.
-- Branche `camtool-3` pour la refonte ; les correctifs 2.x restent possibles sur `main`.
+- **`main` porte CamTool 3** et reçoit le travail au fil de l'eau ; `camtool-3` est tenue au même commit. Les branches de chantier partent de l'une ou de l'autre, indifféremment. (Cette ligne a dit le contraire longtemps — « `main` : CamTool 2 en production » — alors que `main` portait déjà une centaine de commits de CamTool 3.)
 - **Ne pas consigner l'état des push dans la documentation** : Théo s'en occupe,
   et l'information périme au premier `git push`. Pousser seulement quand il le
   demande.
