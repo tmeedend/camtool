@@ -1075,6 +1075,22 @@ forme du dossier de jeu**, donc `git archive` produit l'arborescence
 d'installation sans aucune mise en forme. Pas de dossier enveloppe — c'est la
 façon classique pour un mod d'avoir l'air installé et de ne rien faire.
 
+**CamTool 2 part tel qu'il est dans le dépôt**, c'est-à-dire la 2.2.2 plus
+l'enregistreur de traces (`classes/trace.py`), qui sert d'oracle au portage.
+Éteint par défaut et impossible à allumer par accident : `settings.json` n'est
+pas suivi par git, donc il ne part jamais dans le zip, et `load_settings`
+remplace tout le dictionnaire par le contenu du fichier — un réglage existant
+n'a pas le drapeau et ne l'aura pas. Éteint, le chemin chaud est celui de la
+2.2.2 : `trace.begin` rend `None` et l'appelant reprend le `ctt` réel.
+
+Ce que ça laisse : un appel de méthode par frame qui rend `None`, et un point
+d'entrée `acShutdown` sous `try/except`. **Tranché par Théo**, qui a vérifié en
+jeu que CamTool 2 démarre et fonctionne : on livre tel quel, et les notes de
+release n'en parlent pas. Ne pas rouvrir pour exclure `trace.py` du zip — il
+faudrait alors neutraliser l'import et deux appels dans `CamTool_2.py`, donc
+modifier CamTool 2 pour la seule livraison, ce qui est plus risqué que ce que
+ça évite.
+
 **Le panneau de sondes ne part pas dans la livraison.** C'est de la surface
 développeur : il sait piloter le replay et confisquer le volume du jeu. Il ne
 peut pas devenir une app séparée — CSP laisserait deux scripts se parler par
