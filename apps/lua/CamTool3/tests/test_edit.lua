@@ -475,11 +475,15 @@ test('the legacy switches come from the file, not from a preference', function()
   local state = playback.new()
   playback.applyMode(state, 'legacy')
   eq(state.options.legacyLastCamera, true)
-  eq(state.options.legacyZeroFill, true)
 
   playback.applyMode(state, 'fixed')
   eq(state.options.legacyLastCamera, false)
-  eq(state.options.legacyZeroFill, false)
+
+  -- The startup transient is NOT one of them: it is issue #16, it only ever
+  -- shows in the moment the camera is taken, and no footage contains that
+  -- moment. See playback.applyMode.
+  playback.applyMode(state, 'legacy')
+  eq(state.options.legacyZeroFill, false, 'the aim must not swing in from the map origin')
 
   -- A file with no mode at all is treated as legacy, which is what an
   -- unknown file most likely is.

@@ -18,7 +18,7 @@ cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
 dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (719 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (720 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -975,11 +975,40 @@ laissé voir. D'où `playback.jumped`, distinct de `resetHistory` : un saut
 réamorce **toujours** depuis la vie, quel que soit le mode. CamTool 2 ne
 réinitialise rien du tout sur un saut, il n'y a donc aucun démarrage à imiter.
 
-**Ce qui reste à chercher pour #16**, et la piste la plus sérieuse : la prise
-de caméra elle-même. `ownShare` gouverne ce qu'AC laisse passer de sa propre
-caméra à travers la nôtre, et le panneau de sondes porte déjà une rampe
-d'`ownShare` étiquetée « candidate fix for issue #16 ». C'est là qu'il faut
-mesurer ensuite, en jeu, avec la sonde d'erreur de relecture.
+### Et la vraie cause, trouvée en mesurant l'autre moitié
+
+**C'est le zero fill, et la géométrie cachait son ampleur.** À la prise de
+caméra, l'historique de visée était amorcé avec 50 copies de **l'origine du
+monde** — pour reproduire ce que fait CamTool 2 au démarrage. Pendant 50
+frames, le plan arrive donc du milieu de la carte.
+
+Ma première mesure donnait 0,44° et je l'ai crue. Elle était fausse par le
+choix de géométrie : caméra à 460 m de la voiture, origine presque alignée
+derrière. Avec la géométrie **réaliste** — caméra de bord de piste à 40 m de
+la voiture, circuit modélisé à 1,1 km de son origine — c'est **20,5° sur
+0,82 s**. Et l'oracle le confirmait depuis le début sans que personne le lise :
+`tests/test_trace_replay.lua` note que sans le zero fill, la visée était
+« out by 1.56 rad » — **89°** — sur les premières frames d'une vraie session.
+
+**`legacyZeroFill` n'est donc plus piloté par le mode du fichier.** Le
+reproduire n'achète rien : ce transitoire n'existe qu'à l'instant où la caméra
+est prise, et cet instant n'est dans aucun rendu — on active, *puis* on
+enregistre. Aucun montage déjà fait ne change. Ce qu'il coûte, c'est un plan
+qui pivote au moment précis où on juge le cadre.
+
+L'interrupteur reste : `tests/trace.lua` le demande explicitement — c'est là
+qu'on colle à CamTool 2 frame par frame et ça doit continuer — et le panneau de
+sondes peut toujours l'allumer pour comparer.
+
+⚠️ **Golden master regénéré** : 24 lignes, **toutes entre la frame 8 et la
+frame 48**. Rien au-delà ne bouge, ce qui est exactement la forme attendue d'un
+changement qui ne touche que le démarrage.
+
+**Ce qui reste ouvert sur #16** : le glissement « en bougeant le curseur de
+replay » est corrigé et pesait 1 à 3° ; celui à l'activation est corrigé et
+pesait 20 à 89°. Si Théo en voit encore un, la piste suivante est `ownShare`,
+dont le panneau de sondes porte déjà une rampe étiquetée « candidate fix for
+issue #16 » — à mesurer en jeu avec la sonde d'erreur de relecture.
 
 ## 📦 Sortir une version
 

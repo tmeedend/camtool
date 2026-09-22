@@ -50,7 +50,12 @@ playback.DEFAULTS = {
   ---one on their first keyframe. That is issue #23; leave this on to
   ---reproduce it.
   legacyLastCamera = true,
-  ---Reproduce issue #16, the car history starting full of zeroes.
+  ---Reproduce issue #16: the car history starting full of zeroes, so the aim
+  ---swings in from the world origin for the first fifty frames after the
+  ---camera is taken. NOT driven by the file's mode any more -- see
+  ---playback.applyMode for why. Kept so tests/trace_replay can still match
+  ---CamTool 2 frame for frame, and so the probe panel can show the two side
+  ---by side.
   legacyZeroFill = false,
 }
 
@@ -65,12 +70,27 @@ playback.DEFAULTS = {
 ---Leaving them as loose checkboxes made it possible to play a legacy file
 ---with the corrected curves without meaning to, which is the one thing the
 ---two-axis design in core/data exists to prevent.
+---
+---legacyZeroFill IS NOT ONE OF THEM ANY MORE, and that is issue #16. It fills
+---the aim history with fifty copies of the world origin, so for the first
+---fifty frames after the camera is taken the shot swings in from the middle
+---of the map. Measured on a trackside camera forty metres from the car on a
+---circuit modelled a kilometre from its origin: 20 degrees over 0.8 s. On a
+---real CamTool 2 session the recorded trace puts it at 1.56 rad -- 89
+---degrees. That is exactly what people describe as the sliding effect.
+---
+---Reproducing it buys nothing. It exists only in the moment the camera is
+---taken, which is never inside footage anybody renders: you activate, then
+---you record. No cut already made changes. What it costs is a swinging shot
+---at the one moment you are trying to judge the framing.
+---
+---It remains an option, and tests/trace_replay still asks for it explicitly:
+---that is where CamTool 2 is matched frame for frame, and it must keep
+---matching. The probe panel can still switch it on to compare.
 ---@param state table
 ---@param mode string|nil @'legacy' or 'fixed'
 function playback.applyMode(state, mode)
-  local legacy = mode ~= 'fixed'
-  state.options.legacyLastCamera = legacy
-  state.options.legacyZeroFill = legacy
+  state.options.legacyLastCamera = mode ~= 'fixed'
   playback.resetHistory(state)
 end
 

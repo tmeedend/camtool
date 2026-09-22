@@ -20,8 +20,11 @@
   origin and `predicted` overshoots away from it. This primes the buffer with
   the first real sample instead, so the aim is correct from frame one.
 
-  That transient is a candidate explanation for issue #16, the camera sliding
-  when it activates. Pass legacyZeroFill to reproduce it and compare.
+  That transient IS issue #16, the camera sliding when it activates -- 20
+  degrees over 0.8 s for a trackside camera on a circuit modelled a kilometre
+  from its origin, and 1.56 rad on the real CamTool 2 session tests/trace
+  replays. It is no longer reproduced for legacy files: see
+  playback.applyMode. Pass legacyZeroFill to bring it back and compare.
 ]]
 
 local tracking = {}

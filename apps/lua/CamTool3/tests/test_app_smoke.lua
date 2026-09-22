@@ -907,3 +907,78 @@ test('a car that jumps does not leave the aim walking after it', function()
 
   handle.restoreIo()
 end)
+
+test('taking the camera does not swing the shot in from the map origin', function()
+  -- Issue #16, the half that people actually see. The aim history was primed
+  -- with fifty copies of the world origin to reproduce what CamTool 2 does
+  -- when it starts, so for the first fifty frames after the camera is taken
+  -- the shot swung in from the middle of the circuit.
+  --
+  -- The geometry is what decides the size of it, and the realistic one is the
+  -- worst: a trackside camera a few tens of metres from the car, on a circuit
+  -- modelled a kilometre from its origin. Measured there before the fix: 20
+  -- degrees over 0.8 s. On a real CamTool 2 session, the recorded trace puts
+  -- it at 1.56 rad -- 89 degrees.
+  --
+  -- A CamTool 2 file on purpose: this is the case that used to reproduce it.
+  local doc = {
+    pos = {
+      { camera_in = 0, camera_pit = false, camera_use_tracking_point = 1,
+        tracking_strength_heading = 1, tracking_strength_pitch = 1,
+        tracking_offset = -0.1, tracking_mix = 0,
+        transform_loc_strength = 1, transform_rot_strength = 1,
+        camera_shake_strength = 0, camera_offset_shake_strength = 0,
+        keyframes = { { keyframe = 0,
+          interpolation = { loc_x = 1000, loc_y = 500, loc_z = 8 } } } },
+    },
+    time = {},
+  }
+
+  local opts = {
+    cameraFile = doc,
+    splinePosition = 0.20,
+    carPosition = vec3(1040, 0, 500),
+    clicks = {
+      ['no file###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
+    },
+  }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  for _ = 1, 3 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  eq(handle.grabbed, true, 'the camera was taken')
+
+  -- Stop clicking. The fake holds this table, so emptying it is the only way
+  -- to let go: handing it a new one leaves the fake reading the old one.
+  for key in pairs(opts.clicks) do opts.clicks[key] = nil end
+
+  local looks = {}
+  for i = 1, 70 do
+    handle.tick(0.016)
+    local l = handle.transform.look
+    looks[i] = { x = l.x, y = l.y, z = l.z }
+  end
+
+  local settled = looks[70]
+  local worst = 0
+  for i = 1, 70 do
+    local dot = looks[i].x * settled.x + looks[i].y * settled.y
+      + looks[i].z * settled.z
+    if dot > 1 then dot = 1 end
+    local off = math.deg(math.acos(dot))
+    if off > worst then worst = off end
+  end
+
+  eq(worst < 0.5, true, string.format(
+    'the shot swung %.1f degrees after the camera was taken', worst))
+
+  handle.restoreIo()
+end)
