@@ -59,6 +59,26 @@ jobs:
           mkdir -p package
           git archive --worktree-attributes HEAD | tar -x -C package
 
+      # The diagnostic probes are developer surface: they are how a camera
+      # problem gets pinned down without guessing, and they also let anyone
+      # who opens them drive the replay and take over the game's volume. They
+      # cannot be an app of their own -- CSP would let two scripts talk
+      # through ac.connect, but the probes' whole value is reading this app's
+      # own locals at the moment they are computed.
+      #
+      # So the window is taken out of the manifest here. The Lua stays and
+      # nothing declares a window onto it. core/manifest does the cutting and
+      # is tested; an INI section has no end marker, and that sort of parsing
+      # written as a regular expression inside a YAML file is how a release
+      # quietly ships the wrong thing. It FAILS if it finds no such window,
+      # because a renamed one would otherwise ship the panel it was told to
+      # remove, and nobody looks inside a manifest in a zip.
+      - name: Take the diagnostic probes out
+        working-directory: apps/lua/CamTool3
+        run: >
+          luajit tools/strip_window.lua
+          ../../../package/apps/lua/CamTool3/manifest.ini main
+
       # The app reports its own version in game, and the tag is the only place
       # that version is really decided. Left at 0.1 in the file, every release
       # would claim to be 0.1 -- and the first thing anyone reporting a bug is

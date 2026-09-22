@@ -18,7 +18,7 @@ cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
 dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (702 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (713 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -974,7 +974,28 @@ forme du dossier de jeu**, donc `git archive` produit l'arborescence
 d'installation sans aucune mise en forme. Pas de dossier enveloppe — c'est la
 façon classique pour un mod d'avoir l'air installé et de ne rien faire.
 
-Vérifié localement : 96 entrées, 1,0 Mo compressé, `VERSION = 3.0.0-beta.1`.
+**Le panneau de sondes ne part pas dans la livraison.** C'est de la surface
+développeur : il sait piloter le replay et confisquer le volume du jeu. Il ne
+peut pas devenir une app séparée — CSP laisserait deux scripts se parler par
+`ac.connect`, mais tout l'intérêt d'une sonde est de lire les variables locales
+de l'app **au moment où elles sont calculées** ; mettre un mur entre les deux,
+c'est se mettre à déboguer le mur. Le bloc `[WINDOW_...] ID = main` est donc
+retiré du manifeste à l'empaquetage : le Lua reste, plus aucune fenêtre ne
+pointe dessus, et toi tu gardes tout en travaillant depuis le dépôt.
+
+La découpe est dans **`core/manifest.lua`**, pure et testée, appelée par
+`tools/strip_window.lua`. Pas un `sed` dans le YAML : une section d'INI n'a pas
+de marqueur de fin, et ce genre de découpe écrite en expression régulière au
+fond d'un fichier de workflow est la façon dont une release livre
+silencieusement autre chose que prévu. Le piège réel — et il a son test — :
+le paragraphe qui présente le panneau ATR est situé **entre** la dernière ligne
+de la fenêtre des sondes et l'en-tête suivant, donc une coupe naïve l'emporte
+avec elle. Le script **échoue** s'il ne trouve pas la fenêtre : une fenêtre
+renommée livrerait le panneau qu'on voulait retirer, et personne ne va lire un
+manifeste dans un zip.
+
+Vérifié localement : 96 entrées, 1,0 Mo compressé, `VERSION = 3.0.0-beta.1`,
+une seule fenêtre dans le manifeste livré.
 
 **Le tag porte un `v`**, contrairement aux anciens (`2.2.0`…`2.2.2`), qui
 restent tels quels. Le `v` rend le déclencheur du workflow net et la ligne de
@@ -1000,9 +1021,12 @@ même caméra que CamTool 2, et un `3`. On trouve CamTool dans une liste de
 trente apps à sa couleur ; l'icône d'un successeur doit être reconnue avant
 d'être lue. La palette est relevée sur `CamTool_2_ON.png`, pas inventée.
 
-⚠️ **À confirmer en jeu** : que CSP lise bien `icon.png` à côté du manifeste.
-Le SDK de `extension/internal/lua-sdk/` ne documente que l'API Lua, pas
-l'empaquetage — c'est donc une convention supposée, pas vérifiée.
+⚠️ **`ICON` se déclare par fenêtre, pas dans `[ABOUT]`.** Le fichier seul ne
+suffit pas : sans `ICON = icon.png` dans chaque bloc `[WINDOW_...]`, la liste
+d'apps affiche l'icône générique. Ça ne figure nulle part dans le SDK — il
+documente l'API Lua, pas l'empaquetage — et ça s'est trouvé en regardant les
+manifestes des apps CSP déjà installées à côté (PureConfig, PurePlanner,
+RSS_Settings) : les trois font pareil, et les trois livrent du **64×64**.
 
 ## ❓ À demander au designer d'ATR
 
