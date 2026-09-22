@@ -166,6 +166,7 @@ rien.
 | 33f | **Bouton `keys`** | À côté du `?`. Il ouvre les affectations seules ; ouvrir l'un doit refermer l'autre. |
 | 33g | **Numéros et noms** | Les segments ne portent que des **chiffres**, jamais un nom, même quand un nom tiendrait. Survoler un segment **ou un point du tracé** : la ligne du bas dit « Camera 4 — Fagnes ». Un segment trop fin pour un chiffre reste visible et se nomme au survol. |
 | 33h | **Charger par-dessus du non sauvé** | Faire une modification, puis cliquer le nom de fichier : le bouton doit devenir `lose changes? …` et **ne rien charger**. Un second clic charge. Passer la souris sur le ruban entre les deux ne doit **pas** annuler la question. Sans modification en cours, aucune question. |
+| 33i | **#16, caractériser** | Pas une vérification : une **mesure**. Prendre la caméra dix fois de suite en notant à chaque essai la caméra AC active avant, si le replay tournait, l'erreur de relecture du panneau de sondes, et glissement oui/non. Le tableau vaut mieux que n'importe quelle relecture de code — voir la section #16. |
 | 34 | Légende `?` | Rester sur une valeur : la bulle apparaît après un instant. La ligne du bas nomme ce qui est sous le curseur, tout de suite. Le `?` ouvre la légende. |
 | 35 | **La règle** | Le bandeau du haut se distingue du reste au premier coup d'œil. Les distances sont lisibles et ne se chevauchent pas ; **redimensionner la fenêtre** doit en ajouter ou en retirer, jamais les entasser. Sur Spa, « Kemmel Straight » et « Eau Rouge » doivent s'afficher à leur place. |
 | 36 | **Scrub** | Presser la règle et **glisser sans lâcher** : l'image doit suivre la main, un peu en retard mais en continu, sans à-coup ni saut en arrière. Au relâchement, la voiture se pose **exactement** où le trait a été lâché. |
@@ -940,75 +941,105 @@ souris traversait le panneau — ce qu'elle fait pour revenir au bouton.
 **Ce que ça ne fait pas** : les flèches `<` `>` ne chargent rien, elles
 déplacent seulement la position de parcours — rien à confirmer de ce côté.
 
-## 🔍 #16 : mesuré, et ce n'est pas ce qu'on croyait
+## 🔍 #16 — deux causes mesurées et corrigées, **et le symptôme reste**
 
-**La théorie était bonne, l'ordre de grandeur non.** La caméra ne vise pas la
-voiture mais un mélange bâti sur ses **50 dernières positions**
-(`core/tracking`). Ce tampon n'était jamais vidé après un saut de replay :
-la frame d'après, les 50 positions parlent encore d'un endroit que la voiture
-a quitté, et la visée marche de là-bas jusqu'ici.
+⚠️ **Ne pas marquer #16 résolu.** Théo a testé après les deux corrections
+ci-dessous : *« parfois je n'ai pas de glissement, parfois oui, c'est difficile
+à dire ce qui le cause »*. Ce qui est écrit ici est donc ce qu'on **sait**, pas
+la solution.
 
-Mesuré hors jeu, c'est **50 frames** — le tampon entier — et **49 m d'erreur de
-visée** à la première, pour un saut de 500 m. De quoi conclure que c'était #16.
+### Ce que la caméra vise
 
-**Sauf que ce qui compte est l'angle, pas la distance.** La cible vaut
-`voiture + 0,1 × (voiture − moyenne)` : le décalage pointe **le long** du saut,
-donc vu d'une caméra éloignée des deux points c'est un tout petit angle. Chiffré :
+Pas la voiture : un mélange bâti sur ses **50 dernières positions**
+(`core/tracking`). C'est ce qui rend le panoramique fluide, et c'est le portage
+exact de `Camera.calculate_cam_rot_to_tracking_car`. La cible vaut
+`voiture + 0,1 × (voiture − moyenne)`.
+
+Deux moments remplissent ce tampon de positions qui ne veulent plus rien dire,
+et les deux étaient des défauts réels.
+
+### 1. Après un saut de replay — corrigé, 1 à 3°
+
+Le tampon n'était jamais vidé quand le replay bougeait. La frame d'après, les
+50 positions parlent encore d'un endroit que la voiture a quitté. `50 frames`
+pour s'en remettre, `49 m` d'erreur de visée à la première pour un saut de
+500 m.
+
+**Mais ce qui compte est l'angle, pas la distance** — le décalage pointe *le
+long* du saut :
 
 | Saut | Erreur angulaire |
 |---|---|
-| Droit vers la caméra (radial) | **0,00°** |
+| Droit vers la caméra | **0,00°** |
 | 500 m de côté | 0,99° |
 | Oblique | 0,81° |
 | Petit saut, caméra proche | **2,61°** |
 
-Un à trois degrés qui se résorbent en huit dixièmes de seconde. Réel, corrigé,
-et **presque sûrement pas le glissement que Théo voit**. #16 reste ouvert.
+Corrigé par `playback.jumped`, déclenché sur un déplacement de la voiture de
+plus de 2 % du tour en une frame — donc la barre de replay d'AC compte aussi.
 
-**Le piège trouvé en corrigeant.** Le premier jet appelait `resetHistory`, qui
-obéit à `legacyZeroFill` — lequel amorce le tampon avec 50 copies de l'origine
-du monde pour reproduire le transitoire de **démarrage** de CamTool 2. Sur un
-fichier legacy, corriger le saut le rendait donc **pire** : la visée arrivait
-de l'origine de la piste. La mesure l'a montrée tout de suite (la visée
-convergeait encore à la 22ᵉ frame), ce que la lecture du code n'avait pas
-laissé voir. D'où `playback.jumped`, distinct de `resetHistory` : un saut
-réamorce **toujours** depuis la vie, quel que soit le mode. CamTool 2 ne
-réinitialise rien du tout sur un saut, il n'y a donc aucun démarrage à imiter.
+### 2. À la prise de caméra — corrigé, 20 à 89°
 
-### Et la vraie cause, trouvée en mesurant l'autre moitié
+L'historique était amorcé avec 50 copies de **l'origine du monde**, pour
+reproduire ce que fait CamTool 2 au démarrage. Pendant 50 frames, le plan
+arrive du milieu de la carte.
 
-**C'est le zero fill, et la géométrie cachait son ampleur.** À la prise de
-caméra, l'historique de visée était amorcé avec 50 copies de **l'origine du
-monde** — pour reproduire ce que fait CamTool 2 au démarrage. Pendant 50
-frames, le plan arrive donc du milieu de la carte.
+**La géométrie décide de l'ampleur, et c'est ce qui m'a trompé une fois.** Une
+première mesure donnait 0,44° — caméra à 460 m de la voiture, origine presque
+alignée derrière, la seule disposition qui annule l'effet. Avec la géométrie
+réaliste (caméra de bord de piste à 40 m, circuit à 1,1 km de son origine) :
+**20,5° sur 0,82 s**. Et `tests/test_trace_replay.lua` le disait depuis
+toujours sans que personne le lise : sans le zero fill la visée était
+« out by 1.56 rad » — **89°** — sur une vraie session enregistrée.
 
-Ma première mesure donnait 0,44° et je l'ai crue. Elle était fausse par le
-choix de géométrie : caméra à 460 m de la voiture, origine presque alignée
-derrière. Avec la géométrie **réaliste** — caméra de bord de piste à 40 m de
-la voiture, circuit modélisé à 1,1 km de son origine — c'est **20,5° sur
-0,82 s**. Et l'oracle le confirmait depuis le début sans que personne le lise :
-`tests/test_trace_replay.lua` note que sans le zero fill, la visée était
-« out by 1.56 rad » — **89°** — sur les premières frames d'une vraie session.
+`legacyZeroFill` n'est donc plus piloté par le mode du fichier. Le reproduire
+n'achète rien : ce transitoire n'existe qu'à l'instant où la caméra est prise,
+et cet instant n'est dans aucun rendu — on active, *puis* on enregistre. Aucun
+montage déjà fait ne change. L'interrupteur reste : `tests/trace.lua` le
+demande explicitement, et le panneau de sondes peut l'allumer pour comparer.
 
-**`legacyZeroFill` n'est donc plus piloté par le mode du fichier.** Le
-reproduire n'achète rien : ce transitoire n'existe qu'à l'instant où la caméra
-est prise, et cet instant n'est dans aucun rendu — on active, *puis* on
-enregistre. Aucun montage déjà fait ne change. Ce qu'il coûte, c'est un plan
-qui pivote au moment précis où on juge le cadre.
+> Le piège trouvé en corrigeant le 1 : le premier jet appelait `resetHistory`,
+> qui obéit à `legacyZeroFill`. Sur un fichier legacy, corriger le saut le
+> rendait donc **pire** — la visée arrivait de l'origine de la piste. D'où
+> `playback.jumped`, distinct : un saut réamorce **toujours** depuis la vie.
 
-L'interrupteur reste : `tests/trace.lua` le demande explicitement — c'est là
-qu'on colle à CamTool 2 frame par frame et ça doit continuer — et le panneau de
-sondes peut toujours l'allumer pour comparer.
+**Golden master regénéré** : 24 lignes, toutes entre la frame 8 et la 48. Rien
+au-delà du démarrage ne bouge, ce qui est la forme attendue.
 
-⚠️ **Golden master regénéré** : 24 lignes, **toutes entre la frame 8 et la
-frame 48**. Rien au-delà ne bouge, ce qui est exactement la forme attendue d'un
-changement qui ne touche que le démarrage.
+### Ce qu'il reste, et comment le prendre
 
-**Ce qui reste ouvert sur #16** : le glissement « en bougeant le curseur de
-replay » est corrigé et pesait 1 à 3° ; celui à l'activation est corrigé et
-pesait 20 à 89°. Si Théo en voit encore un, la piste suivante est `ownShare`,
-dont le panneau de sondes porte déjà une rampe étiquetée « candidate fix for
-issue #16 » — à mesurer en jeu avec la sonde d'erreur de relecture.
+Le symptôme persiste et **il est intermittent**. C'est l'information la plus
+utile qu'on ait : les deux mécanismes ci-dessus sont eux aussi
+géométrie-dépendants, donc « parfois oui, parfois non » ne les disculpe pas
+complètement — mais ils sont corrigés, donc quelque chose d'autre reste.
+
+Pistes, dans l'ordre de sérieux :
+
+1. **`ownShare` et le changement de mode de caméra.** Le SDK est explicite :
+   « once `.ownShare` reaches 1, CSP would switch current camera mode to free
+   camera ». Ce basculement peut très bien porter le lissage propre d'AC — et
+   il **dépendrait de la caméra AC active avant la prise**, ce qui expliquerait
+   exactement l'intermittence. Le panneau de sondes porte déjà une rampe
+   d'`ownShare` étiquetée « candidate fix for issue #16 ».
+2. **L'inertie de la caméra libre d'AC** une fois le mode basculé. La sonde
+   d'**erreur de relecture** est faite pour ça : elle compare ce qu'on demande
+   à la frame *n* et ce qu'AC rapporte à la frame *n+1*. Si AC lisse, l'écart
+   est non nul et décroissant.
+3. **L'amorçage de la visée tenue** (`haveAim`), qui lit
+   `cam.transformOriginal.look` — donc là où la vue pointait **avant** la prise.
+
+**Protocole pour transformer « parfois » en tableau**, à faire en jeu :
+
+| À noter à chaque essai | Pourquoi |
+|---|---|
+| La caméra AC active avant d'appuyer sur `Take camera` (F1 cockpit, F3 TV, F7 libre…) | discrimine la piste 1 |
+| Replay en lecture ou en pause | un transitoire lié au temps se voit à l'arrêt |
+| L'erreur de relecture dans le panneau de sondes, pendant la seconde qui suit | discrimine la piste 2 |
+| Où pointait la vue avant la prise | discrimine la piste 3 |
+| Glissement : oui / non | la colonne qu'on cherche à expliquer |
+
+Cinq à dix lignes de ce tableau valent mieux que n'importe quelle relecture du
+code : deux fois déjà, la mesure a contredit ce que la lecture laissait croire.
 
 ## 📦 Sortir une version
 

@@ -221,16 +221,26 @@ Hypothèses issues de la lecture du code, **à confirmer par un test** avant tou
   tout le dénivelé dans `loc_z` (Spa 102 m, Red Bull Ring 63 m), et
   `CamToolTool.get_position` mappe l'axe CamTool 2 vers l'axe CSP 1.
 - **Interpolateur non réentrant** : le singleton `interpolation` stocke ses variables de travail dans `self` (`self.i`, `self.points`, `self.ratio`…) → fuite d'état possible entre appels. À corriger en premier lors du refactoring (variables locales, fonctions pures).
-- **#16 glissement à l'activation — CAUSE CONFIRMÉE en jeu par Théo.** `Camera.py`
+- **#16 glissement — UNE cause confirmée, PAS toute l'issue.** `Camera.py`
   initialise son historique de positions de voiture avec **50 vecteurs nuls**
   (`__max_tracked_car_positions = 50`, remplis de `vec3()` = origine). Pendant
   les 50 premières frames de tracking, la moyenne est donc tirée vers l'origine
   du monde et la position extrapolée (`latest + (latest - avg)`) déborde dans
-  la direction opposée. Le portage Lua amorce l'historique avec le premier
-  échantillon réel. Théo a comparé les deux en jeu avec la case à cocher du POC :
-  **le glissement apparaît avec le remplissage à zéro et disparaît sans.**
-  Reste à confirmer que c'est bien le même glissement que celui rapporté dans
-  l'issue sur CamTool 2 (le POC reproduit le legacy, il ne l'exécute pas).
+  la direction opposée. Théo a comparé les deux en jeu avec la case à cocher du
+  POC : **le glissement apparaît avec le remplissage à zéro et disparaît
+  sans.** Chiffré depuis, hors jeu : **20,5° sur 0,82 s** pour une caméra de
+  bord de piste, et `tests/test_trace_replay.lua` mesure **1,56 rad (89°)** sur
+  une vraie session enregistrée.
+
+  ⚠️ **CamTool 3 ne le reproduit plus** (`legacyZeroFill` n'est plus piloté par
+  le mode du fichier), **et Théo voit toujours un glissement**, de façon
+  intermittente. Donc ce remplissage à zéro était *une* cause et pas *la*
+  cause. La suite — pistes rangées et protocole de mesure en jeu — est dans
+  `docs/etat.md`, section #16.
+
+  Le second mécanisme trouvé au même endroit : le même historique n'était pas
+  vidé **après un saut de replay**, ce qui vaut 1 à 3° selon la géométrie.
+  Corrigé aussi. Les deux étaient réels et aucun des deux ne ferme l'issue.
 - **#25 shake non keyframable — élément concret.** `camera_shake_strength` est
   bien interpolé (easing sinus), mais `camera_offset_shake_strength` a un
   emplacement dans chaque keyframe et est pourtant lu **au niveau caméra**,
