@@ -825,3 +825,85 @@ test('a released camera stops answering for what is on screen', function()
 
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------
+-- Moving the replay does not drag the aim behind it -- issue #16
+--------------------------------------------------------------------------
+
+test('a car that jumps does not leave the aim walking after it', function()
+  -- The camera aims at a blend of the car's last fifty positions. Jump the
+  -- replay and fifty frames of the OLD stretch of track are still in there,
+  -- so the aim crawls from where the car was to where it is -- about eight
+  -- tenths of a second of drift at the start of every scrub. That is the
+  -- "sliding when moving the replay cursor" half of issue #16.
+  --
+  -- Measured in tests/test_tracking: fifty frames, and forty-nine metres out
+  -- on the first of them for a five-hundred-metre jump.
+  local doc = {
+    pos = {
+      { camera_in = 0, camera_pit = false, camera_use_tracking_point = 1,
+        tracking_strength_heading = 1, tracking_strength_pitch = 1,
+        tracking_offset = -0.1, tracking_mix = 0,
+        transform_loc_strength = 1, transform_rot_strength = 1,
+        camera_shake_strength = 0, camera_offset_shake_strength = 0,
+        keyframes = { { keyframe = 0,
+          interpolation = { loc_x = 60, loc_y = 0, loc_z = 5 } } } },
+    },
+    time = {},
+    -- A CamTool 3 file. In legacy mode the same jump re-primes the buffer
+    -- with the world origin instead, which is covered below.
+    version = 2,
+    interpolation_mode = 'fixed',
+  }
+
+  local opts = {
+    cameraFile = doc,
+    splinePosition = 0.20,
+    carPosition = vec3(100, 0, 0),
+    clicks = {
+      ['no file###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
+    },
+  }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+
+  local chunk = assert(loadfile('CamTool3.lua'))
+  chunk()
+
+  -- Long enough to fill the history with the car sitting where it is.
+  for _ = 1, 70 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  eq(handle.grabbed, true, 'the camera was taken')
+
+  local function look()
+    local l = handle.transform.look
+    return { x = l.x, y = l.y, z = l.z }
+  end
+
+  -- The jump: in one frame, as a scrub does, and ACROSS the line of sight
+  -- rather than along it. That direction is the whole difference -- see the
+  -- note on how small this gets when the car jumps straight away from the
+  -- camera.
+  handle.car.splinePosition = 0.70
+  handle.car.position = vec3(100, 0, 80)
+
+  handle.tick(0.016)
+  local justAfter = look()
+
+  for _ = 1, 20 do handle.tick(0.016) end
+  local settled = look()
+
+  local drift = math.sqrt(
+    (settled.x - justAfter.x) ^ 2 +
+    (settled.y - justAfter.y) ^ 2 +
+    (settled.z - justAfter.z) ^ 2)
+
+  eq(drift < 0.01, true, string.format(
+    'the aim was still moving twenty frames after the jump (drift %.4f)', drift))
+
+  handle.restoreIo()
+end)

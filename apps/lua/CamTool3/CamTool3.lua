@@ -442,6 +442,16 @@ local function seekGoTo(frame)
   return frame
 end
 
+---Where the car was last frame, so a teleport can be told from a drive.
+local lastCarAt = nil
+
+---How far round the lap the car may move in one frame and still have driven
+---there. At 300 km/h a frame covers about 1.4 m, three hundredths of a
+---percent of a 5 km circuit; two percent is a hundred metres, which leaves
+---plenty of room for a replay running fast and still catches any jump worth
+---noticing.
+local JUMP_GAP = 0.02
+
 ---Whether the playhead is being dragged, and how long since the last jump of
 ---that drag. Declared up here, ahead of the muffling, because the quiet is
 ---the one thing a drag changes about an ordinary search.
@@ -812,6 +822,28 @@ local function perFrame(dt)
   -- the early return below: the index has to build whether or not the camera
   -- is held, since it is the watching that fills it in.
   local carAt = focusedTrackPosition()
+
+  -- A JUMP, NOT A DRIVE. The aim is a blend of the car's last fifty
+  -- positions, so the frame after a scrub they are all about a stretch of
+  -- track the car has left, and the aim walks from there to here over the
+  -- best part of a second. Throwing the history away is the whole of the fix,
+  -- and the function that does it was already there for the grab.
+  --
+  -- Watched on the car's own position rather than on our own seeks, so that
+  -- dragging Assetto Corsa's replay bar counts too -- which is what issue #16
+  -- actually describes.
+  --
+  -- Worth keeping in proportion: measured, this is about a degree of drift
+  -- decaying over fifty frames, and only when the car jumps ACROSS the line
+  -- of sight. It is not the whole of #16.
+  if carAt ~= nil and lastCarAt ~= nil then
+    local moved = seek.gap(lastCarAt, carAt)
+    if moved ~= nil and moved > JUMP_GAP then
+      playbackCore.jumped(pb)
+    end
+  end
+  lastCarAt = carAt
+
   seekRecord(carAt)
 
   -- And a seek in progress reads where its last jump landed. Also before the

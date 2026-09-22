@@ -85,6 +85,30 @@ function playback.resetHistory(state)
   state.shakeMomentum = 0
 end
 
+---The car teleported: throw away the history, which is about a stretch of
+---track it has left.
+---
+---NOT resetHistory, and the difference is the whole point. That one obeys
+---legacyZeroFill, which primes the buffer with fifty copies of the world
+---origin to reproduce the transient CamTool 2 has when it STARTS. Priming it
+---that way after a scrub drags the aim in from the origin instead -- worse
+---than the drag it was called to remove, and faithful to nothing, because
+---CamTool 2 does not reset on a jump at all.
+---
+---`haveAim` is deliberately left alone. It holds the camera's own aim for the
+---frames where nothing keyframes it, and that aim has nothing to do with
+---where the car went.
+---@param state table
+function playback.jumped(state)
+  if type(state) ~= 'table' then return end
+
+  state.carHistory = tracking.new(nil, false)
+  -- The pan-speed window too: it holds the swing the jump itself produced,
+  -- and the shake reads that as a camera whipping round.
+  state.headingHistory = {}
+  state.shakeMomentum = 0
+end
+
 ---@param options table|nil @overrides for playback.DEFAULTS
 ---@return table @state, to be passed back to playback.frame every frame
 function playback.new(options)

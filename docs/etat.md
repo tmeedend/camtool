@@ -18,7 +18,7 @@ cent commits de CamTool 3 en local. Le correctif 2.x n'a plus de branche
 dédiée ; s'il en faut un, il part du dernier commit CamTool 2 de l'historique.
 
 Validation avant toute modification, depuis `apps/lua/CamTool3/` :
-`luajit tests/run.lua` (713 tests au dernier point). Le binaire n'est pas dans
+`luajit tests/run.lua` (719 tests au dernier point). Le binaire n'est pas dans
 le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
@@ -939,6 +939,47 @@ souris traversait le panneau — ce qu'elle fait pour revenir au bouton.
 
 **Ce que ça ne fait pas** : les flèches `<` `>` ne chargent rien, elles
 déplacent seulement la position de parcours — rien à confirmer de ce côté.
+
+## 🔍 #16 : mesuré, et ce n'est pas ce qu'on croyait
+
+**La théorie était bonne, l'ordre de grandeur non.** La caméra ne vise pas la
+voiture mais un mélange bâti sur ses **50 dernières positions**
+(`core/tracking`). Ce tampon n'était jamais vidé après un saut de replay :
+la frame d'après, les 50 positions parlent encore d'un endroit que la voiture
+a quitté, et la visée marche de là-bas jusqu'ici.
+
+Mesuré hors jeu, c'est **50 frames** — le tampon entier — et **49 m d'erreur de
+visée** à la première, pour un saut de 500 m. De quoi conclure que c'était #16.
+
+**Sauf que ce qui compte est l'angle, pas la distance.** La cible vaut
+`voiture + 0,1 × (voiture − moyenne)` : le décalage pointe **le long** du saut,
+donc vu d'une caméra éloignée des deux points c'est un tout petit angle. Chiffré :
+
+| Saut | Erreur angulaire |
+|---|---|
+| Droit vers la caméra (radial) | **0,00°** |
+| 500 m de côté | 0,99° |
+| Oblique | 0,81° |
+| Petit saut, caméra proche | **2,61°** |
+
+Un à trois degrés qui se résorbent en huit dixièmes de seconde. Réel, corrigé,
+et **presque sûrement pas le glissement que Théo voit**. #16 reste ouvert.
+
+**Le piège trouvé en corrigeant.** Le premier jet appelait `resetHistory`, qui
+obéit à `legacyZeroFill` — lequel amorce le tampon avec 50 copies de l'origine
+du monde pour reproduire le transitoire de **démarrage** de CamTool 2. Sur un
+fichier legacy, corriger le saut le rendait donc **pire** : la visée arrivait
+de l'origine de la piste. La mesure l'a montrée tout de suite (la visée
+convergeait encore à la 22ᵉ frame), ce que la lecture du code n'avait pas
+laissé voir. D'où `playback.jumped`, distinct de `resetHistory` : un saut
+réamorce **toujours** depuis la vie, quel que soit le mode. CamTool 2 ne
+réinitialise rien du tout sur un saut, il n'y a donc aucun démarrage à imiter.
+
+**Ce qui reste à chercher pour #16**, et la piste la plus sérieuse : la prise
+de caméra elle-même. `ownShare` gouverne ce qu'AC laisse passer de sa propre
+caméra à travers la nôtre, et le panneau de sondes porte déjà une rampe
+d'`ownShare` étiquetée « candidate fix for issue #16 ». C'est là qu'il faut
+mesurer ensuite, en jeu, avec la sonde d'erreur de relecture.
 
 ## 📦 Sortir une version
 

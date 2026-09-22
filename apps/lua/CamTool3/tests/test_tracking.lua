@@ -139,3 +139,98 @@ test('the weight is not clamped', function()
   near(far, 14.5 * 2 + 10 * (1 - 2), 1e-12)
   if far <= 14.5 then error('an offset past 1 must overshoot the prediction', 2) end
 end)
+
+--------------------------------------------------------------------------
+-- What a replay jump does to the aim -- issue #16
+--------------------------------------------------------------------------
+
+test('a car that teleports takes the whole buffer to wash out of the aim', function()
+  -- The camera aims at a blend built from the last 50 positions, so a car
+  -- that jumps rather than drives leaves 50 frames of somewhere else in it.
+  -- The aim then walks from the old place to the new one, one frame at a
+  -- time, and that walk is what issue #16 describes as a slide.
+  --
+  -- Nothing here is wrong: this is the smoothing doing its job on inputs that
+  -- lied to it. The fix belongs where the jump happens, which is why the
+  -- companion test lives with the app.
+  local buffer = tracking.new()
+  for _ = 1, 60 do tracking.push(buffer, 0, 0, 0) end
+
+  -- 500 metres away, in one frame.
+  tracking.push(buffer, 500, 0, 0)
+
+  local first = tracking.target(buffer, -0.1, 1, 0)
+  eq(math.abs(first - 500) > 40, true,
+    'the aim should be tens of metres out, got ' .. math.abs(first - 500))
+
+  local frames = 1
+  while frames < 200 do
+    local x = tracking.target(buffer, -0.1, 1, 0)
+    if math.abs(x - 500) < 1 then break end
+    tracking.push(buffer, 500, 0, 0)
+    frames = frames + 1
+  end
+
+  eq(frames, tracking.DEFAULT_SMOOTHNESS,
+    'it takes a full buffer to forget, got ' .. frames .. ' frames')
+end)
+
+test('starting the buffer afresh puts the aim on the car at once', function()
+  -- Which is what the app has to do when it moves the replay: the history it
+  -- holds is about a stretch of track the car is no longer on.
+  local buffer = tracking.new()
+  tracking.push(buffer, 500, 0, 0)
+
+  local x, y, z = tracking.target(buffer, -0.1, 1, 0)
+  near(x, 500, 1e-9, 'frame one, and already right')
+  near(y, 0, 1e-9)
+  near(z, 0, 1e-9)
+end)
+
+test('a jump starts the history from life, whatever the file says', function()
+  -- The trap this walked into first. resetHistory obeys legacyZeroFill, which
+  -- primes the buffer with fifty copies of the world origin to reproduce the
+  -- transient CamTool 2 has when it STARTS. Calling it after a scrub dragged
+  -- the aim in from the origin instead -- measurably worse than the drag it
+  -- was there to remove, and faithful to nothing: CamTool 2 does not reset on
+  -- a jump at all.
+  local playback = require('core/playback')
+
+  local state = playback.new({ legacyZeroFill = true })
+  playback.jumped(state)
+
+  tracking.push(state.carHistory, 500, 0, 0)
+  local x, y, z = tracking.target(state.carHistory, -0.1, 1, 0)
+
+  near(x, 500, 1e-9, 'the aim was dragged in from the world origin')
+  near(y, 0, 1e-9)
+  near(z, 0, 1e-9)
+end)
+
+test('a jump wipes the pan-speed window too', function()
+  -- It holds the swing the jump itself produced, and the shake reads that as
+  -- a camera whipping round.
+  local playback = require('core/playback')
+
+  local state = playback.new()
+  state.headingHistory = { 1, 2, 3 }
+  state.shakeMomentum = 99
+
+  playback.jumped(state)
+
+  eq(#state.headingHistory, 0)
+  eq(state.shakeMomentum, 0)
+end)
+
+test('a jump leaves the aim the camera is holding alone', function()
+  -- haveAim says the camera has an aim of its own for the frames nothing
+  -- keyframes. Where the car went has nothing to do with it, and clearing it
+  -- would reseed a camera that does no tracking at all from a frozen value.
+  local playback = require('core/playback')
+
+  local state = playback.new()
+  state.haveAim = true
+  playback.jumped(state)
+
+  eq(state.haveAim, true)
+end)
