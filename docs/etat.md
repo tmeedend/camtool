@@ -8,8 +8,7 @@
 
 | Branche | Rôle |
 |---|---|
-| `main` | **CamTool 3.** Le travail y est intégré au fil de l'eau ; `camtool-3` la suit. |
-| `camtool-3` | Même contenu que `main`, tenue en phase. Les branches de chantier partent d'ici ou de `main`, indifféremment. |
+| `main` | **CamTool 3, et la seule branche de travail.** Tout y est intégré au fil de l'eau. |
 | `poc/lua` | Le POC qui a fondé la décision Lua. Conservée comme repère, figée. |
 | `develop`, `feature/*` | Antérieures au projet CamTool 3. |
 
@@ -24,7 +23,7 @@ le `PATH` des sessions d'outillage : voir `CLAUDE.md`.
 
 ## ✅ Décision actée : CamTool 3 sera une app Lua CSP
 
-Tranché par Théo après le POC (branche `poc/lua`, conservée comme repère). Le développement continue sur `camtool-3`, dans `apps/lua/CamTool3/`.
+Tranché par Théo après le POC (branche `poc/lua`, conservée comme repère). Le développement continue sur `main`, dans `apps/lua/CamTool3/`.
 **CamTool 2 reste en Python et continue d'être maintenu sur `main`** ; les
 sections Python de ce document restent valables pour les correctifs 2.x.
 

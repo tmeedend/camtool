@@ -61,7 +61,7 @@ Périmètre autorisé, et rien d'autre :
 | Chemin | Accès |
 |---|---|
 | `apps/python/CamTool_2/` | lecture + écriture (CamTool 2) |
-| `apps/lua/CamTool3/` | lecture + écriture (CamTool 3, branche `camtool-3`) |
+| `apps/lua/CamTool3/` | lecture + écriture (CamTool 3) |
 | `content/gui/icons/CamTool_2_*.png` | lecture seule |
 | `extension/internal/lua-sdk/` | lecture seule (définitions EmmyLua de l'API CSP) |
 
@@ -134,7 +134,7 @@ Comme `luajit`, il n'est pas dans le `PATH` des sessions d'outillage, et
 `adapters/` de la commande n'existent pas encore côté Python : aujourd'hui elle
 se réduit à `classes files ui CamTool_2.py`.
 
-### 1 bis. Tests Lua hors jeu (branche `camtool-3`)
+### 1 bis. Tests Lua hors jeu
 
 Même principe côté Lua, mêmes exigences. **Outillage : un seul binaire.**
 
@@ -216,7 +216,7 @@ Toute modification touchant `adapters/`, l'UI ou `acUpdate` se termine par une *
 - Ne pas "corriger au passage" un comportement bizarre du legacy : le signaler, il est peut-être voulu (ou utilisé par les vidéastes).
 - Supprimer le code commenté mort seulement quand l'équivalent est validé (le code commenté documente souvent les tentatives CSP échouées — reporter l'info dans le tableau DLL avant suppression).
 - Code, identifiants, commentaires et messages de commit en anglais. Échanges avec Théo en français.
-- **`main` porte CamTool 3** et reçoit le travail au fil de l'eau ; `camtool-3` est tenue au même commit. Les branches de chantier partent de l'une ou de l'autre, indifféremment. (Cette ligne a dit le contraire longtemps — « `main` : CamTool 2 en production » — alors que `main` portait déjà une centaine de commits de CamTool 3.)
+- **`main` porte CamTool 3 et reçoit tout le travail.** `camtool-3` a été supprimée : elle suivait `main` sans jamais rien apporter. (Cette ligne a dit le contraire longtemps — « `main` : CamTool 2 en production » — alors que `main` portait déjà une centaine de commits de CamTool 3.)
 - **Ne pas consigner l'état des push dans la documentation** : Théo s'en occupe,
   et l'information périme au premier `git push`. Pousser seulement quand il le
   demande.
