@@ -239,6 +239,23 @@ Déplacer la tête de lecture **n'est pas une modification de données** : aucun
 entrée d'annulation, jamais. Un glissé qui traverse la moitié du tour laisse
 la pile d'annulation exactement où elle était.
 
+## Les voitures : `ACTIVE CAR` et `EXTRA CAR`
+
+Deux lignes sans valeur à taper ni à glisser : une voiture n'est pas un
+nombre qu'on règle. Seules les **flèches** marchent, et elles vont à la
+voiture précédente ou suivante **sur la piste**, pas au numéro suivant —
+comme dans CamTool 2, parce qu'on remonte un peloton, pas une liste.
+
+- `ACTIVE CAR` est la voiture que le replay suit : ses flèches **déplacent le
+  replay** sur une autre voiture.
+- `EXTRA CAR` est celle vers laquelle `MIX` fait pivoter la visée. Elle part
+  de **aucune** (`--`), et y revient quand les flèches repassent sur la
+  voiture active : c'est le seul chemin vers « pas d'extra car », et c'est là
+  que la marche tombe d'elle-même. Tranché par Théo : partir de la voiture 0,
+  comme CamTool 2, faisait que `MIX` ne produisait rien sans dire pourquoi.
+- Ni l'une ni l'autre n'est enregistrée dans le fichier, ni n'entre dans la
+  pile d'annulation : c'est de l'état de session, comme dans CamTool 2.
+
 ## Ce qui détruit du travail demande deux fois
 
 Deux gestes effacent ce qui n'est pas sauvé : **Reset**, qui vide la liste de

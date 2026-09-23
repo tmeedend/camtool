@@ -143,3 +143,150 @@ test('the autofocus picks the nearer car once MIX is set', function()
     docWith({ tracking_mix = 0, camera_use_tracking_point = 1 }), A, near_)
   near(out.dofDistance, 100, 1e-9, 'MIX at 0 ignores it')
 end)
+
+--------------------------------------------------------------------------------
+-- Through the app: the arrows, the names, and the aim they lead to
+--------------------------------------------------------------------------------
+
+local fakes = require('tests/fakes/csp')
+
+---One tracking camera at a fixed spot, MIX at 100%, no lead.
+local function appDoc()
+  return {
+    pos = {
+      { camera_in = 0, camera_pit = false, camera_use_tracking_point = 0,
+        tracking_strength_heading = 1, tracking_strength_pitch = 1,
+        tracking_offset = 0, tracking_mix = 1,
+        transform_loc_strength = 1, transform_rot_strength = 1,
+        camera_shake_strength = 0, camera_offset_shake_strength = 0,
+        keyframes = { { keyframe = 0,
+          interpolation = { loc_x = 60, loc_y = 0, loc_z = 5 } } } },
+    },
+    time = {},
+    version = 2,
+    interpolation_mode = 'fixed',
+  }
+end
+
+-- AC world, Y up. The camera sits at (60, 5, 0).
+local CAMERA = { 60, 5, 0 }
+local FOLLOWED = { 160, 5, 0 }
+local AHEAD = { 60, 5, 100 }
+local BEHIND = { -40, 5, 0 }
+
+local function startApp()
+  local opts = {
+    cameraFile = appDoc(),
+    splinePosition = 0.20,
+    carPosition = vec3(FOLLOWED[1], FOLLOWED[2], FOLLOWED[3]),
+    driverName = 'Followed',
+    otherCars = {
+      [1] = { splinePosition = 0.25, isConnected = true, driverName = 'Rival Ahead',
+        position = vec3(AHEAD[1], AHEAD[2], AHEAD[3]) },
+      [2] = { splinePosition = 0.10, isConnected = true,
+        driverName = 'A Driver With A Long Name',
+        position = vec3(BEHIND[1], BEHIND[2], BEHIND[3]) },
+    },
+    clicks = {
+      ['no file###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
+    },
+  }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+  assert(loadfile('CamTool3.lua'))()
+
+  for _ = 1, 6 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  for label in pairs(opts.clicks) do opts.clicks[label] = nil end
+  eq(handle.grabbed, true, 'the camera was taken')
+
+  local app = { handle = handle }
+
+  function app.click(label)
+    opts.clicks[label] = true
+    pcall(_G.script.windowAtr, 0.016)
+    opts.clicks[label] = nil
+    handle.tick(0.016)
+  end
+
+  ---What the panel shows for a row.
+  function app.shown(key)
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    for i = 1, #handle.buttons do
+      local text = tostring(handle.buttons[i]):match('^(.-)###.*' .. key .. 'val$')
+      if text ~= nil then return text end
+    end
+    return nil
+  end
+
+  ---Is the camera looking at this point, AC world?
+  function app.lookingAt(p)
+    local l = handle.transform.look
+    local dx, dy, dz = p[1] - CAMERA[1], p[2] - CAMERA[2], p[3] - CAMERA[3]
+    local n = math.sqrt(dx * dx + dy * dy + dz * dz)
+    return (l.x * dx + l.y * dy + l.z * dz) / n > 0.9999
+  end
+
+  return app
+end
+
+test('with no extra car, MIX at 100% still frames the followed car', function()
+  local app = startApp()
+  eq(app.shown('trackedCarB'), '--', 'none to begin with')
+  eq(app.lookingAt(FOLLOWED), true)
+  app.handle.restoreIo()
+end)
+
+test('the extra car arrow steps to the car ahead, and MIX aims at it', function()
+  local app = startApp()
+  app.click('##trackingtrackedCarBinc')
+  for _ = 1, 3 do app.handle.tick(0.016) end
+
+  eq(app.shown('trackedCarB'), 'Rival Ahead', 'named as its driver')
+  eq(app.lookingAt(AHEAD), true, 'MIX at 100% frames the extra car')
+  app.handle.restoreIo()
+end)
+
+test('stepping the extra car back onto the followed one means none', function()
+  local app = startApp()
+  app.click('##trackingtrackedCarBinc')
+  app.click('##trackingtrackedCarBdec')
+  for _ = 1, 3 do app.handle.tick(0.016) end
+
+  eq(app.shown('trackedCarB'), '--')
+  eq(app.lookingAt(FOLLOWED), true)
+  app.handle.restoreIo()
+end)
+
+test('a long driver name is cut as CamTool 2 cuts it', function()
+  local app = startApp()
+  app.click('##trackingtrackedCarBdec')
+  eq(app.shown('trackedCarB'), 'A Driver With.')
+  app.handle.restoreIo()
+end)
+
+test('the active car arrows move the replay to the next car on track', function()
+  local app = startApp()
+  eq(app.shown('trackedCarA'), 'Followed')
+  app.click('##trackingtrackedCarAinc')
+  eq(app.handle.focusCalls[1], 1, 'the car ahead, not the next number')
+  app.click('##trackingtrackedCarAdec')
+  eq(app.handle.focusCalls[2], 0, 'and back')
+  app.handle.restoreIo()
+end)
+
+test('the extra car is forgotten when it becomes the followed one', function()
+  local app = startApp()
+  app.click('##trackingtrackedCarBinc')
+  app.click('##trackingtrackedCarAinc')
+  -- The replay now follows car 1, which was the extra car.
+  eq(app.shown('trackedCarB'), '--')
+  app.click('##trackingtrackedCarAdec')
+  eq(app.shown('trackedCarB'), '--', 'and it does not come back')
+  app.handle.restoreIo()
+end)

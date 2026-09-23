@@ -286,18 +286,27 @@ c'est lui qui s'en sert. Elles sont toutes dans `ui/atr.lua`, une par ligne de
 ligne. Un test vérifie que chaque paramètre en a une, donc un paramètre ajouté
 plus tard sans phrase échoue avant d'arriver en jeu.
 
-Deux d'entre elles disent qu'un paramètre **ne fait rien aujourd'hui**, ce qui
+Une d'entre elles dit qu'un paramètre **ne fait rien aujourd'hui**, ce qui
 est vrai et utile à lire dans la fenêtre :
 
 - `STRENGTH LO.` (`transform_loc_strength`) n'est pas appliqué par le portage.
-- `MIX` (`tracking_mix`) n'est **pas appliqué à la visée** : seul l'autofocus
-  le lit, pour faire le point sur la voiture la plus proche. Trouvé en
-  rédigeant les infobulles. **Ce n'est pas du smart tracking**, contrairement
-  à ce que cette ligne disait : CamTool 2 l'applique bel et bien, hors smart
-  tracking (`InterpolateFrame.py` ~243-255), en mélangeant la visée vers la
-  voiture active et vers `EXTRA CAR` au prorata de `MIX`. C'est un vrai manque
-  du portage, et le portage n'a pas non plus de moyen de choisir `EXTRA CAR`
-  (`trackedCarB = nil`).
+
+`MIX` était le second cas : **fait, à confirmer en jeu** (`core/cars.lua`, et
+le mélange dans `core/playback`). Ce n'est pas du smart tracking : CamTool 2
+l'applique hors smart tracking (`InterpolateFrame.py` ~243-255). La visée vers
+`EXTRA CAR`, avec la même avance, est mélangée à celle vers la voiture active
+au prorata de `MIX` ; l'autofocus fait le point sur la plus proche des deux.
+Les flèches de `ACTIVE CAR` et `EXTRA CAR` marchent comme dans CamTool 2 :
+voiture précédente ou suivante **sur la piste**, et `ACTIVE CAR` déplace le
+replay (`ac.focusCar`). Les deux lignes affichent le nom du pilote.
+
+Tranché avec Théo : l'extra car reste un **état de session**, comme dans
+CamTool 2 (un numéro de voiture n'a de sens que dans un replay, et un fichier
+caméra sert à tous ceux d'une piste) ; et elle part de **aucune** au lieu de
+la voiture 0, qui est si souvent la voiture suivie que `MIX` ne faisait rien
+sans dire pourquoi. Deux défauts de CamTool 2 ne sont pas reproduits : #9 et
+#10 du registre de `docs/legacy.md`. L'autre piste, « la voiture juste
+devant » définie par rapport à la voiture suivie, reste à voir avec ATR.
 
 **Ce que CamTool 2 a et que CamTool 3 n'a pas encore** — la liste qui était
 affichée dans la fenêtre, d'où le contrat la chasse :

@@ -34,6 +34,7 @@ local playstate = require('core/playstate')
 local shortcuts = require('adapters/shortcuts')
 local playbackCore = require('core/playback')
 local pitlane = require('core/pitlane')
+local carsCore = require('core/cars')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -283,6 +284,42 @@ local function focusedCarInPitlane(trackPos, carX, carY)
   local car = index ~= nil and index >= 0 and ac.getCar(index) or nil
   local gameSays = car ~= nil and car.isInPitlane == true
   return pitlane.isCarInPitlane(doc, trackPos, carX, carY, gameSays)
+end
+
+-- The extra car MIX aims towards. Session state, as in CamTool 2: no camera
+-- file remembers it. Unlike CamTool 2 it starts as none rather than car 0,
+-- which is so often the car being followed that MIX did nothing without
+-- saying why.
+local extraCar = nil
+
+---The connected cars and where they are on the track, for the arrows.
+---Built on a click, not every frame.
+local function connectedCars()
+  local list = {}
+  for i = 0, (sim.carsCount or 1) - 1 do
+    local car = ac.getCar(i)
+    if car ~= nil and car.isConnected ~= false and car.splinePosition ~= nil then
+      list[#list + 1] = { index = i, pos = car.splinePosition }
+    end
+  end
+  return list
+end
+
+---The extra car that counts: none when it is the followed car, or gone.
+local function effectiveExtraCar()
+  if extraCar == nil or extraCar == sim.focusedCar then return nil end
+  local car = ac.getCar(extraCar)
+  if car == nil or car.isConnected == false then return nil end
+  return extraCar
+end
+
+---World position of the extra car, in CamTool space, or nil without one.
+local function extraCarPosition()
+  local index = effectiveExtraCar()
+  if index == nil then return nil end
+  local car = ac.getCar(index)
+  if car.position == nil then return nil end
+  return car.position.x, car.position.z, car.position.y
 end
 
 local function cameraActive()
@@ -719,6 +756,8 @@ local function runPlayback(transform)
   pbIn.trackPos = focusedTrackPosition()
   pbIn.carX, pbIn.carY, pbIn.carZ = focusedCarPosition()
   pbIn.inPitlane = focusedCarInPitlane(pbIn.trackPos, pbIn.carX, pbIn.carY)
+  pbIn.extraCar = effectiveExtraCar()
+  pbIn.extraX, pbIn.extraY, pbIn.extraZ = extraCarPosition()
   pbIn.replayRate = sim.replayPlaybackRate
   pbIn.clock = shakeClock()
   shakeClockReadout = pbIn.clock
@@ -1688,11 +1727,40 @@ function script.windowAtr(dt)
     -- What the camera is doing, for every field that has no value of its own.
     live = liveValue,
     trackedCarA = sim.focusedCar,
-    trackedCarB = nil,
+    trackedCarB = effectiveExtraCar(),
+    carName = ac.getDriverName,
   })
 
   -- Only the selections are wired: they change nothing about the camera, they
   -- change what the panel is looking at.
+  -- The two cars. Session state and not edits, as in CamTool 2: nothing
+  -- reaches the camera file or the undo stack.
+  local function carStep(request)
+    if type(request) ~= 'table' then return nil end
+    if request.op == 'increment' then return 1 end
+    if request.op == 'decrement' then return -1 end
+    return nil
+  end
+
+  local stepFollowed = carStep(actions.trackedCarA)
+  if stepFollowed ~= nil and sim.focusedCar ~= nil and sim.focusedCar >= 0 then
+    local list = connectedCars()
+    local from = sim.focusedCar
+    local to = carsCore.step(list, from, carsCore.positionOf(list, from), stepFollowed)
+    if to ~= from then
+      ac.focusCar(to)
+      -- Followed and extra at once is no extra car. Forgotten rather than
+      -- kept, so it does not come back when the followed car moves on.
+      if extraCar == to then extraCar = nil end
+    end
+  end
+
+  local stepExtra = carStep(actions.trackedCarB)
+  if stepExtra ~= nil then
+    extraCar = carsCore.stepExtra(connectedCars(), sim.focusedCar,
+      effectiveExtraCar(), stepExtra)
+  end
+
   if actions.selectCamera ~= nil then
     atrCamera = actions.selectCamera
     atrKeyframe = 1

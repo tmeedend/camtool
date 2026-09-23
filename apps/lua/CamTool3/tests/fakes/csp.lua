@@ -92,7 +92,17 @@ function fakes.install(opts)
     -- AC world position, Y-up. Needed for the tracking path.
     position = opts.carPosition or vec3fake(-170, 5, 450),
     isInPitlane = opts.isInPitlane or false,
+    isConnected = true,
   }
+
+  -- More cars, by index from 1: { splinePosition = , position = , ... }. Car
+  -- 0 is handle.car above, the one every other test drives.
+  handle.otherCars = opts.otherCars or {}
+  handle.focusCalls = {}
+  sim.carsCount = 1
+  for i in pairs(handle.otherCars) do
+    if i + 1 > sim.carsCount then sim.carsCount = i + 1 end
+  end
 
   local grabbedCamera = {
     transform = handle.transform,
@@ -141,8 +151,21 @@ function fakes.install(opts)
     getCameraFOV = function() return 45 end,
 
     getCar = function(i)
-      if i ~= 0 then return nil end
-      return handle.car
+      if i == 0 then return handle.car end
+      return handle.otherCars[i]
+    end,
+
+    -- The focused car is whichever the replay follows: sim.focusedCar moves,
+    -- and the call is recorded so a test can ask what was asked.
+    focusCar = function(i)
+      handle.focusCalls[#handle.focusCalls + 1] = i
+      sim.focusedCar = i
+    end,
+
+    getDriverName = function(i)
+      if i == 0 then return opts.driverName or 'Player' end
+      local car = handle.otherCars[i]
+      return car ~= nil and car.driverName or nil
     end,
 
     setReplayPosition = function(frame, counter)

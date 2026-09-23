@@ -105,8 +105,23 @@ end
 ---writes them anywhere. They are session state, reset to car 0 every time
 ---Assetto Corsa starts, and no camera remembers which car it was framing.
 ---Making them part of a camera would be a new feature, not a port.
-local function runtimeRow(key, label, unit, help)
-  return { key = key, label = label, unit = unit, help = help, runtime = true }
+---
+---Runtime is not the same as read only. The two cars have arrows that step
+---along the track, as in CamTool 2; what they have not got is a value to type
+---or drag, since a car is not a number you tune. `gestures` says which.
+local function runtimeRow(key, label, unit, help, gestures)
+  return { key = key, label = label, unit = unit, help = help, runtime = true,
+    gestures = gestures }
+end
+
+---The status line for the two car rows.
+local CAR_ARROWS = 'Arrows: the car behind, the car ahead on the track.'
+
+---A driver's name, cut to what CamTool 2 shows: thirteen letters and a dot.
+local function shortName(name)
+  if type(name) ~= 'string' or name == '' then return nil end
+  if #name > 13 then return name:sub(1, 13) .. '.' end
+  return name
 end
 
 ---A row for something that lives on the camera and cannot be keyframed, so
@@ -177,14 +192,18 @@ atr.COLUMNS = {
     colour = 'tracking',
     rows = {
       runtimeRow('trackedCarA', 'ACTIVE CAR', UNITS.car,
-        'The car being followed. Session state: no camera file remembers it, '
-        .. 'and it goes back to car 0 every time Assetto Corsa starts.'),
+        'The car the replay follows and the camera tracks. The arrows move '
+        .. 'the replay to the car behind or ahead. No camera file remembers it.',
+        CAR_ARROWS),
       row('tracking_mix', 'MIX', UNITS.percent,
-        'Blends the aim between the active car and the extra one. NOT APPLIED '
-        .. 'TO THE AIM YET in CamTool 3 -- only autofocus reads it, to focus '
-        .. 'on whichever car is nearer.'),
+        'Swings the aim from the active car towards the extra one: 0% frames '
+        .. 'the active car, 100% the extra car. Autofocus then focuses on '
+        .. 'whichever of the two is nearer.'),
       runtimeRow('trackedCarB', 'EXTRA CAR', UNITS.car,
-        'The second car, the one MIX blends with the active one.'),
+        'The second car, the one MIX aims towards. None to begin with, and '
+        .. 'none again when the arrows step back onto the active car. No '
+        .. 'camera file remembers it.',
+        CAR_ARROWS),
       row('tracking_offset', 'OFF TRACKING', UNITS.ratio,
         'Aims ahead of the car or behind it. Negative leads, positive lags. '
         .. 'Scaled by replay speed, so a slowed replay keeps the same lead.'),
@@ -296,6 +315,11 @@ atr.LEGEND = {
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
+  'Cars   the arrows of ACTIVE CAR and EXTRA CAR step to the car behind or ' ..
+    'ahead ON THE TRACK, not to the next number. Stepping the active car ' ..
+    'moves the replay to it. The extra car is the one MIX aims towards: none ' ..
+    'to begin with, and none again when you step back onto the active car. ' ..
+    'Neither is saved in the file, as in CamTool 2.',
   'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
     'moving the replay is not an edit at all.',
   'Files   DOUBLE CLICK THE FILE NAME to save under a different one -- or, ' ..
@@ -419,6 +443,13 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     text = spec.unit.show(shown)
   end
 
+  -- A car reads as its driver, as it does in CamTool 2, where the game knows
+  -- the name. The number is what is left when it does not.
+  if spec.unit == UNITS.car and type(shown) == 'number'
+      and type(state.carName) == 'function' then
+    text = shortName(state.carName(shown)) or text
+  end
+
   local action, payload = parameter.draw(section .. spec.key, {
     label = spec.label,
     text = text,
@@ -427,6 +458,7 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     -- written into atr.COLUMNS and stopped here, so not one tooltip ever
     -- appeared. Each half was tested and the join between them was not.
     help = spec.help,
+    gestures = spec.gestures,
     runtime = spec.runtime,
     raw = type(shown) == 'number' and string.format('%.4g', shown) or '',
     noDiamond = spec.plain == true or spec.runtime == true
