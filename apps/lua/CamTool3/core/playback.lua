@@ -100,6 +100,9 @@ end
 ---since that changes how the history starts.
 function playback.resetHistory(state)
   state.carHistory = tracking.new(nil, state.options.legacyZeroFill)
+  -- Never zero filled: CamTool 2 has no fixed starting transient to
+  -- reproduce for the extra car, only a stale history. See playback.frame.
+  state.extraHistory = tracking.new(nil, false)
   state.headingHistory = {}
   state.haveAim = false
   state.shakeMomentum = 0
@@ -123,6 +126,7 @@ function playback.jumped(state)
   if type(state) ~= 'table' then return end
 
   state.carHistory = tracking.new(nil, false)
+  state.extraHistory = tracking.new(nil, false)
   -- The pan-speed window too: it holds the swing the jump itself produced,
   -- and the shake reads that as a camera whipping round.
   state.headingHistory = {}
@@ -184,6 +188,9 @@ end
 ---  trackPos      the car's normalised track position, 0..1
 ---  inPitlane     true while the car is in the pit lane (core/pitlane)
 ---  carX/Y/Z      the car's world position in CamTool space, or nil
+---  extraCar      the extra car MIX blends the aim towards, nil for none;
+---                any value that identifies it, compared frame to frame
+---  extraX/Y/Z    its world position in CamTool space, nil without one
 ---  replayRate    replay playback rate, 1 at normal speed
 ---  clock         replay position in seconds, the shake clock
 ---  seedHeading   the camera's real heading, used once to seed the held aim
@@ -201,6 +208,7 @@ function playback.frame(state, doc, input)
   out.x, out.y, out.z = nil, nil, nil
   out.fov = nil
   out.dofDistance, out.dofFactor = nil, nil
+  out.aimMix = 0
 
   local pos = input.trackPos
   if pos == nil or doc == nil then return out end
@@ -319,6 +327,21 @@ function playback.frame(state, doc, input)
   -- Fetched once: the tracking aim and the autofocus both need it.
   local carPosX, carPosY, carPosZ = input.carX, input.carY, input.carZ
 
+  -- The extra car. A different car is a different history: the one in hand
+  -- is about somewhere else on the track.
+  if input.extraCar ~= state.extraCar then
+    state.extraCar = input.extraCar
+    state.extraHistory = tracking.new(nil, false)
+  end
+  local extraX, extraY, extraZ = nil, nil, nil
+  if input.extraCar ~= nil and input.extraX ~= nil then
+    extraX, extraY, extraZ = input.extraX, input.extraY, input.extraZ
+  end
+
+  -- How far the aim swings from the followed car to the extra one. Also read
+  -- by the autofocus, which is where CamTool 2 reads it too.
+  local mix = pick(v.tracking_mix, camera.tracking_mix, 0)
+
   -- rot_x is pitch, rot_y is roll, rot_z is heading, named explicitly in
   -- InterpolateFrame.py.
   local rotStrength = pick(v.transform_rot_strength, camera.transform_rot_strength, 1)
@@ -342,6 +365,13 @@ function playback.frame(state, doc, input)
     local carX, carY, carZ = carPosX, carPosY, carPosZ
     if carX ~= nil then
       tracking.push(state.carHistory, carX, carY, carZ)
+      -- Every frame, whatever MIX says. CamTool 2 only records the extra car
+      -- while MIX is above zero, so when it rises again the lead is worked
+      -- out from where the car was the last time -- or from the world origin
+      -- the first time -- and the aim is thrown off for fifty frames.
+      if extraX ~= nil then
+        tracking.push(state.extraHistory, extraX, extraY, extraZ)
+      end
 
       -- Aim where the car is heading, or where it has been, rather than
       -- at the car itself. tracking_offset picks which and by how much;
@@ -365,6 +395,22 @@ function playback.frame(state, doc, input)
         tracking.target(state.carHistory, offset, input.replayRate, offsetShake)
 
       aimHeading, aimPitch = angles.aimAt(px, py, pz, targetX, targetY, targetZ)
+
+      -- MIX: the aim at the extra car, with the same lead, blended in by
+      -- angle as CamTool 2 does -- heading on the followed car's branch so
+      -- the blend never goes the long way round, pitch straight across.
+      if mix > 0 and extraX ~= nil then
+        local extraTargetX, extraTargetY, extraTargetZ =
+          tracking.target(state.extraHistory, offset, input.replayRate, offsetShake)
+        local extraHeading, extraPitch =
+          angles.aimAt(px, py, pz, extraTargetX, extraTargetY, extraTargetZ)
+        aimHeading = angles.blend(aimHeading, extraHeading, mix)
+        aimPitch = aimPitch * (1 - mix) + extraPitch * mix
+        out.aimMix = mix
+      end
+
+      -- The focus gate reads the blended aim, before the offsets: that is
+      -- the heading CamTool 2 keeps for it.
       aimHeadingRaw = aimHeading
       aimHeading = aimHeading + pick(v.tracking_offset_heading, camera.tracking_offset_heading, 0)
       aimPitch = aimPitch + pick(v.tracking_offset_pitch, camera.tracking_offset_pitch, 0)
@@ -453,8 +499,10 @@ function playback.frame(state, doc, input)
       -- heading through ctt, which still holds the previous frame's value at
       -- this point in the frame.
       if aimHeadingRaw == nil or focus.shouldRefocus(currentHeading, aimHeadingRaw) then
+        local extra = nil
+        if extraX ~= nil then extra = { x = extraX, y = extraY, z = extraZ } end
         distance = focus.auto({ x = px, y = py, z = pz },
-          { x = carPosX, y = carPosY, z = carPosZ }, nil, 0)
+          { x = carPosX, y = carPosY, z = carPosZ }, extra, mix)
         state.focusDistance = distance
       else
         -- Aimed away from the car: hold the previous distance rather than
