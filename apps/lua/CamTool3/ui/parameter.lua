@@ -47,12 +47,17 @@ local DIAMOND_SIZE = 9
 ---What you can do to a row, the same on every one of them -- which is the
 ---point of having one component. It goes to the status line after the
 ---sentence saying what the parameter does.
+---
+---Escape is not among them, and must not come back: the game leaves the
+---replay on it. A drag is abandoned with a right click, a typed value by
+---clicking away -- see the note above parameter.draw.
 local GESTURES =
-  'Diamond: keyframe here. Arrows: one step. Drag: scrub. ' ..
-  'Double click: type. Escape: cancel. Ctrl: finer. Shift: coarser.'
+  'Diamond: keyframe here. Arrows: one step. Drag: scrub, right click to ' ..
+  'abandon. Double click: type, click away to abandon. Ctrl: finer. ' ..
+  'Shift: coarser.'
 local GESTURES_READONLY = 'Read only.'
-local GESTURES_NO_KEYFRAME = 'Arrows: one step. Drag: scrub. ' ..
-  'Double click: type. Escape: cancel. Not keyframable.'
+local GESTURES_NO_KEYFRAME = 'Arrows: one step. Drag: scrub, right click to ' ..
+  'abandon. Double click: type, click away to abandon. Not keyframable.'
 
 ---How far the mouse travels for one step of the parameter. Eight pixels is
 ---about a comfortable nudge per centimetre of movement, and Ctrl and Shift

@@ -1422,6 +1422,22 @@ test('the status line carries what the bubble used to say', function()
     'and what can be done to it')
 end)
 
+test('the status line never offers Escape, and names the real cancels', function()
+  -- The contract gave Escape up: in Assetto Corsa it leaves the replay. The
+  -- status line went on offering it for a whole batch after the gesture
+  -- itself was gone.
+  for _, spec in ipairs({
+    { label = 'FOV', text = '35.00 deg', width = 140 },
+    { label = 'SPEED', text = '1.00', width = 140, noDiamond = true },
+  }) do
+    hoverRow(1, 0.016, spec)
+    local _, _, gestures = parameter.hovered()
+    eq(gestures:lower():find('escape', 1, true), nil, spec.label)
+    eq(gestures:find('right click', 1, true) ~= nil, true, spec.label .. ' drag')
+    eq(gestures:find('click away', 1, true) ~= nil, true, spec.label .. ' typing')
+  end
+end)
+
 test('a read-only row does not promise gestures it has not got', function()
   hoverRow(1, 0.016, {
     label = 'ACTIVE CAR', text = 'car 0', width = 140, runtime = true,
