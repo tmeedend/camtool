@@ -33,6 +33,7 @@ local navigate = require('core/navigate')
 local playstate = require('core/playstate')
 local shortcuts = require('adapters/shortcuts')
 local playbackCore = require('core/playback')
+local pitlane = require('core/pitlane')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -272,6 +273,16 @@ local function focusedTrackPosition()
   local car = ac.getCar(index)
   if car == nil then return nil end
   return car.splinePosition
+end
+
+---Is the car the replay is following in the pit lane? The file's own track
+---and pit splines decide when it has both, the game otherwise: see
+---core/pitlane.
+local function focusedCarInPitlane(trackPos, carX, carY)
+  local index = sim.focusedCar
+  local car = index ~= nil and index >= 0 and ac.getCar(index) or nil
+  local gameSays = car ~= nil and car.isInPitlane == true
+  return pitlane.isCarInPitlane(doc, trackPos, carX, carY, gameSays)
 end
 
 local function cameraActive()
@@ -707,6 +718,7 @@ local function runPlayback(transform)
 
   pbIn.trackPos = focusedTrackPosition()
   pbIn.carX, pbIn.carY, pbIn.carZ = focusedCarPosition()
+  pbIn.inPitlane = focusedCarInPitlane(pbIn.trackPos, pbIn.carX, pbIn.carY)
   pbIn.replayRate = sim.replayPlaybackRate
   pbIn.clock = shakeClock()
   shakeClockReadout = pbIn.clock

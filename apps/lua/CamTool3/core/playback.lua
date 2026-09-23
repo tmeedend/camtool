@@ -182,6 +182,7 @@ end
 ---@param doc table @a migrated camera document
 ---@param input table
 ---  trackPos      the car's normalised track position, 0..1
+---  inPitlane     true while the car is in the pit lane (core/pitlane)
 ---  carX/Y/Z      the car's world position in CamTool space, or nil
 ---  replayRate    replay playback rate, 1 at normal speed
 ---  clock         replay position in seconds, the shake clock
@@ -208,6 +209,14 @@ function playback.frame(state, doc, input)
 
   local cameras = doc[options.listName]
   local activeCam = evaluate.activeCameraIndex(cameras, pos)
+
+  -- In the pit lane the legacy runs the walk a second time over the pit
+  -- cameras only, and keeps the track camera when the file has none.
+  if input.inPitlane then
+    local pitCam = evaluate.activeCameraIndex(cameras, pos, true)
+    if pitCam ~= nil then activeCam = pitCam end
+  end
+
   out.activeCam = activeCam
   if activeCam == nil then return out end
 
@@ -220,7 +229,12 @@ function playback.frame(state, doc, input)
 
   -- Keyframes are read at a position of their own for the camera that spans
   -- the start line. See #23.
-  local isLastCamera = evaluate.isLastCamera(cameras, activeCam)
+  --
+  -- Last of its own kind: a pit camera is last among pit cameras. The legacy
+  -- asks whether the CAR is in the pit lane instead, which in a file with no
+  -- pit camera makes the first track camera "last" while the car is in the
+  -- pits. Deliberate departure, agreed with Theo; see docs/legacy.md.
+  local isLastCamera = evaluate.isLastCamera(cameras, activeCam, camera.camera_pit)
   local keyframeQuery = evaluate.queryPosition(pos, camera, isLastCamera,
     #cameras, options.legacyLastCamera)
   out.isLastCamera = isLastCamera

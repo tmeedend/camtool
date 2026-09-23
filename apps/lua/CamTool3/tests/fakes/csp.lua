@@ -91,6 +91,7 @@ function fakes.install(opts)
     index = 0,
     -- AC world position, Y-up. Needed for the tracking path.
     position = opts.carPosition or vec3fake(-170, 5, 450),
+    isInPitlane = opts.isInPitlane or false,
   }
 
   local grabbedCamera = {

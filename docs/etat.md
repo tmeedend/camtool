@@ -591,12 +591,15 @@ diagnostic.
    chaque paramètre, les deux diviseurs de réglage fin (`/5` et `/10`, sans
    doute un accident), et le fait que `Focus point` et `FOV` échappent à la
    règle générale.
-2. **Caméras de stand** : le portage les *saute* correctement sur piste, mais ne
-   sait pas encore les *sélectionner* quand la voiture est aux stands (le legacy
-   le fait via `car_is_in_pitline`, avec une seconde passe de sélection).
-   `evaluate.activeCameraIndex` accepte déjà un argument `wantPit`, rien ne
-   l'appelle avec. Le balayage le constate : sur Red Bull Ring, 9 caméras sur 11
-   se déclenchent, les deux manquantes sont les caméras de stand.
+2. ~~**Caméras de stand**~~ — **fait, à confirmer en jeu** (`core/pitlane.lua`).
+   Voiture aux stands : seconde passe de sélection sur les seules caméras de
+   stand, la caméra de piste reste si le fichier n'en a aucune. « Aux stands »
+   se décide comme dans le legacy : par les `track_spline` et `pit_spline` du
+   fichier quand il a les deux (c'est le cas de Red Bull Ring), sinon par
+   `car.isInPitlane` de CSP. Un écart assumé avec Théo, la « dernière caméra »
+   (#8 du registre de `docs/legacy.md`). Le balayage, qui roule sur la piste,
+   ne voit toujours que 9 caméras sur 11 à Red Bull Ring : c'est normal.
+   La **carte** et le **ruban** ne montrent encore que les caméras de piste.
 3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
 4. ~~**`camera_use_specific_cam`**~~ — **fait** (`core/cameramode.lua`).
    Le champ s'appelle `AC CAMERA` dans le panneau et affiche les noms de

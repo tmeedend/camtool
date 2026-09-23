@@ -210,6 +210,7 @@ lap.CORE_FIELDS = {
 ---  sampler     (position) -> x, y, z in CamTool space
 ---  frameMs     replay frame length, which drives the shake clock
 ---  replayRate  replay playback rate (default 1)
+---  inPitlane   (position) -> boolean, whether the car is in the pit lane
 ---@return table @{ doc = <migrated>, frames = { <one row per frame> } }
 function lap.runCore(opts)
   opts = opts or {}
@@ -245,6 +246,7 @@ function lap.runCore(opts)
     input.trackPos = position
     input.carX, input.carY, input.carZ = sampler(position)
     input.clock = i * frameMs / 1000
+    input.inPitlane = opts.inPitlane ~= nil and opts.inPitlane(position) or false
 
     -- The aim and focus the core is holding on the way in. A real recording
     -- cannot carry the heading -- reading it in game would fill a cache the

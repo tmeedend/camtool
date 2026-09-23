@@ -62,3 +62,89 @@ test('no car position falls back to the game too', function()
   eq(pitlane.isCarInPitlane(doc, 0.5, nil, nil, true), true)
   eq(pitlane.isCarInPitlane(doc, nil, 0, 0, false), false)
 end)
+
+--------------------------------------------------------------------------------
+-- Selection: the second walk over the pit cameras
+--------------------------------------------------------------------------------
+
+local lap = require('tests/lap')
+local interpolation = require('core/interpolation')
+
+-- camera_file_lap carries two pit cameras: 1 from 0.035, 10 from 0.816.
+local LAP = 'tests/fixtures/camera_file_lap'
+
+local function always() return true end
+
+---Where a car driving down the pit lane is, read off the file's pit spline.
+local function pitSampler(doc)
+  local pit = doc.pit_spline
+  return function(position)
+    local at = position < 0.5 and position + 1 or position
+    return interpolation.interpolate_spline(at, pit.the_x, pit.loc_x),
+      interpolation.interpolate_spline(at, pit.the_x, pit.loc_y),
+      interpolation.interpolate_spline(at, pit.the_x, pit.loc_z)
+  end
+end
+
+test('in the pit lane only pit cameras play, wrapping like the track ones', function()
+  local result = lap.runCore({ cameraFile = require(LAP), frames = 300,
+    inPitlane = always })
+  local first = result.doc.pos[1].camera_in
+  local second = result.doc.pos[10].camera_in
+  local seen = {}
+  for _, row in ipairs(result.frames) do
+    local expected = (row.position >= first and row.position < second) and 1 or 10
+    eq(row.activeCam, expected, string.format('at %.3f', row.position))
+    seen[row.activeCam] = true
+  end
+  eq(seen[1] and seen[10], true, 'both pit cameras played')
+end)
+
+test('a pit camera is last among pit cameras, and only there', function()
+  local result = lap.runCore({ cameraFile = require(LAP), frames = 300,
+    inPitlane = always })
+  for _, row in ipairs(result.frames) do
+    eq(row.isLastCamera, row.activeCam == 10, string.format('at %.3f', row.position))
+  end
+end)
+
+test('a file with no pit camera keeps its track cameras in the pit lane', function()
+  -- And the first of them does not become "last" for it, which is what the
+  -- legacy did: it asked whether the car was in the pit lane, not whether the
+  -- camera was a pit camera.
+  local fixture = 'tests/fixtures/camera_file_seb'
+  local onTrack = lap.runCore({ cameraFile = require(fixture), frames = 200 })
+  local inPits = lap.runCore({ cameraFile = require(fixture), frames = 200,
+    inPitlane = always })
+  for i = 1, 200 do
+    local a, b = onTrack.frames[i], inPits.frames[i]
+    eq(b.activeCam, a.activeCam, 'frame ' .. i)
+    eq(b.isLastCamera, a.isLastCamera, 'frame ' .. i)
+    runner.near(b.x, a.x, 1e-12, 'frame ' .. i .. ' x')
+  end
+end)
+
+test('the app sees the car in the pit lane and plays the pit cameras', function()
+  -- Driven down the pit lane across the line, so both pit cameras take over.
+  -- The app decides from the file's splines; the core is told outright. If the
+  -- app missed the pit lane anywhere, the two would part there.
+  local raw = require(LAP)
+  local sampler = pitSampler(data.load(raw))
+  local opts = { cameraFile = raw, frames = 120, from = 0.002, to = 0.09,
+    sampler = sampler }
+  local viaApp = lap.run(opts)
+  viaApp.handle.restoreIo()
+  opts.inPitlane = always
+  local viaCore = lap.runCore(opts)
+
+  local seen = {}
+  for i = 1, 120 do
+    local a, b = viaApp.frames[i], viaCore.frames[i]
+    seen[b.activeCam] = true
+    runner.near(a.x, b.x, 1e-12, 'frame ' .. i .. ' x')
+    runner.near(a.y, b.z, 1e-12, 'frame ' .. i .. ' y is the core z')
+    runner.near(a.z, b.y, 1e-12, 'frame ' .. i .. ' z is the core y')
+    runner.near(a.lx, b.lookX, 1e-12, 'frame ' .. i .. ' look x')
+  end
+  eq(seen[1] and seen[10], true, 'the run crosses from one pit camera to the other')
+end)

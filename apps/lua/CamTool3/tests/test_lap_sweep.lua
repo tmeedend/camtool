@@ -270,7 +270,8 @@ test('a camera another one shadows is not blamed', function()
 end)
 
 test('a pit camera that never fires is not blamed', function()
-  -- Selecting pit cameras is not built yet; see the pit camera chantier.
+  -- The sweep drives the track, where pit cameras never play. Selecting them
+  -- in the pit lane is tested in test_pitlane.lua.
   local doc = { pos = { { camera_in = 0 }, { camera_in = 0.5, camera_pit = true } } }
   eq(#findingsFor(nil, doc), 0)
 end)

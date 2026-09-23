@@ -195,8 +195,8 @@ function sweep.findings(doc, rows, spans, listName)
 
   for i = 1, #cameras do
     local camera = cameras[i]
-    -- Pit cameras are a separate list as far as selection goes, and nothing
-    -- asks for them yet, so their absence is expected.
+    -- Pit cameras are a separate list that only plays in the pit lane, and a
+    -- lap swept on the track never goes there, so their absence is expected.
     if not camera.camera_pit and not seen[i] then
       local shadowed = false
       for j = i + 1, #cameras do

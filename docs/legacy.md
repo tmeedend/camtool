@@ -82,9 +82,9 @@ Règles :
 - Introduire un champ `version` de schéma + fonctions de migration pures et testées. Jamais de rupture silencieuse.
 ### Registre des bizarreries du legacy
 
-Quatre comportements confirmés **en exécutant le vrai code Python**, pas déduits
-par lecture. Tous reproduits à l'identique dans le portage Lua et épinglés par
-un test, pour qu'aucune correction n'arrive par accident.
+Comportements confirmés **en exécutant le vrai code Python** ou en lisant le code
+de près. Tous reproduits à l'identique dans le portage Lua et épinglés par un
+test, pour qu'aucune correction n'arrive par accident — sauf le #8, écart voulu.
 
 | # | Comportement | Déclencheur | Effet observable | Test |
 |---|---|---|---|---|
@@ -95,6 +95,7 @@ un test, pour qu'aucune correction n'arrive par accident.
 | 5 | Mélange de position : les axes Y et Z utilisent `ctt.get_position(0)` — l'axe **X** (`InterpolateFrame.py` ~156 et ~177) | `transform_loc_strength < 1` | Y et Z sont mélangés avec la coordonnée X de la caméra. Copier-coller. **Dormant** : vaut 1.0 sur les 566 caméras de référence, jamais keyframé | — |
 | 6 | `locCameraData.transform_rot_strength = loc_transform_loc_strength` (~119) | `transform_loc_strength` keyframé | la force de **translation** est écrite dans le cache de la force de **rotation**. **Dormant** : jamais keyframé dans les fichiers de référence | — |
 | 7 | `self.__shake_offset / info.graphics.replayTimeMultiplier` (`Camera.py` ~644) — division **sans affectation**, le résultat est jeté | shake d'offset actif en ralenti ou accéléré | le shake d'offset n'est **pas** mis à l'échelle par la vitesse de replay, contrairement au shake de rotation qui l'est. Diviser maintenant changerait le rendu des caméras existantes | `test_shake.lua` |
+| 8 | `is_last_camera` choisit la liste (stand ou piste) selon que **la voiture** est aux stands, pas selon **la caméra active** (`data.py` ~125) | voiture aux stands, fichier **sans caméra de stand** | la **première** caméra de piste passe pour « la dernière » : au-delà de 0.5 de piste, ses keyframes sont lues un tour en arrière et peuvent se figer (même mécanisme que #23). **Non reproduit** — seul écart du registre, tranché par Théo : le portage décide selon le type de la caméra active, comme le fait déjà `get_camera_out` | `test_pitlane.lua` |
 
 Nature différente, donc traitement différent :
 
