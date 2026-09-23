@@ -40,39 +40,7 @@ end
 ---@return number heading, number pitch
 function angles.fromLook(x, y, z)
   -- AC z is CamTool y, AC y is CamTool z.
-  ---Combine the three sources of aim, exactly as InterpolateFrame assembles them:
----
----    ((transform * (1 - track) + tracking * track) * (1 - spline)
----      + splineAngle * spline)
----
----Note the nesting. Transform and tracking are blended first, and the spline is
----then mixed over the result, so a spline strength of 1 overrides both.
----
----Any source that is nil falls back to `current`, which is what makes an
----unkeyframed camera hold its aim rather than snap somewhere.
----
----Every candidate is brought to the revolution nearest `current` before the
----arithmetic, as the legacy does, so a blend near the +/-pi seam takes the short
----way round instead of unwinding a full turn.
----@param current number @the camera's present angle
----@param transform number|nil @from the keyframes
----@param tracking number|nil @aim at the tracked car
----@param trackStrength number|nil
----@param splineAngle number|nil @from the recorded path
----@param splineStrength number|nil
----@return number
-function angles.combine(current, transform, tracking, trackStrength, splineAngle, splineStrength)
-  local t = transform ~= nil and angles.normalize(current, transform) or current
-  local k = tracking ~= nil and angles.normalize(current, tracking) or current
-  local s = splineAngle ~= nil and angles.normalize(current, splineAngle) or current
-
-  local kw = trackStrength or 0
-  local sw = splineStrength or 0
-
-  return (t * (1 - kw) + k * kw) * (1 - sw) + s * sw
-end
-
-return angles.aimAt(0, 0, 0, x, z, y)
+  return angles.aimAt(0, 0, 0, x, z, y)
 end
 
 ---Bring `value` to the revolution nearest `current`, so a blend between two
