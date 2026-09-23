@@ -292,8 +292,12 @@ est vrai et utile à lire dans la fenêtre :
 - `STRENGTH LO.` (`transform_loc_strength`) n'est pas appliqué par le portage.
 - `MIX` (`tracking_mix`) n'est **pas appliqué à la visée** : seul l'autofocus
   le lit, pour faire le point sur la voiture la plus proche. Trouvé en
-  rédigeant les infobulles. Le mélange de visée entre deux voitures fait
-  partie du chantier « smart tracking ».
+  rédigeant les infobulles. **Ce n'est pas du smart tracking**, contrairement
+  à ce que cette ligne disait : CamTool 2 l'applique bel et bien, hors smart
+  tracking (`InterpolateFrame.py` ~243-255), en mélangeant la visée vers la
+  voiture active et vers `EXTRA CAR` au prorata de `MIX`. C'est un vrai manque
+  du portage, et le portage n'a pas non plus de moyen de choisir `EXTRA CAR`
+  (`trackedCarB = nil`).
 
 **Ce que CamTool 2 a et que CamTool 3 n'a pas encore** — la liste qui était
 affichée dans la fenêtre, d'où le contrat la chasse :
@@ -600,7 +604,20 @@ diagnostic.
    (#8 du registre de `docs/legacy.md`). Le balayage, qui roule sur la piste,
    ne voit toujours que 9 caméras sur 11 à Red Bull Ring : c'est normal.
    La **carte** et le **ruban** ne montrent encore que les caméras de piste.
-3. **Smart tracking** (`calculate_cam_rot_to_smart_tracking_car`).
+3. ~~**Smart tracking**~~ — **rien à porter : la fonctionnalité est morte dans
+   CamTool 2.** L'idée : quand un adversaire passe à moins de 50 m de la
+   voiture suivie, décaler la visée entre les deux et ouvrir le FOV pour
+   cadrer le duel, avec 2,5 s de transition d'un adversaire à l'autre. Mais :
+   - son seul interrupteur est commenté (`ui/settings_layout.py` ~40 et ~47),
+     et `data.smart_tracking` part à `False` sans que rien le change ;
+   - activé, il lèverait aussitôt : `update_smart_tracking_values` lit un `x`
+     qui n'existe pas (`Camera.py` ~190, le paramètre s'appelle `the_x`),
+     avalé par `debug(e)` ;
+   - `calculate_cam_rot_to_smart_tracking_car` n'est appelée nulle part.
+
+   Aucun utilisateur ne l'a donc jamais eu. Le refaire serait une
+   **fonctionnalité nouvelle à concevoir** (réglages à trouver en jeu, place
+   dans l'UI, avis d'ATR), pas un rattrapage. Tranché avec Théo : hors release.
 4. ~~**`camera_use_specific_cam`**~~ — **fait** (`core/cameramode.lua`).
    Le champ s'appelle `AC CAMERA` dans le panneau et affiche les noms de
    CamTool 2 (« volant », « derrière », « cockpit »…) plutôt qu'un numéro.
