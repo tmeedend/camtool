@@ -308,13 +308,38 @@ sans dire pourquoi. Deux défauts de CamTool 2 ne sont pas reproduits : #9 et
 #10 du registre de `docs/legacy.md`. L'autre piste, « la voiture juste
 devant » définie par rapport à la voiture suivie, reste à voir avec ATR.
 
-**Ce que CamTool 2 a et que CamTool 3 n'a pas encore** — la liste qui était
-affichée dans la fenêtre, d'où le contrat la chasse :
+**Ce que CamTool 2 a et que CamTool 3 n'a pas encore** — audit du
+2026-09-24, fait en reprenant `docs/ui-inventory.md` ligne à ligne et la
+boucle `acUpdate` de CamTool 2. Théo ne veut pas de bêta avec une
+fonctionnalité manquante : cette liste doit être vide avant la sortie. Dans
+l'ordre de traitement retenu :
 
-- enregistrer une spline (par caméra, et celles de piste et de stand) ;
-- `load on startup` et les raccourcis (demandent un fichier de réglages que
-  CamTool 3 n'a pas) ;
-- `Activate Free Camera`.
+1. **Les caméras de stand ne sont pas éditables.** On ne choisit une caméra
+   qu'au ruban ou à la carte, et les deux ne montrent que les caméras de
+   piste : une caméra `PIT ONLY` n'est joignable que quand elle joue, et
+   cocher `PIT ONLY` la fait disparaître du ruban. CamTool 2 les listait
+   toutes.
+2. **Le fondu du son aux coupes** — absent de l'inventaire, trouvé dans
+   `acUpdate` (`CamTool_2.py` ~116-132) : à chaque changement de caméra ou de
+   voiture suivie, le volume repart de zéro et remonte en 0,5 s (courbe
+   quadratique).
+3. **`Activate Free Camera`** (bouton de l'en-tête).
+4. **`Load on startup`** : recharger le dernier fichier utilisé.
+5. **Supprimer un fichier** de la liste (le `✕`), à demander deux fois comme
+   `Reset`.
+6. **Les touches** : F10 active, F1/F2/F3/F5/F6/F7 (caméras d'AC) désactivent,
+   Y/U/I/O/P chargent les fichiers 1 à 5 derrière `Enable hotkeys`.
+7. **Le mode temps** : la liste `time` s'édite mais se joue sur la position de
+   la voiture ; CamTool 2 la joue sur le temps du replay
+   (`replay.get_interpolated_replay_pos`). Unité de `camera_in` à établir.
+8. **Enregistrer une spline** : par caméra (onglet Spline), et les splines de
+   piste et de stand (onglet Settings), `Record → Stop → Remove`. Le plus
+   gros morceau : portage de `record_spline`.
+9. **Reset de `PITCH` et `ROLL`** : taper `0` fait déjà la même chose ; à
+   trancher avec Théo s'il faut un geste dédié.
+
+Vu en passant : la légende du `?` parle encore d'une « Camera strip » que le
+ruban a remplacée.
 
 **Décisions actées avec Théo** (ne pas re-trancher seul) :
 
