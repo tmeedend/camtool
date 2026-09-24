@@ -1217,6 +1217,17 @@ retiré.
   serait une vraie fonctionnalité : un champ de plus dans le fichier, donc une
   version de schéma, et une ligne de plus dans le panneau.
 
+- **La mise au point pendant le mouse look.** Alt maintenu, la mise au point
+  glisse vers 300 m au rythme de la reprise en main (`InterpolateFrame.py`
+  ~432) : avec une faible profondeur de champ réglée sur la voiture, la
+  voiture devient floue dès qu'on appuie sur Alt. Constaté par Théo en jeu.
+  **Gardé tel quel pour l'instant (fidèle à CamTool 2)**, décision de Théo.
+  Pistes pour plus tard : garder la mise au point du fichier pendant le
+  mouse look (le plus prévisible quand on vise pour épingler ensuite), ou
+  garder l'autofocus sur la voiture quand la caméra en a un. C'est une ligne
+  dans `core/playback` (le bloc « the focus goes long »), plus son test dans
+  `tests/test_mouselook.lua`.
+
 ## Décisions tranchées (ne pas rouvrir seul)
 
 Ces quatre-là ont été listées comme ouvertes, puis fermées par Théo. Gardées
