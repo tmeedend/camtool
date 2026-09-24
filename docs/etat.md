@@ -331,7 +331,16 @@ l'ordre de traitement retenu :
    `Free camera` à côté de `Take camera`, affiché seulement quand il changerait
    quelque chose (caméra non tenue, AC pas déjà en caméra libre), comme dans
    CamTool 2 qui le cachait en mode 6.
-4. **`Load on startup`** : recharger le dernier fichier utilisé.
+4. ~~**`Load on startup`**~~ — **fait, à confirmer en jeu**
+   (`adapters/settings.lua`). Le dernier fichier ouvert est retenu **par
+   piste** dans `ac.storage` (CSP l'écrit dans Documents, sans fichier à
+   nous), et rouvert la première fois que le panneau s'ouvre sur la piste ;
+   à défaut, le premier fichier de la liste, comme CamTool 2. Jamais par-dessus
+   des modifications non sauvées. Activé par défaut comme dans CamTool 2 ;
+   la case est dans le panneau `keys`. Écart : le chargement attend
+   l'ouverture du panneau (lire un dossier n'a rien à faire dans la boucle
+   par frame) — sans conséquence tant que prendre la caméra passe par le
+   panneau ; à revoir avec F10.
 5. **Supprimer un fichier** de la liste (le `✕`), à demander deux fois comme
    `Reset`.
 6. **Les touches** : F10 active, F1/F2/F3/F5/F6/F7 (caméras d'AC) désactivent,

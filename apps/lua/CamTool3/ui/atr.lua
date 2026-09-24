@@ -311,7 +311,8 @@ atr.LEGEND = {
     'the playhead with it, and stops at the ends rather than wrapping. ' ..
     "NONE OF THEM HAS A KEY until you give it one: Assetto Corsa's free " ..
     'camera owns the arrows, and this is a tool you use while flying it. ' ..
-    'The keys button is where you choose.',
+    'The keys button is where you choose, and where you say whether the ' ..
+    'last file of the track opens by itself when the app starts.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
@@ -1005,6 +1006,14 @@ function atr.draw(state)
         ui.text('not available in this build')
         ui.popStyleColor()
       end
+    end
+
+    -- CamTool 2 kept this in its Settings tab. It is a preference like the
+    -- keys, so it lives with them rather than in a panel of its own.
+    ui.newLine(4)
+    if ui.checkbox('Open the last file of the track when the app starts' ..
+        '###loadOnStartup', state.loadOnStartup == true) then
+      actions.toggleLoadOnStartup = true
     end
   else
     -- Whatever the pointer is over: a parameter, or the ribbon, which has

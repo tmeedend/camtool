@@ -107,6 +107,8 @@ function fakes.install(opts)
     windowSize = { x = 1920, y = 1080 },
   }
   handle.held = {}
+  handle.stored = {}
+  for key, value in pairs(opts.stored or {}) do handle.stored[key] = value end
   handle.freeLook = vec3fake(0, 0, 1)
   handle.freeFov = 45
   handle.freeCameraWrites = 0
@@ -204,6 +206,19 @@ function fakes.install(opts)
     getAudioVolume = function() return 1 end,
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
     setAudioVolumeMultiplier = function(v) handle.audioMultiplier = v end,
+
+    -- What CSP keeps between sessions, fresh for every install. opts.stored
+    -- seeds it, by the full key.
+    storage = function(key, default)
+      local wrapper = {}
+      function wrapper:get()
+        local value = handle.stored[key]
+        if value == nil then return default end
+        return value
+      end
+      function wrapper:set(value) handle.stored[key] = value end
+      return wrapper
+    end,
 
     isKeyDown = function() return false end,
 

@@ -32,6 +32,7 @@ local filenames = require('core/filename')
 local navigate = require('core/navigate')
 local playstate = require('core/playstate')
 local shortcuts = require('adapters/shortcuts')
+local settings = require('adapters/settings')
 local playbackCore = require('core/playback')
 local pitlane = require('core/pitlane')
 local carsCore = require('core/cars')
@@ -240,6 +241,8 @@ local function loadSelectedFile()
   end
 
   doc, docError, docName = loaded, nil, name
+  -- Remembered per track, for the next time the app sees this one.
+  settings.setLastFile(storage.trackPrefix(), entry)
   -- The file says which maths it wants; see core/playback.applyMode.
   playbackCore.applyMode(pb, loaded.interpolation_mode)
   log(string.format('loaded %s -- %d cameras, version %s, mode %s',
@@ -1526,6 +1529,24 @@ end
 -- back, so undo is this stack and nothing more.
 local undoStack = {}
 local redoStack = {}
+
+-- CamTool 2's Load on startup: the first time the app sees a track, open the
+-- file last used on it, or the first one there is. Once per track, and never
+-- over unsaved work -- the app outlives a session, so the next track can
+-- arrive with changes still in hand.
+local startupLoadedFor = nil
+
+-- Read once and kept: the panel shows it every frame it is open.
+local loadOnStartup = settings.loadOnStartup()
+
+local function startupLoad()
+  local prefix = storage.trackPrefix()
+  if startupLoadedFor == prefix then return end
+  startupLoadedFor = prefix
+  if not loadOnStartup or #undoStack > 0 or #files == 0 then return end
+  fileIndex = settings.findFile(files, settings.lastFile(prefix)) or 1
+  loadSelectedFile()
+end
 local UNDO_KEPT = 200
 
 -- What the session line says instead of the loaded file name, after a save.
@@ -1763,6 +1784,7 @@ end
 ---reports clicks that nothing acts on yet.
 function script.windowAtr(dt)
   ensureFileList()
+  startupLoad()
 
   local cameras = doc ~= nil and doc[pb.options.listName] or nil
   local count = cameras ~= nil and #cameras or 0
@@ -1843,6 +1865,7 @@ function script.windowAtr(dt)
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     -- What the camera is doing, for every field that has no value of its own.
     live = liveValue,
+    loadOnStartup = loadOnStartup,
     offerFreeCamera = not cameraActive() and ac.CameraMode ~= nil
       and sim.cameraMode ~= ac.CameraMode.Free,
     trackedCarA = sim.focusedCar,
@@ -2246,7 +2269,10 @@ function script.windowAtr(dt)
         -- set becomes yours; leaving the browse position on some other file
         -- meant stepping through the list to find what you had just written.
         for i = 1, #files do
-          if files[i].own and files[i].name == name then fileIndex = i end
+          if files[i].own and files[i].name == name then
+            fileIndex = i
+            settings.setLastFile(storage.trackPrefix(), files[i])
+          end
         end
 
         log('saved as ' .. name)
@@ -2282,6 +2308,10 @@ function script.windowAtr(dt)
   end
   if actions.grab then grabCamera() end
   if actions.release then releaseCamera() end
+  if actions.toggleLoadOnStartup then
+    loadOnStartup = not loadOnStartup
+    settings.set('loadOnStartup', loadOnStartup)
+  end
   if actions.freeCamera and ac.setCurrentCamera ~= nil then
     ac.setCurrentCamera(ac.CameraMode.Free)
   end

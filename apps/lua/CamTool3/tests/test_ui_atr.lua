@@ -2357,6 +2357,8 @@ local function addCameraFromNothing(opts)
   opts = opts or {}
   opts.splinePosition = opts.splinePosition or 0.3
   opts.clicks = { ['+cam##camadd'] = true }
+  -- Nothing loaded means nothing opened on its own either.
+  opts.stored = { ['camtool3.loadOnStartup'] = false }
 
   local handle = fakes.install(opts)
   require('ui/atr').cancelEditing()
