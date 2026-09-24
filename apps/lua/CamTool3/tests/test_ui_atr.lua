@@ -2651,3 +2651,18 @@ test('hovering the ribbon does not call the question off', function()
 
   handle.restoreIo()
 end)
+
+test('Free camera is offered only when it would change something', function()
+  local handle = fakes.install({ clicks = { ['Free camera###freeCamera'] = true } })
+  local base = { cameraCount = 0, keyframeCount = 0, listName = 'pos',
+    trackPos = 0, trackLength = 1000, showMap = false }
+
+  base.offerFreeCamera = true
+  local actions = atr.draw(base)
+  eq(actions.freeCamera, true, 'offered, and clicked')
+
+  base.offerFreeCamera = false
+  actions = atr.draw(base)
+  eq(actions.freeCamera, nil, 'held, or already free: not there to click')
+  handle.restoreIo()
+end)

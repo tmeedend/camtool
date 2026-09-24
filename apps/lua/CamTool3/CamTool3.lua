@@ -1814,6 +1814,8 @@ function script.windowAtr(dt)
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     -- What the camera is doing, for every field that has no value of its own.
     live = liveValue,
+    offerFreeCamera = not cameraActive() and ac.CameraMode ~= nil
+      and sim.cameraMode ~= ac.CameraMode.Free,
     trackedCarA = sim.focusedCar,
     trackedCarB = effectiveExtraCar(),
     carName = ac.getDriverName,
@@ -2251,6 +2253,9 @@ function script.windowAtr(dt)
   end
   if actions.grab then grabCamera() end
   if actions.release then releaseCamera() end
+  if actions.freeCamera and ac.setCurrentCamera ~= nil then
+    ac.setCurrentCamera(ac.CameraMode.Free)
+  end
 end
 
 function script.windowMain(dt)

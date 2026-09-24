@@ -320,6 +320,9 @@ atr.LEGEND = {
     'moves the replay to it. The extra car is the one MIX aims towards: none ' ..
     'to begin with, and none again when you step back onto the active car. ' ..
     'Neither is saved in the file, as in CamTool 2.',
+  'Free camera   the button beside Take camera switches Assetto Corsa to its ' ..
+    'free camera, as F7 does. It is only there when that would change ' ..
+    'something.',
   'Mouse look   HOLD ALT and the camera is yours, whether CamTool holds it ' ..
     "or you are flying Assetto Corsa's free camera. Left button and move to " ..
     'turn it: it keeps turning a moment after the mouse stops, and coasts ' ..
@@ -538,8 +541,14 @@ function atr.draw(state)
   -- edge of the window where nothing could click them.
   local HOLD_WIDTH = 110
   local arrow = theme.barHeight
+  -- CamTool 2's Activate Free Camera, offered only when it would do
+  -- something: not while the camera is held, and not when Assetto Corsa is
+  -- already on its free camera.
+  local FREE_WIDTH = 84
+  local offerFree = state.offerFreeCamera == true
   local nameWidth = math.max(60,
-    width - arrow - 2 - 2 - arrow - 6 - HOLD_WIDTH)
+    width - arrow - 2 - 2 - arrow - 6 - HOLD_WIDTH
+      - (offerFree and (FREE_WIDTH + 4) or 0))
 
   if ui.arrowButton('##filePrev', ui.Direction.Left, vec2(arrow, arrow)) then
     actions.prevFile = true
@@ -612,6 +621,16 @@ function atr.draw(state)
   if ui.button((state.held and 'Release camera' or 'Take camera') .. '###hold',
       vec2(HOLD_WIDTH, theme.barHeight)) then
     if state.held then actions.release = true else actions.grab = true end
+  end
+  if offerFree then
+    ui.sameLine(0, 4)
+    if ui.button('Free camera###freeCamera', vec2(FREE_WIDTH, theme.barHeight)) then
+      actions.freeCamera = true
+    end
+    if ui.itemHovered() then
+      actions.hint = "Switch Assetto Corsa to its free camera, to fly to a " ..
+        'shot and pin it -- what F7 does.'
+    end
   end
   ui.popStyleColor(3)
 

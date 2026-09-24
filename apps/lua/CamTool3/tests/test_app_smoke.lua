@@ -982,3 +982,13 @@ test('taking the camera does not swing the shot in from the map origin', functio
 
   handle.restoreIo()
 end)
+
+test('Free camera switches Assetto Corsa to its free camera', function()
+  local opts = { cameraMode = 3, clicks = { ['Free camera###freeCamera'] = true } }
+  local handle = fakes.install(opts)
+  require('ui/band').reset()
+  assert(loadfile('CamTool3.lua'))()
+  pcall(_G.script.windowAtr, 0.016)
+  eq(handle.cameraMode, 6)
+  handle.restoreIo()
+end)

@@ -323,7 +323,10 @@ l'ordre de traitement retenu :
    `acUpdate` (`CamTool_2.py` ~116-132) : à chaque changement de caméra ou de
    voiture suivie, le volume repart de zéro et remonte en 0,5 s (courbe
    quadratique).
-3. **`Activate Free Camera`** (bouton de l'en-tête).
+3. ~~**`Activate Free Camera`**~~ — **fait, à confirmer en jeu** : bouton
+   `Free camera` à côté de `Take camera`, affiché seulement quand il changerait
+   quelque chose (caméra non tenue, AC pas déjà en caméra libre), comme dans
+   CamTool 2 qui le cachait en mode 6.
 4. **`Load on startup`** : recharger le dernier fichier utilisé.
 5. **Supprimer un fichier** de la liste (le `✕`), à demander deux fois comme
    `Reset`.
