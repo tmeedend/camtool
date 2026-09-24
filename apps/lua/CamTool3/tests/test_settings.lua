@@ -112,3 +112,50 @@ test('the keys panel turns Load on startup off, and it stays off', function()
   eq(handle.stored['camtool3.loadOnStartup'], false, 'written where CSP keeps it')
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------------
+-- Deleting a file
+--------------------------------------------------------------------------------
+
+local storage = require('adapters/storage')
+local MINE = 'fake_track_-mine.json'
+local MINE_PATH = storage.CAMTOOL3_DATA_DIR .. '/' .. MINE
+
+test('only CamTool 3 files go to the Recycle Bin, and only by name', function()
+  local handle = fakes.install({ existing = { [MINE_PATH] = true }, ownFiles = { MINE } })
+  local ok = storage.deleteCameraFile({ name = 'fake_track_-cameras.json', own = false })
+  eq(ok, false, 'a CamTool 2 file is never touched')
+  eq(storage.deleteCameraFile({ name = '../x.json', own = true }), false, 'no paths')
+  eq(storage.deleteCameraFile({ name = MINE, own = true }), true)
+  eq(handle.recycled[1], MINE_PATH, 'recycled, not deleted')
+  eq(#handle.recycled, 1)
+  handle.restoreIo()
+end)
+
+test('Delete asks twice, then the file leaves the list', function()
+  local opts = { clicks = {}, existing = { [MINE_PATH] = true }, ownFiles = { MINE } }
+  local handle = openPanel(opts)
+
+  local function offered()
+    handle.buttons = {}
+    pcall(_G.script.windowAtr, 0.016)
+    for i = 1, #handle.buttons do
+      if tostring(handle.buttons[i]):find('###deleteFile', 1, true) then return true end
+    end
+    return false
+  end
+  eq(offered(), true, 'on our own file')
+
+  opts.clicks['Delete###deleteFile'] = true
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks['Delete###deleteFile'] = nil
+  eq(#handle.recycled, 0, 'the first click only arms it')
+
+  opts.clicks['Delete?###deleteFile'] = true
+  pcall(_G.script.windowAtr, 0.016)
+  opts.clicks['Delete?###deleteFile'] = nil
+  eq(handle.recycled[1], MINE_PATH, 'the second one recycles it')
+
+  eq(offered(), false, 'and the arrows are now on a CamTool 2 file, which cannot go')
+  handle.restoreIo()
+end)

@@ -538,6 +538,7 @@ function fakes.install(opts)
   local originalSave = io.save
   local originalExists = io.exists
   local originalCopy = io.copyFile
+  local originalRecycle = io.recycle
 
   handle.restoreIo = function()
     io.scanDir = originalScanDir
@@ -545,6 +546,7 @@ function fakes.install(opts)
     io.save = originalSave
     io.exists = originalExists
     io.copyFile = originalCopy
+    io.recycle = originalRecycle
   end
 
   handle.written = {}
@@ -560,6 +562,19 @@ function fakes.install(opts)
   end
   io.copyFile = function(from, to)
     handle.copied[#handle.copied + 1] = { from, to }
+    return true
+  end
+  -- The Recycle Bin: the file leaves the folder listing, and the call is
+  -- recorded so a test can ask what went.
+  handle.recycled = {}
+  io.recycle = function(path)
+    handle.recycled[#handle.recycled + 1] = path
+    handle.written[path] = nil
+    if opts.existing ~= nil then opts.existing[path] = nil end
+    local name = path:match('^apps/lua/CamTool3/data/(.+)$')
+    for i = #(opts.ownFiles or {}), 1, -1 do
+      if opts.ownFiles[i] == name then table.remove(opts.ownFiles, i) end
+    end
     return true
   end
 

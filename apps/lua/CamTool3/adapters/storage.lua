@@ -175,4 +175,32 @@ function storage.saveCameraFile(fileName, document)
   return true, nil
 end
 
+---Put one of CamTool 3's own files in the Recycle Bin -- CamTool 2's ✕.
+---
+---THE RECYCLE BIN, not a delete. These files are an afternoon's work each and
+---nothing else keeps them; io.recycle leaves a way back that io.deleteFile
+---would not. And never a CamTool 2 file: that folder is read only here, the
+---same promise saveCameraFile keeps by copying rather than writing back.
+---@param entry table @a CameraFileEntry
+---@return boolean ok, string|nil error
+function storage.deleteCameraFile(entry)
+  if type(entry) ~= 'table' or type(entry.name) ~= 'string' or entry.name == '' then
+    return false, 'no file'
+  end
+  if not entry.own then
+    return false, "CamTool 2's files are read only here -- delete them from CamTool 2"
+  end
+  -- A name from the listing, never a path: nothing outside the folder.
+  if entry.name:find('/', 1, true) or entry.name:find('\\', 1, true)
+      or entry.name:find('..', 1, true) then
+    return false, 'not a file name: ' .. entry.name
+  end
+  if io.recycle == nil then return false, 'this build cannot delete files' end
+
+  local path = storage.CAMTOOL3_DATA_DIR .. '/' .. entry.name
+  if not io.exists(path) then return false, 'already gone: ' .. entry.name end
+  if not io.recycle(path) then return false, 'could not delete ' .. entry.name end
+  return true, nil
+end
+
 return storage

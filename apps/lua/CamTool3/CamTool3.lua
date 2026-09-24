@@ -1634,6 +1634,7 @@ end
 -- The two buttons that can throw away an afternoon in a single click. Both
 -- ask once, and what arms them is a click on the button itself.
 local atrConfirmReset = false
+local atrConfirmDelete = false
 local atrConfirmLoad = false
 
 ---Did the user actually DO something this frame?
@@ -1853,6 +1854,10 @@ function script.windowAtr(dt)
     showHelp = atrShowHelp,
     showKeys = atrShowKeys,
     confirmReset = atrConfirmReset,
+    confirmDelete = atrConfirmDelete,
+    canDeleteFile = files[fileIndex] ~= nil and files[fileIndex].own == true,
+    deleteHint = files[fileIndex] ~= nil and ('Move ' .. files[fileIndex].name ..
+      ' to the Recycle Bin. Click twice.') or nil,
     confirmLoad = atrConfirmLoad,
     paused = playing.paused,
     -- Offered when naming a camera that has none: see ui/band.
@@ -2238,6 +2243,33 @@ function script.windowAtr(dt)
   elseif atrConfirmReset and actedOn(actions) then
     -- Anything else done means they thought better of it.
     atrConfirmReset = false
+  end
+
+  -- Deleting a file: the one the arrows are on, into the Recycle Bin, after a
+  -- second click. The cameras of a deleted file that is open stay open --
+  -- Save would write them back.
+  if actions.deleteFile then
+    local entry = files[fileIndex]
+    if entry ~= nil and entry.own then
+      if atrConfirmDelete then
+        atrConfirmDelete = false
+        local ok, err = storage.deleteCameraFile(entry)
+        if ok then
+          log('recycled ' .. entry.name)
+          atrStatus = entry.name .. ' is in the Recycle Bin'
+            .. (entry.name == docName and ' -- its cameras stay open until you load another file' or '')
+          refreshFileList()
+        else
+          atrStatus = 'DELETE FAILED: ' .. tostring(err)
+          log(atrStatus)
+        end
+      else
+        atrConfirmDelete = true
+        atrStatus = 'Click Delete again to move ' .. entry.name .. ' to the Recycle Bin.'
+      end
+    end
+  elseif atrConfirmDelete and actedOn(actions) then
+    atrConfirmDelete = false
   end
 
   -- Saving under a name of your own. The file is written into CamTool 3's

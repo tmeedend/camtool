@@ -337,6 +337,9 @@ atr.LEGEND = {
     'with nothing loaded, to start an empty set of your own. Save writes ' ..
     'over the file it came from, keeping one copy of what was there before ' ..
     'CamTool 3 first touched it.',
+  'Files   Delete moves the file the arrows are on to the Recycle Bin, ' ..
+    'after a second click. Only CamTool 3 files: CamTool 2 ones are never ' ..
+    'touched.',
   'Files   LOADING ASKS FIRST when there is unsaved work -- the button says ' ..
     '"lose changes?" and wants a second click. Reset asks the same way. ' ..
     'Anything else you do calls it off.',
@@ -731,6 +734,11 @@ function atr.draw(state)
     -- first click read as nothing happening.
     { id = 'reset', width = 56,
       label = (state.confirmReset and 'Reset?' or 'Reset') .. '###reset' },
+    -- CamTool 2's ✕ on the file list, for the file the arrows are on. Only
+    -- there for CamTool 3's own files, and armed like Reset.
+    state.canDeleteFile and { id = 'deleteFile', width = 60,
+      label = (state.confirmDelete and 'Delete?' or 'Delete') .. '###deleteFile',
+      hint = state.deleteHint } or false,
     { id = 'toggleMap', width = 52,
       label = (state.showMap and '[map]' or ' map ') .. '###showMap' },
     { id = 'toggleHelp', width = 30,
@@ -774,6 +782,11 @@ function atr.draw(state)
       label = (legacy and 'maths: legacy' or 'maths: fixed') .. '###mode' }
   end
 
+  -- A button that is not offered leaves a false in its place.
+  for i = #items, 1, -1 do
+    if items[i] == false then table.remove(items, i) end
+  end
+
   local breaks = atr.wrapRow(items, width, stripWidth)
   local clicked = {}
 
@@ -792,12 +805,14 @@ function atr.draw(state)
     if ui.button(item.label, vec2(item.width, theme.stripHeight)) then
       clicked[item.id] = true
     end
+    if item.hint ~= nil and ui.itemHovered() then actions.hint = item.hint end
   end
 
   if clicked.undo then actions.undo = true end
   if clicked.redo then actions.redo = true end
   if clicked.save then actions.save = true end
   if clicked.reset then actions.reset = true end
+  if clicked.deleteFile then actions.deleteFile = true end
   if clicked.toggleMap then actions.toggleMap = true end
   if clicked.toggleHelp then actions.toggleHelp = true end
   if clicked.toggleKeys then actions.toggleKeys = true end

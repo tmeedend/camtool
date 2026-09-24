@@ -341,8 +341,12 @@ l'ordre de traitement retenu :
    l'ouverture du panneau (lire un dossier n'a rien à faire dans la boucle
    par frame) — sans conséquence tant que prendre la caméra passe par le
    panneau ; à revoir avec F10.
-5. **Supprimer un fichier** de la liste (le `✕`), à demander deux fois comme
-   `Reset`.
+5. ~~**Supprimer un fichier**~~ — **fait, à confirmer en jeu**. Bouton `Delete`
+   dans la rangée d'actions, pour le fichier sur lequel sont les flèches ; il
+   demande deux fois comme `Reset` et envoie le fichier à la **Corbeille**
+   (`io.recycle`), pas à l'effacement. Seulement les fichiers de CamTool 3 : le
+   dossier de CamTool 2 reste en lecture seule, la même promesse que la
+   sauvegarde. Les caméras d'un fichier ouvert qu'on supprime restent ouvertes.
 6. **Les touches** : F10 active, F1/F2/F3/F5/F6/F7 (caméras d'AC) désactivent,
    Y/U/I/O/P chargent les fichiers 1 à 5 derrière `Enable hotkeys`.
 7. **Le mode temps** : la liste `time` s'édite mais se joue sur la position de
