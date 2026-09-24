@@ -256,6 +256,29 @@ comme dans CamTool 2, parce qu'on remonte un peloton, pas une liste.
 - Ni l'une ni l'autre n'est enregistrée dans le fichier, ni n'entre dans la
   pile d'annulation : c'est de l'état de session, comme dans CamTool 2.
 
+## Mouse look : Alt
+
+Le geste de CamTool 2 pour **reprendre la caméra à la main** : Alt maintenu,
+elle est à la souris ; Alt relâché, le fichier la reprend.
+
+- **Clic gauche + mouvement** tourne la caméra. Pas au mouvement brut : à
+  l'écart entre le pointeur et la moyenne de ses positions de la dernière
+  seconde. Un geste bref continue donc de tourner un instant, et relâcher le
+  bouton laisse la caméra finir sur son élan. C'est ce qui rend un
+  panoramique à la main utilisable à l'image — la raison d'être du geste.
+- **Shift / Ctrl**, seulement Alt tenu, zooment et dézooment, avec une montée
+  et une descente douces. Hors d'Alt ils gardent leur sens de ×4 / ÷4 sur les
+  valeurs : les deux usages ne se chevauchent jamais.
+- **Caméra tenue** : la lecture cède la main en une seconde et la reprend en
+  deux ; la position reste figée, seule la visée et l'optique changent.
+  **Caméra libre d'AC** : c'est elle qui est orientée, pour viser un plan
+  avant d'épingler ses valeurs.
+- **Un clic sur une fenêtre reste à la fenêtre**, Alt tenu ou non. Tranché
+  par Théo : dans CamTool 2, Alt + clic sur un champ faisait aussi tourner la
+  caméra.
+- Les trois touches se réaffectent comme les autres raccourcis ; ce sont les
+  seules à avoir une touche par défaut, celles de CamTool 2.
+
 ## Ce qui détruit du travail demande deux fois
 
 Deux gestes effacent ce qui n'est pas sauvé : **Reset**, qui vide la liste de

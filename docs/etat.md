@@ -662,12 +662,22 @@ diagnostic.
   ou sur la carte les remplit, même sans prendre la caméra. À trancher : est-ce
   qu'ouvrir un fichier devrait suffire à voir la caméra 1 ?
 
-- **Mouse look** : la visée est moins douce que dans CamTool 2. La cause est
-  identifiée : le legacy pilote la caméra avec la **moyenne des 60 dernières
-  positions de souris**, et le bouton gauche commande le remplissage de ce
-  tampon — le relâcher laisse la caméra finir sur son élan. Le portage envoie le
-  delta brut. Reproduire la moyenne glissante, pas un lissage exponentiel (voir
-  `docs/ui-inventory.md`).
+- ~~**Mouse look**~~ — **porté, à confirmer en jeu** (`core/mouselook.lua`).
+  La note qui était ici décrivait la sonde 11 de la fenêtre de développement,
+  absente du zip : le vrai mouse look n'existait pas du tout pour
+  l'utilisateur. Il couvre les deux cas de CamTool 2 : caméra tenue (la
+  lecture du fichier cède la main en 1 s et la reprend en 2 s, position figée,
+  mise au point à 300 m, shake atténué) et **caméra libre d'AC** sans rien
+  tenir (orientée par `ac.setCameraDirection` / `ac.setCameraFOV`). Moyenne
+  glissante sur 60 échantillons, élan au relâchement, zoom Shift/Ctrl adouci.
+
+  Tranché avec Théo : touches **Alt / Shift / Ctrl par défaut**, réaffectables
+  (seule exception à « aucune touche par défaut ») ; calcul **calé sur le
+  temps**, pas sur les frames ; un clic sur une fenêtre ne tourne pas la
+  caméra. **Premier point à vérifier en jeu** : que `ac.ControlButton` accepte
+  un modificateur seul, et signale Shift quand Alt est déjà enfoncé — la
+  sonde « 9. Modifier keys » affiche maintenant les trois états vus par les
+  raccourcis à côté des états bruts.
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
 

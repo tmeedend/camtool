@@ -58,6 +58,25 @@ shortcuts.DEFINITIONS = {
   { id = 'cameraPrevious', label = 'Step to previous camera' },
 }
 
+---Keys that count while they are HELD rather than when they are pressed: the
+---mouse look of CamTool 2 and its two zoom keys.
+---
+---THESE DO HAVE DEFAULTS, and it is a deliberate exception to the rule above,
+---decided with Theo. They are CamTool 2's keys, Alt, Shift and Ctrl, which is
+---what the hands of anyone coming from it already do. And they do not fight
+---the free camera: the zoom keys only count while the mouse look key is held,
+---and Alt on its own moves nothing in Assetto Corsa. Rebindable like the
+---others, in the same panel.
+---
+---Whether ac.ControlButton takes a lone modifier as a binding, and whether it
+---still reports Shift while Alt is down, is not written anywhere: the probe
+---window shows the three states so the first session in game settles it.
+shortcuts.HOLDS = {
+  { id = 'mouseLook', label = 'Mouse look (hold)', key = 'Menu' },
+  { id = 'zoomIn', label = 'Mouse look zoom in (hold)', key = 'Shift' },
+  { id = 'zoomOut', label = 'Mouse look zoom out (hold)', key = 'Control' },
+}
+
 ---How long a held key waits before repeating, in seconds. Read from
 ---controls.ini as REPEAT_PERIOD once a user changes it.
 shortcuts.REPEAT_PERIOD = 0.18
@@ -83,6 +102,36 @@ function shortcuts.install()
       })
     if ok then buttons[definition.id] = button end
   end
+
+  for _, definition in ipairs(shortcuts.HOLDS) do
+    local keyIndex = ui.KeyIndex ~= nil and ui.KeyIndex[definition.key] or nil
+    local ok, button = pcall(ac.ControlButton,
+      'camtool3/' .. definition.label,
+      { keyboard = keyIndex ~= nil and { key = keyIndex } or nil })
+    if ok then buttons[definition.id] = button end
+  end
+end
+
+---Every binding the panel lists, the steps and then the holds.
+---@return table[]
+function shortcuts.all()
+  local list = {}
+  for _, definition in ipairs(shortcuts.DEFINITIONS) do list[#list + 1] = definition end
+  for _, definition in ipairs(shortcuts.HOLDS) do list[#list + 1] = definition end
+  return list
+end
+
+---Is a hold key down right now? Never while a field has the keyboard, for the
+---same reason as below: Shift typed into a value is not a zoom.
+---@param id string @an id from HOLDS
+---@return boolean
+function shortcuts.down(id)
+  local button = buttons ~= nil and buttons[id] or nil
+  if button == nil then return false end
+  local uiState = ac.getUI ~= nil and ac.getUI() or nil
+  if uiState ~= nil and uiState.wantCaptureKeyboard then return false end
+  local ok, held = pcall(button.down, button)
+  return ok and held == true
 end
 
 ---Has anything been pressed this frame?

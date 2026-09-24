@@ -320,6 +320,13 @@ atr.LEGEND = {
     'moves the replay to it. The extra car is the one MIX aims towards: none ' ..
     'to begin with, and none again when you step back onto the active car. ' ..
     'Neither is saved in the file, as in CamTool 2.',
+  'Mouse look   HOLD ALT and the camera is yours, whether CamTool holds it ' ..
+    "or you are flying Assetto Corsa's free camera. Left button and move to " ..
+    'turn it: it keeps turning a moment after the mouse stops, and coasts ' ..
+    'when you let go of the button. Shift zooms in and Ctrl zooms out, only ' ..
+    'while Alt is held. Let go of Alt and the camera file takes back over two ' ..
+    'seconds. A click on a window stays with the window. The keys can be ' ..
+    'changed under keys.',
   'Undo   Ctrl+Z and Ctrl+Y, or the buttons. A whole drag is one entry, and ' ..
     'moving the replay is not an edit at all.',
   'Files   DOUBLE CLICK THE FILE NAME to save under a different one -- or, ' ..
@@ -963,13 +970,13 @@ function atr.draw(state)
     ui.popStyleColor()
 
     ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
-    ui.text('None of these has a key until you give it one: ' ..
+    ui.text('The steps have no key until you give them one: ' ..
       "Assetto Corsa's free camera owns the arrows, and this is a tool you " ..
-      'use while flying it.')
+      'use while flying it. Mouse look keeps the keys CamTool 2 had.')
     ui.popStyleColor()
     ui.newLine(4)
 
-    for _, definition in ipairs(shortcuts.DEFINITIONS) do
+    for _, definition in ipairs(shortcuts.all()) do
       ui.pushStyleColor(ui.StyleColor.Text, theme.label)
       ui.textAligned(definition.label, vec2(0, 0.5), vec2(240, theme.rowHeight))
       ui.popStyleColor()

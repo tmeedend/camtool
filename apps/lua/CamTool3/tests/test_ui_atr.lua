@@ -1756,6 +1756,7 @@ test('the legend covers every gesture the panel has', function()
   for _, gesture in ipairs({
     'double click', 'right click', 'drag', 'escape',
     'ctrl+z', 'wheel', 'diamond', 'ribbon', 'map', 'click away',
+    'mouse look', 'hold alt',
   }) do
     eq(all:find(gesture, 1, true) ~= nil, true,
       'the legend never mentions ' .. gesture)
@@ -1938,7 +1939,7 @@ test('the keys button offers a rebinding widget for every shortcut', function()
     trackPos = 0, trackLength = 1000, showMap = false, showKeys = true,
   })
 
-  eq(handle.controlsDrawn, #trackShortcuts.DEFINITIONS,
+  eq(handle.controlsDrawn, #trackShortcuts.all(),
     'one row per shortcut, drawn by CSP itself')
   handle.restoreIo()
   trackShortcuts.reset()

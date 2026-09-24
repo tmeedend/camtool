@@ -97,6 +97,20 @@ function fakes.install(opts)
 
   -- More cars, by index from 1: { splinePosition = , position = , ... }. Car
   -- 0 is handle.car above, the one every other test drives.
+  handle.ui = { dt = 0.016, mouseDelta = { x = 0, y = 0 },
+    mousePos = { x = 0, y = 0 },
+    -- The one flag every shortcut has to respect: a field is being typed
+    -- into, so Space is a space and the arrows move the caret.
+    wantCaptureKeyboard = opts.typingSomewhere == true,
+    wantCaptureMouse = false,
+    isMouseLeftKeyDown = false,
+    windowSize = { x = 1920, y = 1080 },
+  }
+  handle.held = {}
+  handle.freeLook = vec3fake(0, 0, 1)
+  handle.freeFov = 45
+  handle.freeCameraWrites = 0
+  sim.cameraMode = opts.cameraMode
   handle.otherCars = opts.otherCars or {}
   handle.focusCalls = {}
   sim.carsCount = 1
@@ -122,13 +136,9 @@ function fakes.install(opts)
 
   _G.ac = {
     getSim = function() return sim end,
-    getUI = function()
-      return { dt = 0.016, mouseDelta = { x = 0, y = 0 },
-        mousePos = { x = 0, y = 0 },
-        -- The one flag every shortcut has to respect: a field is being typed
-        -- into, so Space is a space and the arrows move the caret.
-        wantCaptureKeyboard = opts.typingSomewhere == true }
-    end,
+    -- One table, as CSP hands out one live object: the app keeps it, and a
+    -- test moves the mouse by writing to it.
+    getUI = function() return handle.ui end,
     ---Zero when the sim or the replay is paused, which is how the panel knows.
     getGameDeltaT = function()
       if opts.gameDeltaT ~= nil then return opts.gameDeltaT end
@@ -146,9 +156,18 @@ function fakes.install(opts)
     end,
 
     getCameraPosition = function() return vec3fake(1, 2, 3) end,
-    getCameraForward = function() return vec3fake(0, 0, 1) end,
+    getCameraForward = function() return handle.freeLook end,
     getCameraUp = function() return vec3fake(0, 1, 0) end,
-    getCameraFOV = function() return 45 end,
+    getCameraFOV = function() return handle.freeFov end,
+    -- Steering Assetto Corsa's own free camera without taking it.
+    setCameraDirection = function(look)
+      handle.freeLook = vec3fake(look.x, look.y, look.z)
+      handle.freeCameraWrites = handle.freeCameraWrites + 1
+    end,
+    setCameraFOV = function(value)
+      handle.freeFov = value
+      handle.freeCameraWrites = handle.freeCameraWrites + 1
+    end,
 
     getCar = function(i)
       if i == 0 then return handle.car end
@@ -199,6 +218,14 @@ function fakes.install(opts)
           and id:find(opts.pressedShortcut, 1, true) ~= nil
       end
       function button:boundTo() return opts.boundTo or 'Space' end
+      -- handle.held names the hold keys that are down, by a piece of the
+      -- label, as pressedShortcut does for presses.
+      function button:down()
+        for piece, isDown in pairs(handle.held) do
+          if isDown and id:find(piece, 1, true) ~= nil then return true end
+        end
+        return false
+      end
       function button:control()
         handle.controlsDrawn = (handle.controlsDrawn or 0) + 1
       end
@@ -334,7 +361,7 @@ function fakes.install(opts)
       return clicked(label)
     end,
     keyboardButtonPressed = function(key) return opts.keyPressed == key end,
-    KeyIndex = { Control = 17, Shift = 16, Y = 89, Z = 90, Escape = 27,
+    KeyIndex = { Control = 17, Shift = 16, Menu = 18, Y = 89, Z = 90, Escape = 27,
       Left = 37, Up = 38, Right = 39, Down = 40, Space = 32 },
     -- The pointer shape over a draggable value. A plain table because the
     -- catch-all below answers with a function, and indexing a function raises.

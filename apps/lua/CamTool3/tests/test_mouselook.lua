@@ -307,3 +307,105 @@ test('the mouse cannot tip the camera over the top', function()
   local _, ly = angles.lookVector(out.heading, out.pitch)
   eq(ly > 0, true, 'still looking up, not over and behind')
 end)
+
+--------------------------------------------------------------------------------
+-- Through the app: the free camera, and a held one
+--------------------------------------------------------------------------------
+
+local fakes = require('tests/fakes/csp')
+
+local function loadApp(opts)
+  local handle = fakes.install(opts)
+  require('adapters/shortcuts').reset()
+  require('ui/band').reset()
+  assert(loadfile('CamTool3.lua'))()
+  return handle
+end
+
+---Hold the mouse look key with the button down, moving the pointer.
+local function steer(handle, frames, dx)
+  handle.held['Mouse look (hold)'] = true
+  handle.ui.isMouseLeftKeyDown = true
+  for _ = 1, frames do
+    handle.ui.mouseDelta = { x = dx, y = 0 }
+    handle.tick(0.016)
+  end
+  handle.ui.mouseDelta = { x = 0, y = 0 }
+end
+
+test('on the free camera, Alt and the mouse turn it and Shift zooms it', function()
+  local handle = loadApp({ cameraMode = 6 })
+  handle.tick(0.016)
+  eq(handle.freeCameraWrites, 0, 'nothing touched without the key')
+
+  steer(handle, 20, 15)
+  local f = handle.freeLook
+  eq(math.abs(f.x) > 0.01, true, 'the free camera turned')
+  near(f.x * f.x + f.y * f.y + f.z * f.z, 1, 1e-9, 'and still looks along a unit vector')
+
+  handle.held['zoom in'] = true
+  for _ = 1, 20 do handle.tick(0.016) end
+  eq(handle.freeFov < 45, true, 'Shift with Alt zooms in')
+
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)
+
+test('a click on a window is for the window, not the camera', function()
+  local handle = loadApp({ cameraMode = 6 })
+  handle.ui.wantCaptureMouse = true
+  steer(handle, 20, 15)
+  eq(handle.freeLook.x, 0, 'the free camera did not turn')
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)
+
+test('the free camera is left alone in any other camera mode', function()
+  local handle = loadApp({ cameraMode = 3 })
+  steer(handle, 20, 15)
+  eq(handle.freeCameraWrites, 0)
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)
+
+test('a held camera is handed to the mouse and taken back', function()
+  local doc = { interpolation_mode = 'fixed', version = 2, time = {}, pos = { {
+    camera_in = 0, camera_pit = false, camera_use_tracking_point = 0,
+    tracking_strength_heading = 1, tracking_strength_pitch = 1,
+    tracking_offset = 0, tracking_mix = 0,
+    transform_loc_strength = 1, transform_rot_strength = 1,
+    camera_shake_strength = 0, camera_offset_shake_strength = 0,
+    keyframes = { { keyframe = 0,
+      interpolation = { loc_x = 60, loc_y = 0, loc_z = 5 } } } } } }
+  local opts = {
+    cameraFile = doc, splinePosition = 0.2, carPosition = vec3(160, 5, 0),
+    clicks = {
+      ['no file###fileName'] = true,
+      ['cameras   [CamTool 2]###fileName'] = true,
+      ['Take camera###hold'] = true,
+    },
+  }
+  local handle = loadApp(opts)
+  for _ = 1, 6 do
+    pcall(_G.script.windowAtr, 0.016)
+    handle.tick(0.016)
+  end
+  for label in pairs(opts.clicks) do opts.clicks[label] = nil end
+  eq(handle.grabbed, true, 'the camera was taken')
+
+  local function lookX() return handle.transform.look.x end
+  local onCar = lookX()
+
+  steer(handle, 70, 20)
+  local steered = lookX()
+  eq(math.abs(steered - onCar) > 0.05, true, 'the mouse turned the held camera')
+
+  -- Let go of everything: two seconds later the file has it back.
+  handle.held['Mouse look (hold)'] = nil
+  handle.ui.isMouseLeftKeyDown = false
+  for _ = 1, 130 do handle.tick(0.016) end
+  near(lookX(), onCar, 1e-6, 'back on the car')
+
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)

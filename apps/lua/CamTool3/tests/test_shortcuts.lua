@@ -28,8 +28,9 @@ test('every shortcut is declared, and none of them claims a key', function()
   -- diagnose.
   local handle = withShortcuts({})
 
-  eq(#handle.controlButtons, #shortcuts.DEFINITIONS)
-  for _, created in ipairs(handle.controlButtons) do
+  eq(#handle.controlButtons, #shortcuts.DEFINITIONS + #shortcuts.HOLDS)
+  for i = 1, #shortcuts.DEFINITIONS do
+    local created = handle.controlButtons[i]
     eq(created.id:find('camtool3/', 1, true), 1,
       'namespaced, so it cannot collide: ' .. created.id)
     eq(created.defaults.keyboard, nil,
@@ -65,8 +66,8 @@ end)
 test('a held key repeats', function()
   -- Walking a set of forty cameras one press at a time is not a gesture.
   local handle = withShortcuts({})
-  for _, created in ipairs(handle.controlButtons) do
-    eq(created.defaults.period, shortcuts.REPEAT_PERIOD)
+  for i = 1, #shortcuts.DEFINITIONS do
+    eq(handle.controlButtons[i].defaults.period, shortcuts.REPEAT_PERIOD)
   end
   handle.restoreIo()
   shortcuts.reset()
@@ -139,6 +140,36 @@ test('a build without ControlButton simply has no shortcuts', function()
   eq(shortcuts.pressed(), nil)
   eq(shortcuts.boundTo('cameraNext'), '')
 
+  handle.restoreIo()
+  shortcuts.reset()
+end)
+
+test('mouse look keeps the keys CamTool 2 had, and they do not repeat', function()
+  -- The one exception to "no key by default", decided with Theo: Alt, Shift
+  -- and Ctrl are what anyone coming from CamTool 2 already presses, and the
+  -- zoom keys only count while Alt is held.
+  local handle = withShortcuts({})
+  local wanted = { mouseLook = 'Menu', zoomIn = 'Shift', zoomOut = 'Control' }
+  for i, hold in ipairs(shortcuts.HOLDS) do
+    local created = handle.controlButtons[#shortcuts.DEFINITIONS + i]
+    eq(created.id:find('camtool3/', 1, true), 1, created.id)
+    eq(hold.key, wanted[hold.id], hold.id)
+    eq(created.defaults.keyboard ~= nil and created.defaults.keyboard.key,
+      ui.KeyIndex[wanted[hold.id]], hold.id .. ' bound by default')
+    eq(created.defaults.period, nil, hold.id .. ' is held, not repeated')
+  end
+  handle.restoreIo()
+  shortcuts.reset()
+end)
+
+test('a hold key is read while held, and never while a field types', function()
+  local handle = withShortcuts({})
+  eq(shortcuts.down('mouseLook'), false)
+  handle.held['Mouse look (hold)'] = true
+  eq(shortcuts.down('mouseLook'), true)
+  eq(shortcuts.pressed(), nil, 'and it is not a step')
+  handle.ui.wantCaptureKeyboard = true
+  eq(shortcuts.down('mouseLook'), false, 'Shift typed into a value is not a zoom')
   handle.restoreIo()
   shortcuts.reset()
 end)

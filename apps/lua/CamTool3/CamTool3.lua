@@ -35,6 +35,7 @@ local shortcuts = require('adapters/shortcuts')
 local playbackCore = require('core/playback')
 local pitlane = require('core/pitlane')
 local carsCore = require('core/cars')
+local mouselookCore = require('core/mouselook')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -737,6 +738,82 @@ end
 ---Everything below the surface is in core/playback: this reads the sim, hands
 ---it over as plain numbers, and writes the answer back to the transform. That
 ---split is what lets tests/lap.lua run a whole lap out of game.
+--------------------------------------------------------------------------------
+-- Mouse look, CamTool 2's Alt + mouse. The maths is core/mouselook; this is
+-- where it meets the game.
+--
+-- Two cases, as in CamTool 2. With the camera held, the playback blends the
+-- file with the mouse by the weight. On Assetto Corsa's free camera, with
+-- nothing held, the free camera itself is steered -- the case people use to
+-- aim a shot before pinning it.
+--------------------------------------------------------------------------------
+
+local look = mouselookCore.new()
+local lookOut = { heading = 0, pitch = 0, fov = nil, weight = 0 }
+
+---How far mouse look may tilt the free camera, radians. Same as the playback.
+local LOOK_PITCH_LIMIT = 1.5
+
+---Is the pointer on a window -- ours or any app's? A click there is meant for
+---the window, not for the camera.
+local function pointerOnWindow()
+  if uiState.wantCaptureMouse then return true end
+  if ui ~= nil and ui.mouseBusy ~= nil then
+    local ok, busy = pcall(ui.mouseBusy)
+    if ok and busy then return true end
+  end
+  return false
+end
+
+---The lens the mouse zooms from: the held camera's, or the free camera's.
+local function currentLens()
+  if cameraActive() then return cam.fov end
+  if ac.getCameraFOV ~= nil then return ac.getCameraFOV() end
+  return nil
+end
+
+---One step of mouse look. Every frame, held or not: the hand-back and the
+---zoom easing run on their own clocks.
+local function mouseLookFrame(rt)
+  local held = shortcuts.down('mouseLook')
+  local delta = uiState.mouseDelta
+  local size = uiState.windowSize
+  local lens = currentLens()
+
+  lookOut = mouselookCore.update(look, {
+    dt = rt,
+    held = held,
+    steering = held and uiState.isMouseLeftKeyDown == true and not pointerOnWindow(),
+    dx = delta ~= nil and delta.x or 0,
+    dy = delta ~= nil and delta.y or 0,
+    screenW = size ~= nil and size.x or nil,
+    screenH = size ~= nil and size.y or nil,
+    fov = lens,
+    zoomIn = held and shortcuts.down('zoomIn'),
+    zoomOut = held and shortcuts.down('zoomOut'),
+    camera = pbOut.activeCam,
+  })
+
+  -- The free camera, when nothing is held. CamTool 2 did this without
+  -- asking, since its camera calls went through the free camera anyway.
+  if cameraActive() or sim.cameraMode ~= ac.CameraMode.Free then return end
+
+  if (lookOut.heading ~= 0 or lookOut.pitch ~= 0)
+      and ac.getCameraForward ~= nil and ac.setCameraDirection ~= nil then
+    local f = ac.getCameraForward()
+    local heading, pitch = angles.fromLook(f.x, f.y, f.z)
+    heading = heading + lookOut.heading
+    pitch = math.max(-LOOK_PITCH_LIMIT, math.min(LOOK_PITCH_LIMIT, pitch + lookOut.pitch))
+    local lx, ly, lz = angles.lookVector(heading, pitch)
+    ac.setCameraDirection(vec3(lx, ly, lz))
+  end
+
+  if lookOut.fov ~= nil and lens ~= nil and lookOut.fov ~= lens
+      and ac.setCameraFOV ~= nil then
+    ac.setCameraFOV(lookOut.fov)
+  end
+end
+
 local function runPlayback(transform)
   -- The legacy reads the camera's CURRENT heading every frame
   -- (ctt.get_heading()) and falls back to it whenever the heading is not
@@ -758,6 +835,9 @@ local function runPlayback(transform)
   pbIn.inPitlane = focusedCarInPitlane(pbIn.trackPos, pbIn.carX, pbIn.carY)
   pbIn.extraCar = effectiveExtraCar()
   pbIn.extraX, pbIn.extraY, pbIn.extraZ = extraCarPosition()
+  pbIn.manualWeight = lookOut.weight
+  pbIn.manualHeading, pbIn.manualPitch = lookOut.heading, lookOut.pitch
+  pbIn.manualFov = lookOut.fov
   pbIn.replayRate = sim.replayPlaybackRate
   pbIn.clock = shakeClock()
   shakeClockReadout = pbIn.clock
@@ -915,6 +995,8 @@ local function perFrame(dt)
   if audioProbeOn then
     ac.setAudioVolume(ac.AudioChannel.Main, audioValue)
   end
+
+  mouseLookFrame(rt)
 
   if not cameraActive() then return end
 
@@ -1368,6 +1450,12 @@ local function drawKeys()
   keyState('Ctrl', ac.KeyIndex.Control)
   ui.sameLine()
   keyState('Alt', ac.KeyIndex.Menu)
+  -- The same three through the bindings mouse look actually reads. If the row
+  -- above says down and this one does not, ac.ControlButton is not taking a
+  -- lone modifier, or not with another one held.
+  ui.text(string.format('bindings: look %s  zoom in %s  zoom out %s  weight %.2f',
+    tostring(shortcuts.down('mouseLook')), tostring(shortcuts.down('zoomIn')),
+    tostring(shortcuts.down('zoomOut')), lookOut.weight or 0))
   ui.text(string.format('ui.hotkey: ctrl %s  alt %s  shift %s',
     tostring(ui.hotkeyCtrl()), tostring(ui.hotkeyAlt()), tostring(ui.hotkeyShift())))
 
