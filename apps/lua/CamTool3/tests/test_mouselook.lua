@@ -229,3 +229,81 @@ test('the field of view stays between 1 and 90 degrees', function()
   end
   eq(lens <= 90, true)
 end)
+
+--------------------------------------------------------------------------------
+-- The playback hands the camera over by the weight
+--------------------------------------------------------------------------------
+
+local playback = require('core/playback')
+local angles = require('core/angles')
+
+---A camera sliding from x = 0 to x = 100 over the lap, tracking the car,
+---with a keyframed lens and a set focus.
+local function slidingDoc()
+  return { interpolation_mode = 'fixed', time = {}, pos = { {
+    camera_in = 0, tracking_strength_heading = 1, tracking_strength_pitch = 1,
+    tracking_offset = 0, camera_use_tracking_point = 0,
+    keyframes = {
+      { keyframe = 0, interpolation = { loc_x = 0, loc_y = 0, loc_z = 5,
+        camera_fov = 40, camera_focus_point = 20 } },
+      { keyframe = 1, interpolation = { loc_x = 100, loc_y = 0, loc_z = 5,
+        camera_fov = 40, camera_focus_point = 20 } },
+    } } } }
+end
+
+local function run(state, doc, pos, manual)
+  manual = manual or {}
+  return playback.frame(state, doc, {
+    trackPos = pos, replayRate = 1, clock = 0,
+    carX = 50, carY = 80, carZ = 0,
+    seedHeading = 0, seedPitch = 0,
+    manualWeight = manual.weight, manualHeading = manual.heading,
+    manualPitch = manual.pitch, manualFov = manual.fov,
+  })
+end
+
+local function fresh()
+  return playback.new({ applyShake = false, applySpline = false })
+end
+
+test('at full weight the mouse has the camera', function()
+  local state, doc = fresh(), slidingDoc()
+  local before = run(state, doc, 0.2)
+  local x, heading = before.x, before.heading
+
+  local out = run(state, doc, 0.6, { weight = 1, heading = 0.1, pitch = -0.05, fov = 25 })
+  near(out.x, x, 1e-9, 'the camera stays where it was')
+  near(out.heading, heading + 0.1, 1e-9, 'and turns by what the mouse gave it')
+  near(out.fov, 25, 1e-9, 'with the lens the zoom left')
+  near(out.dofDistance, mouselook.FOCUS_DISTANCE, 1e-9, 'focused long')
+end)
+
+test('at half weight the two cameras are blended', function()
+  local ref = run(fresh(), slidingDoc(), 0.2)
+  local file = run(fresh(), slidingDoc(), 0.6)
+
+  local state = fresh()
+  run(state, slidingDoc(), 0.2)
+  local out = run(state, slidingDoc(), 0.6, { weight = 0.5, heading = 0, pitch = 0, fov = 60 })
+  near(out.x, (file.x + ref.x) / 2, 1e-9, 'halfway between moving and held')
+  near(out.fov, (40 + 60) / 2, 1e-9, 'halfway between the lenses')
+  near(out.dofDistance, (20 + mouselook.FOCUS_DISTANCE) / 2, 1e-9)
+end)
+
+test('at zero weight nothing changes', function()
+  local a = run(fresh(), slidingDoc(), 0.6)
+  local b = run(fresh(), slidingDoc(), 0.6, { weight = 0, heading = 1, pitch = 1, fov = 10 })
+  for _, key in ipairs({ 'x', 'y', 'z', 'heading', 'pitch', 'fov', 'dofDistance' }) do
+    eq(b[key], a[key], key)
+  end
+end)
+
+test('the mouse cannot tip the camera over the top', function()
+  local state, doc = fresh(), slidingDoc()
+  run(state, doc, 0.2)
+  local out
+  for _ = 1, 50 do out = run(state, doc, 0.2, { weight = 1, pitch = 0.2 }) end
+  eq(out.pitch <= 1.5 + 1e-9, true)
+  local _, ly = angles.lookVector(out.heading, out.pitch)
+  eq(ly > 0, true, 'still looking up, not over and behind')
+end)

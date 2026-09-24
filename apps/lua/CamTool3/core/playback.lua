@@ -24,6 +24,10 @@ local tracking = require('core/tracking')
 local spline = require('core/spline')
 local shake = require('core/shake')
 local focus = require('core/focus')
+local mouselook = require('core/mouselook')
+
+---How far mouse look may tilt the camera, radians.
+local PITCH_LIMIT = 1.5
 
 local playback = {}
 
@@ -106,6 +110,9 @@ function playback.resetHistory(state)
   state.headingHistory = {}
   state.haveAim = false
   state.shakeMomentum = 0
+  -- Where the camera was last frame, which mouse look holds it to.
+  state.lastX, state.lastY, state.lastZ = nil, nil, nil
+  state.roll = 0
 end
 
 ---The car teleported: throw away the history, which is about a stretch of
@@ -191,6 +198,10 @@ end
 ---  extraCar      the extra car MIX blends the aim towards, nil for none;
 ---                any value that identifies it, compared frame to frame
 ---  extraX/Y/Z    its world position in CamTool space, nil without one
+---  manualWeight  0..1, how much of the camera is the mouse's (core/mouselook);
+---                nil or 0 is the camera file alone
+---  manualHeading, manualPitch  the turn the mouse adds this frame, radians
+---  manualFov     the field of view the mouse zoom leaves, degrees
 ---  replayRate    replay playback rate, 1 at normal speed
 ---  clock         replay position in seconds, the shake clock
 ---  seedHeading   the camera's real heading, used once to seed the held aim
@@ -434,6 +445,22 @@ function playback.frame(state, doc, input)
     aimPitch, pitchStrength,
     splinePoint and splinePoint.pitch or nil, affectPitch)
 
+  -- Mouse look. InterpolateFrame blends everything above with the camera's
+  -- own angle by strength_inv, and the camera's own angle is last frame's
+  -- plus the turn the mouse gave it. combine has already put `heading` on
+  -- the branch of currentHeading, so the blend is the short way round.
+  local manual = input.manualWeight or 0
+  if manual > 0 then
+    local ownHeading = currentHeading + (input.manualHeading or 0)
+    local ownPitch = currentPitch + (input.manualPitch or 0)
+    -- Short of straight up or down, where the heading stops meaning anything.
+    if ownPitch > PITCH_LIMIT then ownPitch = PITCH_LIMIT end
+    if ownPitch < -PITCH_LIMIT then ownPitch = -PITCH_LIMIT end
+    heading = heading * (1 - manual) + ownHeading * manual
+    pitch = pitch * (1 - manual) + ownPitch * manual
+  end
+  out.manualWeight = manual
+
   -- Rotation shake rides on top of the combined aim. camera_shake_strength
   -- IS keyframable, unlike the offset shake above -- that asymmetry is
   -- issue #25.
@@ -442,6 +469,14 @@ function playback.frame(state, doc, input)
     local shakePitch, shakeHeading = shake.rotation(
       pick(v.camera_shake_strength, camera.camera_shake_strength, 0),
       input.clock, state.shakeMomentum, input.replayRate)
+    -- The shake is turned down, not off, while the mouse has the camera, by
+    -- a factor that is CamTool 2's own and whose shape nobody chose.
+    if manual > 0 then
+      local factor = 0.75 * aimStrength
+        + 0.01 * (1 - math.min(1, aimStrength + rotStrength))
+      local keep = 1 - manual * factor
+      shakePitch, shakeHeading = shakePitch * keep, shakeHeading * keep
+    end
     heading = heading + shakeHeading
     pitch = pitch + shakePitch
   end
@@ -457,10 +492,15 @@ function playback.frame(state, doc, input)
 
   -- The roll actually applied, for anything comparing against CamTool 2,
   -- which sets a roll angle where this builds an up vector from it.
+  local roll = 0
+  if options.applyRoll and v.rot_y ~= nil then roll = v.rot_y end
+  -- The roll the camera has, which the mouse never changes.
+  if manual > 0 then roll = roll * (1 - manual) + (state.roll or 0) * manual end
+  state.roll = roll
   out.roll = 0
 
-  if options.applyRoll and v.rot_y ~= nil and v.rot_y ~= 0 then
-    out.roll = v.rot_y
+  if roll ~= 0 then
+    out.roll = roll
     -- Roll turns the up vector around the look axis. Built by hand rather
     -- than with vector helpers so the convention stays visible.
     -- side = cross(look, worldUp) with worldUp = (0, 1, 0).
@@ -471,7 +511,7 @@ function playback.frame(state, doc, input)
       local ux = sy * lz - sz * ly
       local uy = sz * lx - sx * lz
       local uz = sx * ly - sy * lx
-      local c, s = math.cos(v.rot_y), math.sin(v.rot_y)
+      local c, s = math.cos(roll), math.sin(roll)
       out.upX, out.upY, out.upZ = ux * c + sx * s, uy * c + sy * s, uz * c + sz * s
     else
       out.upX, out.upY, out.upZ = 0, 1, 0
@@ -483,6 +523,23 @@ function playback.frame(state, doc, input)
   -- Post-migration this is plain degrees, so it goes straight in.
   if v.camera_fov ~= nil and v.camera_fov > 0 and v.camera_fov < 180 then
     out.fov = v.camera_fov
+  end
+
+  -- Mouse look: the lens the zoom has left, blended in. An unkeyframed FOV
+  -- is the lens itself, as it is for CamTool 2.
+  if manual > 0 and type(input.manualFov) == 'number' then
+    out.fov = (out.fov or input.manualFov) * (1 - manual) + input.manualFov * manual
+  end
+
+  -- Mouse look holds the camera where it is: the keyframed position is
+  -- blended with last frame's, so at full weight it stops moving.
+  if out.x ~= nil then
+    if manual > 0 and state.lastX ~= nil then
+      out.x = out.x * (1 - manual) + state.lastX * manual
+      out.y = out.y * (1 - manual) + state.lastY * manual
+      out.z = out.z * (1 - manual) + state.lastZ * manual
+    end
+    state.lastX, state.lastY, state.lastZ = out.x, out.y, out.z
   end
 
   ------------------------------------------------------------------
@@ -512,6 +569,13 @@ function playback.frame(state, doc, input)
     elseif v.camera_focus_point ~= nil then
       distance = v.camera_focus_point
       state.focusDistance = distance
+    end
+
+    -- And the focus goes long, to CamTool 2's 300 m, so whatever the mouse
+    -- finds is not left blurred by a plane set for the car.
+    if manual > 0 then
+      local base = distance or state.focusDistance or mouselook.FOCUS_DISTANCE
+      distance = base * (1 - manual) + mouselook.FOCUS_DISTANCE * manual
     end
 
     if distance ~= nil then
