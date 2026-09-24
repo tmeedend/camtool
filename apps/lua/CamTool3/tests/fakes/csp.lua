@@ -203,6 +203,7 @@ function fakes.install(opts)
     end,
     getAudioVolume = function() return 1 end,
     setAudioVolume = function(ch, v) handle.audioWrites[#handle.audioWrites + 1] = { ch, v } end,
+    setAudioVolumeMultiplier = function(v) handle.audioMultiplier = v end,
 
     isKeyDown = function() return false end,
 

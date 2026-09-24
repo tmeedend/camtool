@@ -319,10 +319,14 @@ l'ordre de traitement retenu :
    piste : une caméra `PIT ONLY` n'est joignable que quand elle joue, et
    cocher `PIT ONLY` la fait disparaître du ruban. CamTool 2 les listait
    toutes.
-2. **Le fondu du son aux coupes** — absent de l'inventaire, trouvé dans
-   `acUpdate` (`CamTool_2.py` ~116-132) : à chaque changement de caméra ou de
-   voiture suivie, le volume repart de zéro et remonte en 0,5 s (courbe
-   quadratique).
+2. ~~**Le fondu du son aux coupes**~~ — **fait, à confirmer en jeu**
+   (`core/cutfade.lua`). Absent de l'inventaire, trouvé dans `acUpdate`
+   (`CamTool_2.py` ~116-132) : à chaque changement de caméra ou de voiture
+   suivie, le volume repart de zéro et remonte en 0,5 s (courbe quadratique).
+   Passe par `ac.setAudioVolumeMultiplier`, qui ne touche ni au réglage du
+   joueur ni au canal que la recherche coupe. Écart : seulement **caméra
+   tenue** ; CamTool 2 coupait le son à chaque frontière de caméra même
+   désactivé, puisqu'il calculait la caméra active de toute façon.
 3. ~~**`Activate Free Camera`**~~ — **fait, à confirmer en jeu** : bouton
    `Free camera` à côté de `Take camera`, affiché seulement quand il changerait
    quelque chose (caméra non tenue, AC pas déjà en caméra libre), comme dans

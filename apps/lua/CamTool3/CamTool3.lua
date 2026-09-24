@@ -36,6 +36,7 @@ local playbackCore = require('core/playback')
 local pitlane = require('core/pitlane')
 local carsCore = require('core/cars')
 local mouselookCore = require('core/mouselook')
+local cutfadeCore = require('core/cutfade')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -814,6 +815,21 @@ local function mouseLookFrame(rt)
   end
 end
 
+--------------------------------------------------------------------------------
+-- The sound after a cut, see core/cutfade. Through the master multiplier,
+-- which CSP offers for exactly this and which touches neither the player's
+-- own volume setting nor the channel the seek muffles.
+--------------------------------------------------------------------------------
+
+local cutFade = cutfadeCore.new()
+local audioMultiplier = 1
+
+local function setAudioMultiplier(value)
+  if value == audioMultiplier or ac.setAudioVolumeMultiplier == nil then return end
+  ac.setAudioVolumeMultiplier(value)
+  audioMultiplier = value
+end
+
 local function runPlayback(transform)
   -- The legacy reads the camera's CURRENT heading every frame
   -- (ctt.get_heading()) and falls back to it whenever the heading is not
@@ -998,7 +1014,13 @@ local function perFrame(dt)
 
   mouseLookFrame(rt)
 
-  if not cameraActive() then return end
+  -- Only a held camera cuts. CamTool 2 dipped the sound at every camera
+  -- boundary even switched off, since it worked the live camera out anyway.
+  if not cameraActive() then
+    cutfadeCore.reset(cutFade)
+    setAudioMultiplier(1)
+    return
+  end
 
   -- ownShare ramp -- candidate fix for issue #16 (camera jump on activation).
   if ownShareRampSpeed ~= 0 then
@@ -1073,6 +1095,13 @@ local function perFrame(dt)
     transform.position = original.position
     transform.look = original.look
     transform.up = original.up
+  end
+
+  if mode == MODE_PLAYBACK then
+    setAudioMultiplier(cutfadeCore.update(cutFade, rt,
+      pbOut.active and pbOut.activeCam or nil, sim.focusedCar))
+  else
+    setAudioMultiplier(1)
   end
 
   local p = transform.position
@@ -2281,4 +2310,5 @@ ac.onRelease(function()
   releaseCamera()
   replayStop()
   audioStop()
+  setAudioMultiplier(1)
 end)
