@@ -123,3 +123,23 @@ test('a hand-over CamTool asks for itself does not let go', function()
   handle.restoreIo()
   require('adapters/shortcuts').reset()
 end)
+
+test('a followed car that disconnects hands the replay to car 0', function()
+  local opts = { otherCars = { [1] = { splinePosition = 0.4, isConnected = true,
+    position = vec3(0, 0, 0) } } }
+  local handle = start(opts)
+  handle.sim.focusedCar = 1
+  handle.tick(0.016)
+  eq(#handle.focusCalls, 0, 'nothing while it is there')
+
+  handle.otherCars[1].isConnected = false
+  handle.tick(0.016)
+  eq(handle.focusCalls[1], 0, 'car 0, as CamTool 2 does')
+
+  handle.sim.focusedCar = -1
+  local before = #handle.focusCalls
+  handle.tick(0.016)
+  eq(#handle.focusCalls, before, 'nothing followed at all is left alone')
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)

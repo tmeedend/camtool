@@ -392,6 +392,11 @@ l'ordre de traitement retenu :
 9. ~~**Reset de `PITCH` et `ROLL`**~~ — **tranché avec Théo : pas de bouton.**
    Taper `0` fait la même chose ; la phrase d'aide des deux champs le dit, et
    les lignes restent identiques aux autres.
+10. ~~**Voiture suivie déconnectée**~~ — **fait, à confirmer en jeu** (trouvé
+    après l'audit, en haut d'`acUpdate`) : si la voiture suivie se déconnecte
+    (replay en ligne), le replay repasse sur la voiture 0, comme CamTool 2.
+    Sans ça, la caméra visait la dernière position connue de la voiture
+    partie. Rien n'est fait quand AC ne suit aucune voiture (`-1`).
 
 Vu en passant, et corrigé : la légende du `?` parlait encore d'une « Camera
 strip » que le ruban a remplacée ; la ligne décrit maintenant les couleurs du

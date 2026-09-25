@@ -305,6 +305,21 @@ end
 -- saying why.
 local extraCar = nil
 
+---A followed car that has left -- a driver disconnecting in an online
+---replay -- hands the replay to car 0, as CamTool 2 does at the top of its
+---acUpdate. Otherwise the camera goes on aiming at where that car was last
+---seen. Not when nothing is followed at all (-1): that is Assetto Corsa's own
+---state, a free camera far from every car, and not ours to change.
+local function keepFollowingConnectedCar()
+  local index = sim.focusedCar
+  if index == nil or index <= 0 then return end
+  local car = ac.getCar(index)
+  if car ~= nil and car.isConnected == false and ac.focusCar ~= nil then
+    log(string.format('car %d disconnected: following car 0', index))
+    ac.focusCar(0)
+  end
+end
+
 ---The connected cars and where they are on the track, for the arrows.
 ---Built on a click, not every frame.
 local function connectedCars()
@@ -1267,6 +1282,7 @@ local function perFrame(dt)
   -- Is it running? One reading, and Assetto Corsa's own: getGameDeltaT is
   -- zero when the sim OR the replay is paused, whoever paused it.
   playstate.update(playing, ac.getGameDeltaT ~= nil and ac.getGameDeltaT() or nil)
+  keepFollowingConnectedCar()
 
   if handleShortcuts ~= nil then handleShortcuts() end
 
