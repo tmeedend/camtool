@@ -193,6 +193,9 @@ end
 ---@param doc table @a migrated camera document
 ---@param input table
 ---  trackPos      the car's normalised track position, 0..1
+---  replayPos     the replay position in frames (core/replaytime), which the
+---                `time` list plays on
+---  frameMs       how long a replay frame lasts, for the `time` list
 ---  inPitlane     true while the car is in the pit lane (core/pitlane)
 ---  carX/Y/Z      the car's world position in CamTool space, or nil
 ---  extraCar      the extra car MIX blends the aim towards, nil for none;
@@ -214,6 +217,7 @@ function playback.frame(state, doc, input)
 
   -- Nothing here may survive a frame that produced no camera.
   out.active = false
+  out.position = nil
   out.activeCam = nil
   out.specificCam = nil
   out.x, out.y, out.z = nil, nil, nil
@@ -221,10 +225,16 @@ function playback.frame(state, doc, input)
   out.dofDistance, out.dofFactor = nil, nil
   out.aimMix = 0
 
+  -- Where along its list the file is read. The `pos` list is laid out along
+  -- the lap; the `time` list along the replay, in replay frames, which is
+  -- how CamTool 2 stores it (see core/replaytime). Everything below works on
+  -- `pos` either way, as CamTool 2's does on its the_x.
   local pos = input.trackPos
+  if options.listName == 'time' then pos = input.replayPos end
   if pos == nil or doc == nil then return out end
 
-  out.trackPos = pos
+  out.trackPos = input.trackPos
+  out.position = pos
 
   local cameras = doc[options.listName]
   local activeCam = evaluate.activeCameraIndex(cameras, pos)
@@ -286,10 +296,15 @@ function playback.frame(state, doc, input)
   local affectXY, affectZ, affectHeading, affectPitch = 0, 0, 0, 0
 
   if options.applySpline and spline.exists(camera) then
+    -- The offset along the path is stored in seconds for the `time` list,
+    -- where the path runs in frames: CamTool 2 scales it by the frame rate.
+    local alongOffset = pick(v.spline_offset_spline, camera.spline_offset_spline, 0)
+    if options.listName == 'time' then
+      local frameMs = input.frameMs or 0
+      alongOffset = frameMs > 0 and alongOffset * 1000 / frameMs or 0
+    end
     local query = spline.queryPosition(pos, camera.spline.the_x,
-      pick(v.spline_speed, camera.spline_speed, 1),
-      pick(v.spline_offset_spline, camera.spline_offset_spline, 0),
-      options.listName)
+      pick(v.spline_speed, camera.spline_speed, 1), alongOffset, options.listName)
     out.splineQuery = query
 
     splinePoint = spline.sample(camera, query,
