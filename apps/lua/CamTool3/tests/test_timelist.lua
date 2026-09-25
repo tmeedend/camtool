@@ -254,3 +254,34 @@ test('+cam on the time list starts the camera at the replay frame', function()
   eq(reached[2], 250, 'the new camera starts at the replay frame it was added at')
   app.handle.restoreIo()
 end)
+
+test('OFFSET ALONG reads in metres on the lap and in seconds on the replay', function()
+  local handle = fakes.install({})
+  local atr = require('ui/atr')
+  atr.cancelEditing()
+  local path = { the_x = { 0, 1 }, loc_x = { 0, 1 }, loc_y = { 0, 0 }, loc_z = { 0, 0 },
+    rot_x = { 0, 0 }, rot_y = { 0, 0 }, rot_z = { 0, 0 } }
+  local cam = { camera_in = 0, spline = path, spline_offset_spline = 0.001, keyframes = {} }
+  local function shown(extra)
+    handle.buttons = {}
+    local state = { camera = cam, cameraIndex = 1, cameraCount = 1, keyframeCount = 0,
+      listName = 'pos', trackPos = 0, trackLength = 5000, showMap = false }
+    for k, v in pairs(extra or {}) do state[k] = v end
+    atr.draw(state)
+    for i = 1, #handle.buttons do
+      local text = tostring(handle.buttons[i]):match('^(.-)###splinespline_offset_splineval$')
+      if text then return text end
+    end
+  end
+  eq(shown(), '5.00 m', 'a thousandth of a 5 km lap is 5 metres, as CamTool 2 shows it')
+  cam.spline_offset_spline = 2
+  eq(shown({ listName = 'time', positionUnit = 's', positionScale = 0.05 }), '2.00 s')
+  handle.restoreIo()
+end)
+
+test('OFFSET ALONG steps by what the caller gives, 5 m of lap', function()
+  local cam = { spline_offset_spline = 0, keyframes = {} }
+  edit.apply({ camera = cam, key = 'spline_offset_spline', op = 'nudge',
+    direction = 1, step = 5 / 5000 })
+  near(cam.spline_offset_spline, 0.001, 1e-12)
+end)

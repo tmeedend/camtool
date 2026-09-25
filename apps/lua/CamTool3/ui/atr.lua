@@ -476,7 +476,13 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
   -- length and called it metres.
   local shown = value
   local scale = state.positionScale or state.trackLength or 0
-  if spec.key == 'camera_in' and type(shown) == 'number' then
+  -- OFFSET ALONG is a distance along the lap too, shown in metres as CamTool
+  -- 2 shows it; on the time list it is stored in seconds and shown as such.
+  if spec.key == 'spline_offset_spline' then
+    scale = state.positionUnit == 's' and 1 or (state.trackLength or 0)
+  end
+  local alongList = spec.key == 'camera_in' or spec.key == 'spline_offset_spline'
+  if alongList and type(shown) == 'number' then
     shown = shown * scale
   end
 
@@ -486,6 +492,8 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     text = spec.unit.show(shown)
     if spec.key == 'camera_in' and state.positionUnit == 's' then
       text = string.format('%.2f s', shown)
+    elseif spec.key == 'spline_offset_spline' and type(shown) == 'number' then
+      text = string.format(state.positionUnit == 's' and '%.2f s' or '%.2f m', shown)
     end
   end
 
@@ -526,7 +534,7 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     -- position also has to lose its metres.
     if action == 'commit' and type(payload) == 'number' then
       payload = spec.unit.read(payload)
-      if spec.key == 'camera_in' and scale > 0 then
+      if alongList and scale > 0 then
         payload = payload / scale
       end
     end

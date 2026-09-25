@@ -396,6 +396,12 @@ l'ordre de traitement retenu :
 Vu en passant : la légende du `?` parle encore d'une « Camera strip » que le
 ruban a remplacée.
 
+Trouvé en portant le mode temps, et corrigé : `OFFSET ALONG` avançait de
+**0,25 tour** par clic (plus d'un kilomètre sur la plupart des circuits) et
+s'affichait sans unité. Il avance maintenant de 5 m en mode position et de
+10 s en mode temps, et s'affiche en mètres ou en secondes, comme dans
+CamTool 2 (`CamTool_2.py` ~1979-1987 et ~1284-1288).
+
 **Décisions actées avec Théo** (ne pas re-trancher seul) :
 
 - **Une seule UI**, ATR. L'ancienne à onglets n'est pas reproduite.

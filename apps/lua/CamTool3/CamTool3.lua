@@ -951,6 +951,15 @@ function axis.cameraInStep()
   return ms > 0 and 1000 / ms or nil
 end
 
+---The step of OFFSET ALONG, as CamTool 2 has it: 5 metres of lap on the pos
+---list, where the value is a fraction of a lap, and 10 on the time list,
+---where it is seconds.
+function axis.alongStep()
+  if axis.isTime() then return 10 end
+  local length = sim.trackLengthM
+  return (type(length) == 'number' and length > 0) and 5 / length or nil
+end
+
 ---Where the list is now: the replay frame on the time list, nil otherwise.
 function axis.now()
   if axis.isTime() then return replayClock.pos end
@@ -2497,7 +2506,8 @@ function script.windowAtr(dt)
             live = liveValue(key),
             -- STARTING POINT on the time list: frames, up to the replay's end.
             span = key == 'camera_in' and axis.span() or nil,
-            step = key == 'camera_in' and axis.cameraInStep() or nil,
+            step = (key == 'camera_in' and axis.cameraInStep())
+              or (key == 'spline_offset_spline' and axis.alongStep()) or nil,
           }))
         end
       end

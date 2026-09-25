@@ -75,7 +75,11 @@ edit.RULES = {
   spline_offset_heading = rule(5 * DEG, false, 10),
   spline_offset_loc_x = rule(0.25, false, 10),
   spline_offset_loc_z = rule(0.25, false, 10),
-  spline_offset_spline = rule(0.25, false, 10),
+  -- Stored as a fraction of a lap on the pos list and in seconds on the time
+  -- list, and stepped by 5 m or 10 s as CamTool 2 does: the step depends on
+  -- the track, so the app passes it (request.step). This one is what is
+  -- left when it does not.
+  spline_offset_spline = rule(0.001, false, 10),
 
   -- These two do not follow the rule at all: CamTool 2 gives them their own
   -- branch, with a different step depending on whether a keyframe is being
