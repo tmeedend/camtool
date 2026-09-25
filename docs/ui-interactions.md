@@ -211,6 +211,20 @@ déplacerait un keyframe, et un keyframe déplacé par mégarde ne se remarque
 qu'au montage. Le champ `KEYFRAME` les déplace, là où le geste ne peut se
 confondre avec rien.
 
+### Les caméras de stand : le bouton `pit`
+
+Les caméras `PIT ONLY` ne jouent que voiture aux stands : ce sont une
+seconde liste sur le même tour. Le ruban et la carte en montrent **une à la
+fois** — le bouton `pit` passe de l'une à l'autre, et tous les gestes restent
+les mêmes. Une caméra ajoutée dans la vue des stands est une caméra de stand.
+
+**La vue suit la sélection.** Choisir une caméra de stand, ou cocher
+`PIT ONLY` sur celle qu'on édite, emmène le ruban avec elle : la caméra
+éditée est toujours visible. Sans ça, cocher `PIT ONLY` faisait disparaître
+la caméra du ruban, et une caméra de stand ne se sélectionnait que pendant
+qu'elle jouait. Tranché par Théo entre ce bouton et une seconde ligne fixe
+sous le ruban.
+
 ### Clavier
 
 Les flèches déplacent la tête de lecture, comme les touches de saut d'un point

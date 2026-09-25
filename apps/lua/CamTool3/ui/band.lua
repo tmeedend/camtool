@@ -327,7 +327,9 @@ local function drawBand(state, width)
   -- Who owns what, worked out before anything is written: the hint below is
   -- mostly the name of the camera under the pointer, and it needs the spans
   -- to find it.
-  local segments = trackmap.segments(state.cameras)
+  -- One list at a time: the track cameras, or with the pit view on, the pit
+  -- lane ones. They share the lap but never play together.
+  local segments = trackmap.segments(state.cameras, state.pitView)
   local spans = trackmap.bandSpans(segments)
 
   -- The pointer says the ribbon does something, and the line at the bottom of
@@ -360,7 +362,8 @@ local function drawBand(state, width)
           and camera.name ~= '' and ('  --  ' .. camera.name) or ''))
       or nil
 
-    hint = (named ~= nil and (named .. '.  ') or '') ..
+    hint = (state.pitView and 'Pit lane cameras.  ' or '') ..
+      (named ~= nil and (named .. '.  ') or '') ..
       'Click: select.  Double click: rename.  ' ..
       'Right click: bring the car here, add a camera, or remove one.'
   end
@@ -388,6 +391,14 @@ local function drawBand(state, width)
 
     ui.drawRectFilled(vec2(x1, top), vec2(x2, bottom), colour)
     span.x1, span.x2 = x1, x2
+  end
+
+  -- An empty pit view says what it is, rather than looking like a file with
+  -- no cameras at all.
+  if state.pitView and #spans == 0 then
+    ui.drawTextClipped('no pit lane camera -- right click to add one',
+      vec2(origin.x, top), vec2(origin.x + width, bottom),
+      theme.bandLabel, vec2(0.5, 0.5), true)
   end
 
   ------------------------------------------------------------------

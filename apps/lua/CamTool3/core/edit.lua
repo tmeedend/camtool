@@ -458,7 +458,8 @@ end
 ---  Worked out from the cameras in hand when a caller has no document, which
 ---  is the tests; the app always passes one, because a counter that lives on
 ---  the document cannot hand out an id twice after a deletion.
-function edit.addCamera(cameras, position, id)
+---@param pit boolean|nil @a pit lane camera, for the ribbon's pit view
+function edit.addCamera(cameras, position, id, pit)
   if type(cameras) ~= 'table' then return nil, 'no camera list' end
   if type(position) ~= 'number' then return nil, 'no position to put it at' end
 
@@ -474,7 +475,7 @@ function edit.addCamera(cameras, position, id)
   cameras[#cameras + 1] = {
     id = id,
     camera_in = position,
-    camera_pit = false,
+    camera_pit = pit == true,
     camera_use_tracking_point = 1,
     tracking_strength_heading = 1,
     tracking_strength_pitch = 1,

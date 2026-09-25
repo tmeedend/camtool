@@ -298,6 +298,10 @@ atr.LEGEND = {
     'watch it. The ruler above is what moves the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
     'Double click a segment to name it.',
+  'Pit   the pit button shows the PIT LANE cameras on the ribbon and the ' ..
+    'map instead of the track ones, with every gesture the same; a camera ' ..
+    'added there is a pit lane camera. It follows the selection by itself: ' ..
+    'pick a pit camera, or tick PIT ONLY, and the ribbon goes with it.',
   'Cameras   +cam adds one where the car is, -cam removes the selected one. ' ..
     '+kf and -kf do the same for keyframes of that camera.',
   'Ribbon   RIGHT CLICK to add a camera at that exact spot, to remove the ' ..
@@ -775,6 +779,12 @@ function atr.draw(state)
     { id = 'timeList', width = 58,
       label = (state.listName == 'time' and '[time]' or ' time ')
         .. '###modeTime' },
+    -- Which cameras the ribbon and the map show: the track ones, or the pit
+    -- lane ones, which only play while the car is in the pit lane.
+    { id = 'pitView', width = 44, gap = 10,
+      label = (state.pitView and '[pit]' or ' pit ') .. '###pitView',
+      hint = 'Show the pit lane cameras on the ribbon and the map, instead ' ..
+        'of the track ones.' },
   }
 
   if state.loadedName ~= nil then
@@ -822,6 +832,7 @@ function atr.draw(state)
   if clicked.removeKeyframe then actions.removeKeyframe = true end
   if clicked.posList then actions.listName = 'pos' end
   if clicked.timeList then actions.listName = 'time' end
+  if clicked.pitView then actions.togglePitView = true end
   if clicked.maths then actions.mode = legacy and 'fixed' or 'legacy' end
 
   ui.popStyleColor(3)

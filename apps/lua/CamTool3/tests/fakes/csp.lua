@@ -517,6 +517,9 @@ function fakes.install(opts)
     -- Labels are recorded: several of the panel's readouts are written into
     -- them, the undo depth among them, and a test has no other way to see it.
     button = function(label)
+      -- A button is an item too: without this, the item drawn before it
+      -- answered for its hover, and a hint on the button stole the icon's.
+      lastItem = label
       handle.buttons[#handle.buttons + 1] = label
       handle.drawn[#handle.drawn + 1] = { op = 'button', text = tostring(label) }
       return clicked(label)

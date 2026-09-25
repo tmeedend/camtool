@@ -1505,6 +1505,11 @@ end
 -- live, exactly as CamTool 2 keeps __active_cam apart from data.active_cam:
 -- you edit one camera while another is on screen.
 local atrCamera = nil
+
+-- The ribbon and the map show the track cameras, or the pit lane ones
+-- (panel.pitView). It follows the selected camera: whenever what is selected
+-- changes kind -- another camera picked, PIT ONLY ticked -- the view goes with
+-- it, so the camera being edited is always on the ribbon.
 local atrKeyframe = 1
 ---Start an empty set, if there is not one already.
 ---
@@ -1536,14 +1541,23 @@ local redoStack = {}
 -- arrive with changes still in hand.
 local startupLoadedFor = nil
 
--- Read once and kept: the panel shows it every frame it is open.
-local loadOnStartup = settings.loadOnStartup()
+-- Small pieces of panel state, in one table rather than one local each:
+-- script.windowAtr closes over most of this file, and LuaJIT allows a
+-- function sixty upvalues.
+--   loadOnStartup   read once and kept, the panel shows it every frame
+--   pitView         the ribbon and the map show the pit lane cameras
+--   selectedWasPit  the kind of camera selected last frame; see below
+local panel = {
+  loadOnStartup = settings.loadOnStartup(),
+  pitView = false,
+  selectedWasPit = nil,
+}
 
 local function startupLoad()
   local prefix = storage.trackPrefix()
   if startupLoadedFor == prefix then return end
   startupLoadedFor = prefix
-  if not loadOnStartup or #undoStack > 0 or #files == 0 then return end
+  if not panel.loadOnStartup or #undoStack > 0 or #files == 0 then return end
   fileIndex = settings.findFile(files, settings.lastFile(prefix)) or 1
   loadSelectedFile()
 end
@@ -1792,6 +1806,16 @@ function script.windowAtr(dt)
 
   -- Follow the car until the user picks a camera to work on.
   if atrCamera == nil or atrCamera > count then atrCamera = pbOut.activeCam end
+
+  do
+    local selected = cameras ~= nil and atrCamera ~= nil and cameras[atrCamera] or nil
+    local selectedPit = nil
+    if selected ~= nil then selectedPit = selected.camera_pit == true end
+    if selectedPit ~= nil and selectedPit ~= panel.selectedWasPit then
+      panel.pitView = selectedPit
+    end
+    panel.selectedWasPit = selectedPit
+  end
   local camera = cameras ~= nil and atrCamera ~= nil and cameras[atrCamera] or nil
   local keyframes = camera ~= nil and camera.keyframes or nil
   local keyframeCount = type(keyframes) == 'table' and #keyframes or 0
@@ -1870,9 +1894,10 @@ function script.windowAtr(dt)
     -- Not from the file: CamTool 2 never saved which car a camera framed.
     -- What the camera is doing, for every field that has no value of its own.
     live = liveValue,
-    loadOnStartup = loadOnStartup,
+    loadOnStartup = panel.loadOnStartup,
     offerFreeCamera = not cameraActive() and ac.CameraMode ~= nil
       and sim.cameraMode ~= ac.CameraMode.Free,
+    pitView = panel.pitView,
     trackedCarA = sim.focusedCar,
     trackedCarB = effectiveExtraCar(),
     carName = ac.getDriverName,
@@ -1906,6 +1931,24 @@ function script.windowAtr(dt)
   if stepExtra ~= nil then
     extraCar = carsCore.stepExtra(connectedCars(), sim.focusedCar,
       effectiveExtraCar(), stepExtra)
+  end
+
+  -- Switching the view picks the first camera it shows, so the fields below
+  -- are about a camera you can see. With none there, the selection stays and
+  -- the view stays switched: the ribbon then offers to add one.
+  if actions.togglePitView then
+    panel.pitView = not panel.pitView
+    local list = doc ~= nil and doc[pb.options.listName] or nil
+    for i = 1, list ~= nil and #list or 0 do
+      if (list[i].camera_pit == true) == panel.pitView then
+        atrCamera, atrKeyframe = i, 1
+        atrParameter.cancelEditing()
+        break
+      end
+    end
+    local selected = list ~= nil and atrCamera ~= nil and list[atrCamera] or nil
+    panel.selectedWasPit = nil
+    if selected ~= nil then panel.selectedWasPit = selected.camera_pit == true end
   end
 
   if actions.selectCamera ~= nil then
@@ -1976,7 +2019,7 @@ function script.windowAtr(dt)
   -- under the pointer rather than whichever one happens to be selected.
   if actions.addCameraAt ~= nil and cameras ~= nil then
     remember(edit.addCamera(cameras, actions.addCameraAt,
-      dataModule.claimCameraId(doc)))
+      dataModule.claimCameraId(doc), panel.pitView))
   end
 
   if actions.removeCameraAt ~= nil and cameras ~= nil then
@@ -2123,7 +2166,8 @@ function script.windowAtr(dt)
   end
   if actions.addCamera and cameras ~= nil and playhead ~= nil then
     -- The document hands out the identity: see core/data.claimCameraId.
-    remember(edit.addCamera(cameras, playhead, dataModule.claimCameraId(doc)))
+    remember(edit.addCamera(cameras, playhead, dataModule.claimCameraId(doc),
+      panel.pitView))
   end
   if actions.removeCamera and cameras ~= nil and atrCamera ~= nil then
     remember(edit.removeCamera(cameras, atrCamera))
@@ -2341,8 +2385,8 @@ function script.windowAtr(dt)
   if actions.grab then grabCamera() end
   if actions.release then releaseCamera() end
   if actions.toggleLoadOnStartup then
-    loadOnStartup = not loadOnStartup
-    settings.set('loadOnStartup', loadOnStartup)
+    panel.loadOnStartup = not panel.loadOnStartup
+    settings.set('loadOnStartup', panel.loadOnStartup)
   end
   if actions.freeCamera and ac.setCurrentCamera ~= nil then
     ac.setCurrentCamera(ac.CameraMode.Free)

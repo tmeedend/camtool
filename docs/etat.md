@@ -314,11 +314,12 @@ boucle `acUpdate` de CamTool 2. Théo ne veut pas de bêta avec une
 fonctionnalité manquante : cette liste doit être vide avant la sortie. Dans
 l'ordre de traitement retenu :
 
-1. **Les caméras de stand ne sont pas éditables.** On ne choisit une caméra
-   qu'au ruban ou à la carte, et les deux ne montrent que les caméras de
-   piste : une caméra `PIT ONLY` n'est joignable que quand elle joue, et
-   cocher `PIT ONLY` la fait disparaître du ruban. CamTool 2 les listait
-   toutes.
+1. ~~**Les caméras de stand ne sont pas éditables.**~~ — **fait, à confirmer
+   en jeu.** Bouton `pit` à côté de `position` / `time` (option A, tranchée par
+   Théo) : le ruban et la carte montrent les caméras de stand au lieu de
+   celles de piste, avec les mêmes gestes, et une caméra ajoutée dans cette
+   vue est une caméra de stand. La vue suit la sélection : cocher `PIT ONLY`
+   emmène le ruban avec la caméra au lieu de la faire disparaître.
 2. ~~**Le fondu du son aux coupes**~~ — **fait, à confirmer en jeu**
    (`core/cutfade.lua`). Absent de l'inventaire, trouvé dans `acUpdate`
    (`CamTool_2.py` ~116-132) : à chaque changement de caméra ou de voiture
@@ -657,7 +658,8 @@ diagnostic.
    `car.isInPitlane` de CSP. Un écart assumé avec Théo, la « dernière caméra »
    (#8 du registre de `docs/legacy.md`). Le balayage, qui roule sur la piste,
    ne voit toujours que 9 caméras sur 11 à Red Bull Ring : c'est normal.
-   La **carte** et le **ruban** ne montrent encore que les caméras de piste.
+   La **carte** et le **ruban** les montrent avec le bouton `pit` (voir la
+   liste des écarts plus haut).
 3. ~~**Smart tracking**~~ — **rien à porter : la fonctionnalité est morte dans
    CamTool 2.** L'idée : quand un adversaire passe à moins de 50 m de la
    voiture suivie, décaler la visée entre les deux et ouvrir le FOV pour

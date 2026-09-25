@@ -175,7 +175,7 @@ function map.draw(state, width, maxHeight)
     cachedSegments = nil
   end
 
-  local segments = trackmap.segments(state.cameras)
+  local segments = trackmap.segments(state.cameras, state.pitView)
   if not sameSegments(segments, cachedSegments) then
     trackmap.assign(points, segments, owners)
     cachedSegments = segments
