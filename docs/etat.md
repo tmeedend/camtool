@@ -366,8 +366,9 @@ l'ordre de traitement retenu :
 8. **Enregistrer une spline** : par caméra (onglet Spline), et les splines de
    piste et de stand (onglet Settings), `Record → Stop → Remove`. Le plus
    gros morceau : portage de `record_spline`.
-9. **Reset de `PITCH` et `ROLL`** : taper `0` fait déjà la même chose ; à
-   trancher avec Théo s'il faut un geste dédié.
+9. ~~**Reset de `PITCH` et `ROLL`**~~ — **tranché avec Théo : pas de bouton.**
+   Taper `0` fait la même chose ; la phrase d'aide des deux champs le dit, et
+   les lignes restent identiques aux autres.
 
 Vu en passant : la légende du `?` parle encore d'une « Camera strip » que le
 ruban a remplacée.

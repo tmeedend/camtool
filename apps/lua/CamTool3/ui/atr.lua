@@ -179,8 +179,13 @@ atr.COLUMNS = {
         'How much of the keyframed position to use against where the camera '
         .. 'already is. NOT APPLIED YET: it is 100% on every reference '
         .. 'camera and never keyframed, so nothing has needed it.'),
-      row('rot_x', 'PITCH', UNITS.degrees, 'Tilt up and down.'),
-      row('rot_y', 'ROLL', UNITS.degrees, 'Roll: the horizon leaning over.'),
+      -- CamTool 2 had a reset button on these two, and only these: level
+      -- (pitch 0) and upright (roll 0) are references worth one gesture.
+      -- Typing 0 is that gesture here, so the rows stay like every other.
+      row('rot_x', 'PITCH', UNITS.degrees,
+        'Tilt up and down. Type 0 to level it.'),
+      row('rot_y', 'ROLL', UNITS.degrees,
+        'Roll: the horizon leaning over. Type 0 to straighten it.'),
       row('rot_z', 'HEADING', UNITS.degrees, 'Which way the camera faces.'),
       row('transform_rot_strength', 'STRENGTH RO.', UNITS.percent,
         'How much of the keyframed angles to use against where the camera is '
