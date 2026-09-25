@@ -241,9 +241,10 @@ F10 —, la relâcher, et charger les fichiers 1 à 5 de la piste (Y à P). On
 les affecte dans `keys`. Charger par une touche demande un second appui s'il
 y a du travail non sauvé, comme le bouton.
 
-**Les touches de caméra d'AC relâchent la caméra** (F1, F3, F5…), comme dans
-CamTool 2 : c'est le changement de mode de caméra qui est surveillé, pas les
-touches, pour que des touches réaffectées comptent aussi.
+**Les touches de caméra d'AC relâchent la caméra** — F1, F2, F3, F5, F6, F7,
+la liste de CamTool 2, lues directement comme CamTool 2 les lisait.
+Surveiller le mode de caméra d'AC a été essayé et ne marche pas : caméra
+tenue, F1 ne change pas le mode rapporté, et la prise elle-même le change.
 
 
 Les flèches déplacent la tête de lecture, comme les touches de saut d'un point

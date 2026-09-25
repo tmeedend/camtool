@@ -191,7 +191,7 @@ session suffit, dans cet ordre :
 | 49 | **Load on startup** | Relancer AC sur la même piste, ouvrir le panneau : le dernier fichier se rouvre seul. Case dans `keys` pour l'éteindre, et elle reste éteinte au redémarrage. |
 | 50 | **`Delete`** | Sur un fichier CamTool 3 : deux clics, et il arrive dans la **Corbeille de Windows**. Jamais proposé sur un fichier CamTool 2. |
 | 51 | **Touches de CamTool 2** | Affecter « Take the camera » : fenêtre fermée, elle charge un fichier et prend la caméra ; ré-appuyée, fichier suivant. « Load file 2 » charge le deuxième ; avec du non sauvé, il faut deux appuis. « Release the camera » lâche. |
-| 52 | **F1…F7 relâchent** | Caméra tenue, F1 (ou F3, F5…) : CamTool lâche et le dit. Une caméra `AC CAMERA` (volant, cockpit) ne doit **pas** faire lâcher. |
+| 52 | ✅ **F1…F7 relâchent** — *validé en jeu par Théo* | `Take camera` depuis F1 ou F3 : la caméra est prise **et reste prise** (elle clignotait). Puis F1, F2, F3, F5, F6 ou F7 : CamTool lâche, la vue d'AC revient, et la ligne de statut le dit. Une caméra `AC CAMERA` (volant, cockpit) ne doit **pas** faire lâcher. |
 | 53 | **Enregistrer un chemin** | Caméra libre, replay en lecture : `Record path`, voler, `Stop` ; la caméra suit ensuite ce trajet. Un seul `Undo` retire tout. Dans `keys`, `Track path` avec une caméra qui suit la voiture s'arrête seul à la ligne. |
 | 54 | **Mode temps** | Bouton `time` : en-tête et règle en secondes, `STARTING POINT` en secondes. `+cam` à deux instants, prendre la caméra : les coupes tombent à ces instants, où que soit la voiture. Cliquer la règle saute directement à l'instant. |
 | 55 | `OFFSET ALONG` | Sur une caméra à chemin : affiché en mètres, 5 m par clic (il sautait d'un quart de tour). |
@@ -376,12 +376,14 @@ l'ordre de traitement retenu :
    charge le fichier suivant), « Release the camera » (nouveau), « Load file
    1..5 » (Y à P ; demande un second appui s'il y a du travail non sauvé).
    `Enable hotkeys` n'a pas d'équivalent : un raccourci sans touche est un
-   raccourci désactivé. **F1…F7** : la caméra est relâchée quand le **mode de
-   caméra d'AC change** sans que CamTool l'ait demandé (tranché avec Théo :
-   marche aussi avec des touches réaffectées) ; un changement que CamTool
-   demande lui-même (`AC CAMERA`) est accepté avant comme après qu'AC l'a
-   appliqué. Limite : F7 déjà en caméra libre ne change rien de visible,
-   d'où le raccourci « Release the camera ».
+   raccourci désactivé. **F1…F7** : F1, F2, F3, F5, F6 et F7 relâchent la
+   caméra, **lues directement** (`ac.isKeyPressed`) comme CamTool 2 les
+   lisait. La première version surveillait le mode de caméra d'AC (idée
+   validée avec Théo, qui ne marche pas) : **testé par Théo**, caméra tenue,
+   F1 ne change pas le mode rapporté, donc rien ne relâchait ; et la prise
+   elle-même change ce mode depuis F1 ou F3, ce qui relâchait la caméra la
+   frame d'après — `Take camera` clignotait et ne faisait rien. Les touches
+   réaffectées dans AC ne comptent pas, comme dans CamTool 2.
 7. ~~**Le mode temps**~~ — **porté en entier, à confirmer en jeu** (tranché
    avec Théo, alors qu'aucun des 33 fichiers de sa machine ne s'en sert).
    La liste `time` se joue sur la **position dans le replay, en frames**

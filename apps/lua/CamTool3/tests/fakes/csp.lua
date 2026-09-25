@@ -107,6 +107,7 @@ function fakes.install(opts)
     windowSize = { x = 1920, y = 1080 },
   }
   handle.held = {}
+  handle.pressedKeys = {}
   handle.stored = {}
   for key, value in pairs(opts.stored or {}) do handle.stored[key] = value end
   handle.freeLook = vec3fake(0, 0, 1)
@@ -222,6 +223,8 @@ function fakes.install(opts)
     end,
 
     isKeyDown = function() return false end,
+    -- handle.pressedKeys: the key codes that went down this frame.
+    isKeyPressed = function(key) return handle.pressedKeys[key] == true end,
 
     -- Bindings, the way CSP hands them over: the app asks to be told when one
     -- fires rather than watching the keyboard. opts.pressedShortcut names the
@@ -337,7 +340,8 @@ function fakes.install(opts)
     getTrackLayout = function() return opts.trackLayout or '' end,
     getTrackName = function() return 'Fake Track' end,
     AudioChannel = { Main = 'main' },
-    KeyIndex = { Shift = 16, Control = 17, Menu = 18 },
+    KeyIndex = { Shift = 16, Control = 17, Menu = 18,
+      F1 = 112, F2 = 113, F3 = 114, F5 = 116, F6 = 117, F7 = 118 },
   }
 
   -- ImGui: every call is a no-op that reports "not clicked". Widgets that hand

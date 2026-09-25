@@ -92,34 +92,74 @@ test('load file N loads the N-th file of the track', function()
   require('adapters/shortcuts').reset()
 end)
 
-test("Assetto Corsa's camera keys let go of the camera", function()
-  local opts = { cameraMode = 6 }
+---One press of a key of Assetto Corsa's, by its code.
+local function pressKey(handle, code)
+  handle.pressedKeys[code] = true
+  handle.tick(0.016)
+  handle.pressedKeys[code] = nil
+end
+
+test("Assetto Corsa's camera keys let go of the camera, F7 included", function()
+  for _, code in ipairs({ 112, 113, 114, 116, 117, 118 }) do
+    local opts = { cameraMode = 6 }
+    local handle = start(opts)
+    press(handle, opts, 'Take the camera')
+    eq(handle.grabbed, true)
+    handle.tick(0.016)
+    eq(handle.disposed ~= true, true, 'held while nothing is pressed')
+    pressKey(handle, code)
+    eq(handle.disposed, true, 'let go on key ' .. code)
+    handle.restoreIo()
+    require('adapters/shortcuts').reset()
+  end
+end)
+
+test('F4 and the others do not let go', function()
+  local opts = {}
   local handle = start(opts)
   press(handle, opts, 'Take the camera')
-  eq(handle.grabbed, true)
-  handle.tick(0.016)
-  eq(handle.disposed ~= true, true, 'held while nothing changes')
+  pressKey(handle, 115) -- F4
+  pressKey(handle, 65)  -- A
+  eq(handle.disposed ~= true, true)
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)
 
-  handle.sim.cameraMode = 2 -- F1
-  handle.tick(0.016)
-  eq(handle.disposed, true, 'let go')
+test('taking the camera from an AC camera keeps it, whatever the mode does', function()
+  -- The regression: the grab itself moves Assetto Corsa's camera mode, and
+  -- watching the mode read that as F1 and let go at once.
+  local opts = { cameraMode = 3 }
+  local handle = start(opts)
+  press(handle, opts, 'Take the camera')
+  handle.sim.cameraMode = 6
+  for _ = 1, 5 do handle.tick(0.016) end
+  eq(handle.disposed ~= true, true)
   handle.restoreIo()
   require('adapters/shortcuts').reset()
 end)
 
 test('a hand-over CamTool asks for itself does not let go', function()
   -- camera_use_specific_cam 13 is the cockpit view: CamTool asks the game for
-  -- its drivable camera, which is a change of mode it caused, not the user.
+  -- its drivable camera, which changes the mode without any key pressed.
   local opts = { cameraMode = 6, cameraFile = { interpolation_mode = 'fixed',
     version = 2, time = {}, pos = { camera(1, 0, { camera_use_specific_cam = 13 }) } } }
   local handle = start(opts)
   press(handle, opts, 'Take the camera')
   eq(handle.cameraMode, 2, 'CamTool handed the view to the drivable camera')
-  handle.tick(0.016)
-  eq(handle.disposed ~= true, true, 'before the game applies it')
   handle.sim.cameraMode = 2
   handle.tick(0.016)
-  eq(handle.disposed ~= true, true, 'and after')
+  eq(handle.disposed ~= true, true)
+  handle.restoreIo()
+  require('adapters/shortcuts').reset()
+end)
+
+test('an F key typed into a field does not let go', function()
+  local opts = {}
+  local handle = start(opts)
+  press(handle, opts, 'Take the camera')
+  handle.ui.wantCaptureKeyboard = true
+  pressKey(handle, 112)
+  eq(handle.disposed ~= true, true)
   handle.restoreIo()
   require('adapters/shortcuts').reset()
 end)

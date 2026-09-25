@@ -385,21 +385,13 @@ local function cameraActive()
   return cam ~= nil and cam:active()
 end
 
--- Assetto Corsa's camera mode while CamTool holds the camera. One table, for
--- the same sixty-upvalue reason as `panel` further down.
---   expected  what it should be: as it was when taken, or as CamTool last
---             asked. Anything else means somebody pressed F1, F3, F5, F6...
---             CamTool 2 let go on those keys, and so does this -- by watching
---             the mode rather than the keys, so rebound camera keys count too.
---   asked     a change CamTool requested that Assetto Corsa may not have
---             applied yet: until it has, the old mode is fine as well.
---   message   what that has to say, for the panel to show when it next draws.
-local acMode = { expected = nil, asked = nil, message = nil }
+-- What letting go of the camera had to say, for the panel to show when it
+-- next draws: see cameraTakenBack.
+local acMode = { message = nil }
 
----Ask Assetto Corsa for one of its camera modes, as CamTool, not as the user.
+---Ask Assetto Corsa for one of its camera modes, for a hand-over.
 local function askCameraMode(value)
   if value == nil then return end
-  acMode.asked = value
   ac.setCurrentCamera(value)
 end
 
@@ -413,7 +405,6 @@ local function grabCamera()
   end
   cam = grabbed
   grabError = nil
-  acMode.expected, acMode.asked = sim.cameraMode, nil
   local p = grabbed.transformOriginal.position
   anchor = vec3(p.x, p.y, p.z)
   orbitTime = 0
@@ -1242,21 +1233,34 @@ local lastFrame = -1
 local checkHandOver = nil
 
 ---Did the user take Assetto Corsa's camera back with one of its own keys?
----If so the camera is let go, as CamTool 2 did on F1 to F7.
-local function cameraTakenBack()
-  local now = sim.cameraMode
-  if now == nil or acMode.expected == nil then return false end
-  if acMode.asked ~= nil and now == acMode.asked then
-    acMode.expected, acMode.asked = now, nil
-    return false
-  end
-  if now == acMode.expected or now == acMode.asked then return false end
+---If so the camera is let go, as CamTool 2 did on F1, F2, F3, F5, F6 and F7.
+---
+---THE KEYS, READ DIRECTLY, as CamTool 2 read them. Watching Assetto Corsa's
+---camera mode instead was tried and does not work: while a script holds the
+---camera, F1 does not change the mode the game reports, so nothing was ever
+---let go -- and the grab itself does change it, which let go of the camera
+---the frame after taking it. ac.isKeyPressed sees the key whichever window
+---has the focus, and never while a field is being typed into.
+local RELEASE_KEYS = { 'F1', 'F2', 'F3', 'F5', 'F6', 'F7' }
 
-  log(string.format('camera mode went from %s to %s: released',
-    tostring(acMode.expected), tostring(now)))
+local function cameraTakenBack()
+  if ac.isKeyPressed == nil or ac.KeyIndex == nil then return false end
+  if uiState.wantCaptureKeyboard then return false end
+
+  local pressed = nil
+  for _, name in ipairs(RELEASE_KEYS) do
+    local key = ac.KeyIndex[name]
+    if key ~= nil then
+      local ok, down = pcall(ac.isKeyPressed, key)
+      if ok and down then pressed = name break end
+    end
+  end
+  if pressed == nil then return false end
+
+  log(pressed .. ' pressed: camera released')
   releaseCamera()
   handedTo = nil
-  acMode.message = "Assetto Corsa's camera keys let go of the camera -- " ..
+  acMode.message = pressed .. ' gave the view back to Assetto Corsa -- ' ..
     'Take camera to hold it again.'
   cutfadeCore.reset(cutFade)
   setAudioMultiplier(1)

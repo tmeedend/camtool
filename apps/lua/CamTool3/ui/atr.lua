@@ -330,9 +330,9 @@ atr.LEGEND = {
     "2's keys are there too, unbound: take the camera (pressed again: the " ..
     'next file), release it, and load file 1 to 5 of the track -- which ' ..
     'asks for a second press when there is unsaved work.',
-  "Camera keys   Assetto Corsa's own camera keys (F1, F3, F5...) let go of " ..
-    'a held camera, as in CamTool 2. F7 on the free camera changes nothing ' ..
-    'the app can see: give Release the camera a key for that.',
+  "Camera keys   F1, F2, F3, F5, F6 and F7, Assetto Corsa's camera keys, " ..
+    'let go of a held camera and give the view back to the game, as in ' ..
+    'CamTool 2.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
