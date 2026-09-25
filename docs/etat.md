@@ -175,6 +175,28 @@ rien.
 | 39 | **Sélection sans déplacement** | Cliquer un segment pendant que le replay tourne : la caméra change dans le panneau et **l'image ne bouge pas**. Même chose sur la carte. Avec Maj aussi : Maj ne doit plus rien changer. |
 | 40 | **Circuit sans `sections.ini`** | Sur un circuit ou un layout mod qui n'en a pas, la règle doit montrer les distances seules, sans erreur ni trou dans le panneau. |
 
+**Ajouté depuis l'audit des écarts avec CamTool 2 (septembre 2026)** — une
+session suffit, dans cet ordre :
+
+| # | Quoi | Comment savoir que c'est bon |
+|---|---|---|
+| 41 | **Mouse look — les touches** | Sonde « 9. Modifier keys » : la ligne `bindings:` passe à `true` avec Alt, Shift et Ctrl, **y compris Shift quand Alt est déjà enfoncé**. Sinon `ac.ControlButton` refuse un modificateur seul : le dire, on lira les touches en direct. |
+| 42 | Mouse look, caméra libre | F7, rien de pris : Alt + clic gauche + mouvement tourne la caméra en douceur et elle finit sur son élan ; Alt + Shift / Ctrl zoome. Souris à droite = tourne à droite. *(Validé une première fois par Théo.)* |
+| 43 | Mouse look, caméra tenue | Alt tourne la caméra **sans la déplacer** ; relâché, le plan revient en ~2 s. Le flou à Alt est normal (mise au point à 300 m, comme CamTool 2 ; noté dans les idées). Alt + clic sur un champ ne tourne rien. |
+| 44 | **`MIX` et `EXTRA CAR`** | `EXTRA CAR` affiche `--` au départ ; la flèche droite donne le **nom** du pilote devant. `MIX` 50 % vise entre les deux, 100 % cadre l'extra car. Revenir sur la voiture active remet `--`. Les flèches d'`ACTIVE CAR` changent la voiture suivie par le replay. |
+| 45 | **Caméras de stand** | Une voiture qui entre aux stands : la vue bascule sur une caméra `PIT ONLY` et revient à la sortie ; au passage de la ligne dans la voie des stands, d'une caméra de stand à l'autre. |
+| 46 | **Bouton `pit`** | Il montre les caméras de stand au ruban et à la carte. Cocher `PIT ONLY` sur une caméra la garde visible (la vue passe à `[pit]`). `+cam` dans cette vue crée une caméra de stand. |
+| 47 | **Fondu du son** | Caméra tenue, à chaque coupe (et changement de voiture suivie) : le son repart de zéro et revient en une demi-seconde. Rien quand la caméra n'est pas tenue. |
+| 48 | `Free camera` | Le bouton apparaît hors caméra libre et bascule AC en F7 ; il disparaît caméra tenue ou déjà en libre. |
+| 49 | **Load on startup** | Relancer AC sur la même piste, ouvrir le panneau : le dernier fichier se rouvre seul. Case dans `keys` pour l'éteindre, et elle reste éteinte au redémarrage. |
+| 50 | **`Delete`** | Sur un fichier CamTool 3 : deux clics, et il arrive dans la **Corbeille de Windows**. Jamais proposé sur un fichier CamTool 2. |
+| 51 | **Touches de CamTool 2** | Affecter « Take the camera » : fenêtre fermée, elle charge un fichier et prend la caméra ; ré-appuyée, fichier suivant. « Load file 2 » charge le deuxième ; avec du non sauvé, il faut deux appuis. « Release the camera » lâche. |
+| 52 | **F1…F7 relâchent** | Caméra tenue, F1 (ou F3, F5…) : CamTool lâche et le dit. Une caméra `AC CAMERA` (volant, cockpit) ne doit **pas** faire lâcher. |
+| 53 | **Enregistrer un chemin** | Caméra libre, replay en lecture : `Record path`, voler, `Stop` ; la caméra suit ensuite ce trajet. Un seul `Undo` retire tout. Dans `keys`, `Track path` avec une caméra qui suit la voiture s'arrête seul à la ligne. |
+| 54 | **Mode temps** | Bouton `time` : en-tête et règle en secondes, `STARTING POINT` en secondes. `+cam` à deux instants, prendre la caméra : les coupes tombent à ces instants, où que soit la voiture. Cliquer la règle saute directement à l'instant. |
+| 55 | `OFFSET ALONG` | Sur une caméra à chemin : affiché en mètres, 5 m par clic (il sautait d'un quart de tour). |
+| 56 | Voiture déconnectée | Replay en ligne, suivre un pilote qui quitte la session : le replay passe sur la voiture 0, le log dit `car N disconnected: following car 0`. |
+
 ## ⏳ En attente de Théo
 
 Ce qui demande le jeu et n'est pas dans la checklist ci-dessus.
