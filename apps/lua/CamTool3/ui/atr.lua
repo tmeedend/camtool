@@ -281,7 +281,7 @@ end
 atr.LEGEND = {
   'Diamond   filled = keyframed here, hollow = keyframed elsewhere in this ' ..
     'camera, empty = never keyframed. A tinted field is animated.',
-  'Camera strip   red = the camera being edited, pale = the camera on screen.',
+  'Ribbon colours   red = the camera being edited, pale = the camera on screen.',
   'Values   arrows step, drag scrubs, double click types. Right click during ' ..
     'a drag abandons it; click away to abandon a typed one. Ctrl quarters ' ..
     'the step, Shift quadruples it. The wheel never edits, and Escape is the ' ..

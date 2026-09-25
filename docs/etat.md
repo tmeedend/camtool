@@ -393,8 +393,9 @@ l'ordre de traitement retenu :
    Taper `0` fait la même chose ; la phrase d'aide des deux champs le dit, et
    les lignes restent identiques aux autres.
 
-Vu en passant : la légende du `?` parle encore d'une « Camera strip » que le
-ruban a remplacée.
+Vu en passant, et corrigé : la légende du `?` parlait encore d'une « Camera
+strip » que le ruban a remplacée ; la ligne décrit maintenant les couleurs du
+ruban, qui sont celles qu'elle donnait.
 
 Trouvé en portant le mode temps, et corrigé : `OFFSET ALONG` avançait de
 **0,25 tour** par clic (plus d'un kilomètre sur la plupart des circuits) et
