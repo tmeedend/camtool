@@ -39,6 +39,7 @@ local carsCore = require('core/cars')
 local mouselookCore = require('core/mouselook')
 local cutfadeCore = require('core/cutfade')
 local recorderCore = require('core/recorder')
+local replaytimeCore = require('core/replaytime')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -985,6 +986,24 @@ function recording.frame(rt)
   end
 end
 
+--------------------------------------------------------------------------------
+-- Where the replay is, between frames: what the time list plays on. See
+-- core/replaytime. Worked out once a frame, held camera or not, since the
+-- panel shows it too.
+--------------------------------------------------------------------------------
+
+local replayClock = { state = replaytimeCore.new(), pos = nil }
+
+local function updateReplayPos(rt)
+  if not sim.isReplayActive then
+    replayClock.pos = nil
+    return
+  end
+  local replayDt = playing.paused and 0 or rt * (sim.replayPlaybackRate or 1)
+  replayClock.pos = replaytimeCore.update(replayClock.state,
+    sim.replayCurrentFrame, sim.replayFrameMs, replayDt)
+end
+
 local function runPlayback(transform)
   -- The legacy reads the camera's CURRENT heading every frame
   -- (ctt.get_heading()) and falls back to it whenever the heading is not
@@ -1002,6 +1021,8 @@ local function runPlayback(transform)
   end
 
   pbIn.trackPos = focusedTrackPosition()
+  pbIn.replayPos = replayClock.pos
+  pbIn.frameMs = sim.replayFrameMs
   pbIn.carX, pbIn.carY, pbIn.carZ = focusedCarPosition()
   pbIn.inPitlane = focusedCarInPitlane(pbIn.trackPos, pbIn.carX, pbIn.carY)
   pbIn.extraCar = effectiveExtraCar()
@@ -1190,6 +1211,7 @@ local function perFrame(dt)
   end
 
   mouseLookFrame(rt)
+  updateReplayPos(rt)
   recording.frame(rt)
 
   -- Only a held camera cuts. CamTool 2 dipped the sound at every camera

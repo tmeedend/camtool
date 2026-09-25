@@ -101,3 +101,38 @@ test('the pos list is untouched by any of it', function()
   eq(out.activeCam, 1)
   eq(out.x, 999)
 end)
+
+--------------------------------------------------------------------------------
+-- Through the app
+--------------------------------------------------------------------------------
+
+local fakes = require('tests/fakes/csp')
+
+test('the app plays the time list on the replay frame', function()
+  local d = doc()
+  d.version = 2
+  for _, c in ipairs(d.time) do c.camera_pit = false end
+  local opts = { clicks = {}, cameraFile = d, splinePosition = 0.9 }
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+  assert(loadfile('CamTool3.lua'))()
+  local function click(label)
+    opts.clicks[label] = true
+    pcall(_G.script.windowAtr, 0.016)
+    opts.clicks[label] = nil
+  end
+  pcall(_G.script.windowAtr, 0.016)
+  click(' time ###modeTime')
+  click('Take camera###hold')
+  eq(handle.grabbed, true)
+
+  handle.sim.replayFrameMs = 50
+  for _, at in ipairs({ { 150, 1 }, { 250, 2 }, { 600, 3 } }) do
+    handle.sim.replayCurrentFrame = at[1]
+    handle.tick(0.016)
+    handle.tick(0.016)
+    eq(handle.transform.position.x, at[2], 'frame ' .. at[1])
+  end
+  handle.restoreIo()
+end)
