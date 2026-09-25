@@ -360,9 +360,23 @@ l'ordre de traitement retenu :
    demande lui-même (`AC CAMERA`) est accepté avant comme après qu'AC l'a
    appliqué. Limite : F7 déjà en caméra libre ne change rien de visible,
    d'où le raccourci « Release the camera ».
-7. **Le mode temps** : la liste `time` s'édite mais se joue sur la position de
-   la voiture ; CamTool 2 la joue sur le temps du replay
-   (`replay.get_interpolated_replay_pos`). Unité de `camera_in` à établir.
+7. ~~**Le mode temps**~~ — **porté en entier, à confirmer en jeu** (tranché
+   avec Théo, alors qu'aucun des 33 fichiers de sa machine ne s'en sert).
+   La liste `time` se joue sur la **position dans le replay, en frames**
+   (`core/replaytime.lua`, portage de `get_interpolated_replay_pos`), qui est
+   l'unité où CamTool 2 stocke `camera_in` et les keyframes de cette liste.
+   Sans l'étape « Synchronizing » : CSP donne la durée d'une frame
+   (`sim.replayFrameMs`), CamTool 2 la mesurait et l'arrondissait. Le
+   décalage le long d'une spline, en secondes, est converti en frames comme
+   dans `InterpolateFrame`. Dans le panneau : le ruban couvre **tout le
+   replay** avec une règle en secondes, `STARTING POINT` et la position du
+   keyframe se lisent en secondes (CamTool 2 affichait des frames multipliées
+   par la longueur du circuit, suivies de « m »), `+cam` / `+kf` se posent à
+   la frame courante, aller quelque part place le replay directement, et la
+   carte ne montre pas de caméras. Un chemin de caméra enregistré en mode
+   temps ne passe pas de ligne ; pistes et stands restent en mode position.
+   À voir à l'usage : un zoom du ruban, si tout le replay sur la largeur du
+   panneau est trop serré.
 8. ~~**Enregistrer une spline**~~ — **fait, à confirmer en jeu**
    (`core/recorder.lua`). `Record path` à côté du titre `SPLINE` pour la
    caméra choisie ; `Track path` et `Pit lane path` dans le panneau `keys`.

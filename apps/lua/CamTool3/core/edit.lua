@@ -167,9 +167,11 @@ end
 ---@field before table @a copy of the list as it was
 ---@field after table @a copy of the list as it became
 
-local function clamped(value, rule_)
+---@param span number|nil @the upper limit; a lap, 1, unless the caller says
+---  otherwise -- the time list runs along the replay, in frames
+local function clamped(value, rule_, span)
   if not rule_.clamp then return value end
-  return math.max(0, math.min(1, value))
+  return math.max(0, math.min(span or 1, value))
 end
 
 ---Keep a camera's start between its neighbours'.
@@ -266,7 +268,7 @@ function edit.apply(request)
 
   if request.op == 'set' then
     if type(request.value) ~= 'number' then return nil, 'no value given' end
-    local after = clamped(request.value, rule_)
+    local after = clamped(request.value, rule_, request.span)
     if key == 'camera_in' then
       after = edit.betweenNeighbours(request.cameras, request.cameraIndex, after)
     end
@@ -277,7 +279,9 @@ function edit.apply(request)
 
   if request.op ~= 'nudge' then return nil, 'unknown operation' end
 
-  local step = rule_.step
+  -- The time list steps camera_in by a second of replay, in frames, where
+  -- the pos list steps a thousandth of a lap: the caller knows which.
+  local step = request.step or rule_.step
   -- Focus and FOV take neither modifier in CamTool 2; everything else does.
   if key ~= 'camera_focus_point' and key ~= 'camera_fov' then
     if request.ctrl then step = step / 4 end
@@ -301,7 +305,7 @@ function edit.apply(request)
   if key == 'camera_focus_point' or key == 'camera_fov' then
     after = math.max(0, after)
   end
-  after = clamped(after, rule_)
+  after = clamped(after, rule_, request.span)
   if key == 'camera_in' then
     after = edit.betweenNeighbours(request.cameras, request.cameraIndex, after)
   end

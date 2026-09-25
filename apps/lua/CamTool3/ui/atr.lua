@@ -303,6 +303,11 @@ atr.LEGEND = {
     'watch it. The ruler above is what moves the replay.',
   'Ribbon   drag the red handle to move where a camera takes over. ' ..
     'Double click a segment to name it.',
+  'Time   the time list lays its cameras along the REPLAY rather than the ' ..
+    'lap: the ribbon spans the whole replay and its ruler reads in seconds, ' ..
+    'STARTING POINT and the keyframe position read in seconds, and going ' ..
+    'somewhere moves the replay straight there. The map shows no cameras: ' ..
+    'a moment of the replay is not a place on the track.',
   'Pit   the pit button shows the PIT LANE cameras on the ribbon and the ' ..
     'map instead of the track ones, with every gesture the same; a camera ' ..
     'added there is a pit lane camera. It follows the selection by itself: ' ..
@@ -465,17 +470,23 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     live = value ~= nil
   end
 
-  -- camera_in is a track position: stored as a fraction of a lap, shown in
-  -- metres, exactly as CamTool 2 shows it.
+  -- camera_in is a position along the list: a fraction of a lap shown in
+  -- metres, exactly as CamTool 2 shows it -- or on the time list a replay
+  -- frame shown in seconds, where CamTool 2 wrote frames times the lap
+  -- length and called it metres.
   local shown = value
+  local scale = state.positionScale or state.trackLength or 0
   if spec.key == 'camera_in' and type(shown) == 'number' then
-    shown = shown * (state.trackLength or 0)
+    shown = shown * scale
   end
 
   -- A flag has no number to format, and Specific cam reads as a name.
   local text = nil
   if spec.plain or type(shown) == 'number' then
     text = spec.unit.show(shown)
+    if spec.key == 'camera_in' and state.positionUnit == 's' then
+      text = string.format('%.2f s', shown)
+    end
   end
 
   -- A car reads as its driver, as it does in CamTool 2, where the game knows
@@ -515,8 +526,8 @@ local function drawCell(spec, colour, colWidth, state, actions, section)
     -- position also has to lose its metres.
     if action == 'commit' and type(payload) == 'number' then
       payload = spec.unit.read(payload)
-      if spec.key == 'camera_in' and (state.trackLength or 0) > 0 then
-        payload = payload / state.trackLength
+      if spec.key == 'camera_in' and scale > 0 then
+        payload = payload / scale
       end
     end
     actions[spec.key] = { op = action, amount = payload }
@@ -702,9 +713,11 @@ function atr.draw(state)
   ui.sameLine(0, 4)
 
   ui.pushStyleColor(ui.StyleColor.Text, theme.text)
-  local metres = (state.trackPos or 0) * (state.trackLength or 0)
-  ui.textAligned(string.format('%.0f m', metres), vec2(1, 0.5),
-    vec2(width - 22, 20))
+  -- Where the list is: metres along the lap, or seconds into the replay.
+  local where = (state.position or state.trackPos or 0)
+    * (state.positionScale or state.trackLength or 0)
+  ui.textAligned(state.positionUnit == 's' and string.format('%.1f s', where)
+    or string.format('%.0f m', where), vec2(1, 0.5), vec2(width - 22, 20))
   ui.popStyleColor()
 
   ------------------------------------------------------------------
@@ -867,7 +880,14 @@ function atr.draw(state)
   -- replaces them at all, is ATR's call in front of a replay, not something
   -- to decide by deleting them first.
   ui.newLine(2)
-  local band = trackBand.draw(state, width)
+  -- On the time list the ribbon is laid along the replay, and the app hands
+  -- over what it should draw instead; anything it does not name is the
+  -- panel's own.
+  local bandState = state
+  if type(state.band) == 'table' then
+    bandState = setmetatable(state.band, { __index = state })
+  end
+  local band = trackBand.draw(bandState, width)
   if band.camera ~= nil then actions.selectCamera = band.camera end
   if band.keyframe ~= nil then actions.selectKeyframe = band.keyframe end
   if band.move ~= nil then actions.moveCameraIn = band.move end
@@ -899,7 +919,13 @@ function atr.draw(state)
     local ceiling = math.min(theme.mapHeightMax,
       math.max(theme.mapHeightMin,
         math.floor((ui.windowHeight() or 0) * theme.mapShareOfWindow)))
-    local picked, mapMove, mapSeek, mapHint = trackMap.draw(state, width, ceiling)
+    -- A moment of the replay is not a place on the track: on the time list
+    -- the map shows the circuit and the car, and no cameras.
+    local mapState = state
+    if state.listName == 'time' then
+      mapState = setmetatable({ cameras = {} }, { __index = state })
+    end
+    local picked, mapMove, mapSeek, mapHint = trackMap.draw(mapState, width, ceiling)
     if picked ~= nil then actions.selectCamera = picked end
     if mapMove ~= nil then actions.moveCameraIn = mapMove end
     if mapSeek ~= nil then actions.seekTo = mapSeek end
@@ -916,10 +942,11 @@ function atr.draw(state)
   -- instead, so the row moves one rather than placing it -- but it is the
   -- same field, and without it a keyframe could never be moved.
   if state.keyframeIndex ~= nil and state.keyframePosition ~= nil then
-    local metres = state.keyframePosition * (state.trackLength or 0)
+    local metres = state.keyframePosition
+      * (state.positionScale or state.trackLength or 0)
     local op, payload = parameter.draw('keyframePosition', {
       label = 'KEYFRAME ' .. tostring(state.keyframeIndex),
-      text = string.format('%.2f m', metres),
+      text = string.format(state.positionUnit == 's' and '%.2f s' or '%.2f m', metres),
       raw = string.format('%.2f', metres),
       column = theme.columns.camera,
       keyframe = 'here',

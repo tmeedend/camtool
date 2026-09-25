@@ -37,6 +37,23 @@ ruler.MIN_TICK_PX = 5
 ---few hundred pixels wide, and ten kilometres covers the Nordschleife.
 local LADDER = { 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000 }
 
+---The same ladder for a ribbon laid along the replay rather than the lap --
+---the time list -- in seconds: from a second to half an hour.
+local SECONDS_LADDER = { 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800 }
+
+---A time as it should be written on the ruler: seconds under a minute,
+---minutes and seconds above, as a replay counter reads.
+---@param seconds number
+---@return string
+function ruler.timeLabel(seconds)
+  if not (type(seconds) == 'number' and seconds == seconds and seconds - seconds == 0) then
+    return ''
+  end
+  local whole = math.floor(seconds + 0.5)
+  if whole < 60 then return string.format('%d s', whole) end
+  return string.format('%d:%02d', math.floor(whole / 60), whole % 60)
+end
+
 local function isFinite(v)
   return type(v) == 'number' and v == v and v - v == 0
 end
@@ -68,11 +85,11 @@ end
 ---panel squeezed to nothing gets one label rather than none, which at least
 ---says what the ribbon measures.
 ---@return number @metres
-local function labelStep(lengthM, width)
-  for i = 1, #LADDER do
-    if LADDER[i] / lengthM * width >= ruler.MIN_LABEL_PX then return LADDER[i] end
+local function labelStep(lengthM, width, ladder)
+  for i = 1, #ladder do
+    if ladder[i] / lengthM * width >= ruler.MIN_LABEL_PX then return ladder[i] end
   end
-  return LADDER[#LADDER]
+  return ladder[#ladder]
 end
 
 ---How finely to subdivide between two labels.
@@ -104,10 +121,12 @@ local memo = nil
 ---
 ---The same table comes back for the same question. Callers draw from it and
 ---do not keep it.
----@param lengthM number @the lap, in metres
+---@param lengthM number @the lap, in metres -- or the replay, in seconds
 ---@param width number @the ribbon, in pixels
+---@param unit string|nil @'seconds' for a ribbon along the replay
 ---@return table[] @{ { position, label = string|nil, major = boolean } }
-function ruler.ticks(lengthM, width)
+function ruler.ticks(lengthM, width, unit)
+  local seconds = unit == 'seconds'
   if not isFinite(lengthM) or lengthM <= 0
       or not isFinite(width) or width <= 0 then
     if memo ~= nil and memo.empty then return memo.list end
@@ -115,11 +134,12 @@ function ruler.ticks(lengthM, width)
     return memo.list
   end
 
-  if memo ~= nil and memo.lengthM == lengthM and memo.width == width then
+  if memo ~= nil and memo.lengthM == lengthM and memo.width == width
+      and memo.seconds == seconds then
     return memo.list
   end
 
-  local step = labelStep(lengthM, width)
+  local step = labelStep(lengthM, width, seconds and SECONDS_LADDER or LADDER)
   local small = tickStep(step, lengthM, width)
   local list = {}
 
@@ -136,13 +156,14 @@ function ruler.ticks(lengthM, width)
     local major = (i % perLabel) == 0
     list[#list + 1] = {
       position = metres / lengthM,
-      label = (major and i > 0) and ruler.label(metres) or nil,
+      label = (major and i > 0)
+        and (seconds and ruler.timeLabel(metres) or ruler.label(metres)) or nil,
       major = major,
     }
     i = i + 1
   end
 
-  memo = { lengthM = lengthM, width = width, list = list }
+  memo = { lengthM = lengthM, width = width, seconds = seconds, list = list }
   return list
 end
 

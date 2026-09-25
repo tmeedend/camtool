@@ -211,6 +211,14 @@ déplacerait un keyframe, et un keyframe déplacé par mégarde ne se remarque
 qu'au montage. Le champ `KEYFRAME` les déplace, là où le geste ne peut se
 confondre avec rien.
 
+### La liste `time` : le ruban le long du replay
+
+La liste `time` pose ses caméras sur **le replay** et non sur le tour. Le
+ruban couvre alors tout le replay, sa règle se lit en secondes, et les
+positions du panneau aussi ; les gestes ne changent pas. Aller quelque part
+place le replay directement — pas de recherche, la position est une frame.
+La carte ne montre pas de caméras : un instant du replay n'est pas un lieu.
+
 ### Les caméras de stand : le bouton `pit`
 
 Les caméras `PIT ONLY` ne jouent que voiture aux stands : ce sont une

@@ -159,7 +159,7 @@ local function drawRuler(originX, y, width, state)
     end
   end
 
-  local marks = ruler.ticks(state.trackLength, width)
+  local marks = ruler.ticks(state.trackLength, width, state.rulerUnit)
 
   for i = 1, #marks do
     local mark = marks[i]

@@ -893,6 +893,118 @@ local function setAudioMultiplier(value)
 end
 
 --------------------------------------------------------------------------------
+-- Where the replay is, between frames: what the time list plays on. See
+-- core/replaytime. Worked out once a frame, held camera or not, since the
+-- panel shows it too.
+--------------------------------------------------------------------------------
+
+local replayClock = { state = replaytimeCore.new(), pos = nil }
+
+local function updateReplayPos(rt)
+  if not sim.isReplayActive then
+    replayClock.pos = nil
+    return
+  end
+  local replayDt = playing.paused and 0 or rt * (sim.replayPlaybackRate or 1)
+  replayClock.pos = replaytimeCore.update(replayClock.state,
+    sim.replayCurrentFrame, sim.replayFrameMs, replayDt)
+end
+
+--------------------------------------------------------------------------------
+-- What the list in hand is laid out along: the lap, for the pos list, or the
+-- replay, for the time list. The panel and the ribbon ask this rather than
+-- assuming a lap, and it is where frames become seconds and ribbon fractions
+-- become frames. One table, for the upvalue budget of the functions that
+-- use it.
+--------------------------------------------------------------------------------
+
+local axis = {}
+
+---Is the list in hand the time list?
+function axis.isTime()
+  return pb.options.listName == 'time'
+end
+
+---How many replay frames the ribbon spans, never less than one.
+function axis.frames()
+  return math.max(1, sim.replayFrames or 1)
+end
+
+---What one unit of the list is worth on screen: metres per lap for the pos
+---list, seconds per frame for the time list.
+function axis.scale()
+  if axis.isTime() then return (sim.replayFrameMs or 0) / 1000 end
+  return sim.trackLengthM
+end
+
+---The upper limit of a position on this list: a lap, or the whole replay.
+function axis.span()
+  if axis.isTime() then return axis.frames() end
+  return nil
+end
+
+---The step of STARTING POINT: a second of replay on the time list, where the
+---pos list keeps its thousandth of a lap.
+function axis.cameraInStep()
+  if not axis.isTime() then return nil end
+  local ms = sim.replayFrameMs or 0
+  return ms > 0 and 1000 / ms or nil
+end
+
+---Where the list is now: the replay frame on the time list, nil otherwise.
+function axis.now()
+  if axis.isTime() then return replayClock.pos end
+  return nil
+end
+
+---What the ribbon draws instead of the list, on the time list: the same
+---cameras with their starts and keyframes as fractions of the replay, which
+---is what the ribbon's geometry is made of. The pos list needs none of it.
+function axis.bandState(cameras, camera)
+  if not axis.isTime() then return nil end
+  local n = axis.frames()
+  local copies = {}
+  for i = 1, cameras ~= nil and #cameras or 0 do
+    local c = cameras[i]
+    copies[i] = { id = c.id, name = c.name, camera_pit = c.camera_pit,
+      camera_in = (c.camera_in or 0) / n }
+  end
+  local selected = nil
+  if camera ~= nil then
+    selected = { name = camera.name, keyframes = {} }
+    for i = 1, type(camera.keyframes) == 'table' and #camera.keyframes or 0 do
+      selected.keyframes[i] = { keyframe = (camera.keyframes[i].keyframe or 0) / n }
+    end
+  end
+  return {
+    cameras = copies, camera = selected,
+    trackPos = replayClock.pos ~= nil and replayClock.pos / n or nil,
+    trackLength = n * (sim.replayFrameMs or 0) / 1000,
+    rulerUnit = 'seconds',
+    -- The track's corners have nothing to say about a moment of the replay.
+    sections = false, sectionNameAt = false,
+  }
+end
+
+---What the ribbon said, back in frames: on the time list its fractions are
+---of the replay. Going somewhere on the replay needs no search there -- the
+---position IS a frame -- so a seek is done here and taken out of `actions`.
+function axis.fromBand(actions)
+  if not axis.isTime() then return end
+  local n = axis.frames()
+  local function go(fraction)
+    local frame = math.max(0, math.min(n - 1, fraction * n))
+    ac.setReplayPosition(math.floor(frame), frame - math.floor(frame))
+  end
+  if actions.seekTo ~= nil then go(actions.seekTo); actions.seekTo = nil end
+  if actions.scrubTo ~= nil then go(actions.scrubTo); actions.scrubTo = nil end
+  if actions.moveCameraIn ~= nil then
+    actions.moveCameraIn.position = actions.moveCameraIn.position * n
+  end
+  if actions.addCameraAt ~= nil then actions.addCameraAt = actions.addCameraAt * n end
+end
+
+--------------------------------------------------------------------------------
 -- Recording a path, see core/recorder. CamTool 2's Record buttons: one per
 -- camera, and the track and pit lane paths. What is recorded is Assetto
 -- Corsa's camera as it is on screen, whoever drives it.
@@ -910,7 +1022,9 @@ function recording.sample()
   local u = ac.getCameraUp ~= nil and ac.getCameraUp() or nil
   local heading, pitch = angles.fromLook(f.x, f.y, f.z)
   local roll = u ~= nil and angles.rollFromUp(f.x, f.y, f.z, u.x, u.y, u.z) or 0
-  return { trackPos = focusedTrackPosition(), x = p.x, y = p.z, z = p.y,
+  -- Along the replay for the time list's camera paths, as CamTool 2 does.
+  local trackPos = recording.alongReplay and replayClock.pos or focusedTrackPosition()
+  return { trackPos = trackPos, x = p.x, y = p.z, z = p.y,
     pitch = pitch, roll = roll, heading = heading }
 end
 
@@ -936,9 +1050,10 @@ function recording.toggle(kind, holder, key)
   end
 
   recording.kind, recording.holder, recording.key = kind, holder, key
+  recording.alongReplay = kind == 'camera' and axis.isTime()
   recording.before = holder[key]
   recording.spline = recorderCore.emptySpline()
-  recording.state = recorderCore.new(kind)
+  recording.state = recorderCore.new(kind, recording.alongReplay)
   holder[key] = recording.spline
   log('recording ' .. kind .. ' path')
   return nil, nil
@@ -986,23 +1101,6 @@ function recording.frame(rt)
   end
 end
 
---------------------------------------------------------------------------------
--- Where the replay is, between frames: what the time list plays on. See
--- core/replaytime. Worked out once a frame, held camera or not, since the
--- panel shows it too.
---------------------------------------------------------------------------------
-
-local replayClock = { state = replaytimeCore.new(), pos = nil }
-
-local function updateReplayPos(rt)
-  if not sim.isReplayActive then
-    replayClock.pos = nil
-    return
-  end
-  local replayDt = playing.paused and 0 or rt * (sim.replayPlaybackRate or 1)
-  replayClock.pos = replaytimeCore.update(replayClock.state,
-    sim.replayCurrentFrame, sim.replayFrameMs, replayDt)
-end
 
 local function runPlayback(transform)
   -- The legacy reads the camera's CURRENT heading every frame
@@ -1898,8 +1996,14 @@ handleShortcuts = function()
   -- do in an editing suite, and it is the only thing that makes an arrow
   -- worth pressing: the point of going to the next keyframe is to see it.
   if target ~= nil then
-    local why = seekBegin(target)
-    if why ~= nil then atrStatus = why end
+    if axis.isTime() then
+      -- On the time list the target is a replay frame already: no search.
+      local frame = math.max(0, math.min(axis.frames() - 1, target))
+      ac.setReplayPosition(math.floor(frame), frame - math.floor(frame))
+    else
+      local why = seekBegin(target)
+      if why ~= nil then atrStatus = why end
+    end
   end
 end
 
@@ -2130,6 +2234,12 @@ function script.windowAtr(dt)
     -- was.
     trackPos = pbOut.trackPos or focusedTrackPosition(),
     trackLength = sim.trackLengthM,
+    -- Where the list is, and what one unit of it is worth on screen: the lap
+    -- in metres, or on the time list the replay in seconds.
+    position = axis.now() or pbOut.trackPos or focusedTrackPosition(),
+    positionScale = axis.scale(),
+    positionUnit = axis.isTime() and 's' or 'm',
+    band = axis.bandState(cameras, camera),
     outline = outline,
     outlineReason = outlineReason,
     showMap = atrShowMap,
@@ -2171,6 +2281,8 @@ function script.windowAtr(dt)
   -- Only the selections are wired: they change nothing about the camera, they
   -- change what the panel is looking at.
   stepCars(actions)
+  -- On the time list, what the ribbon hands back is a fraction of the replay.
+  axis.fromBand(actions)
 
   -- Switching the view picks the first camera it shows, so the fields below
   -- are about a camera you can see. With none there, the selection stays and
@@ -2239,6 +2351,7 @@ function script.windowAtr(dt)
       key = 'camera_in',
       op = 'set',
       value = actions.moveCameraIn.position,
+      span = axis.span(),
     }))
     externalGesture = nil
   end
@@ -2382,6 +2495,9 @@ function script.windowAtr(dt)
             ctrl = ctrl,
             shift = shift,
             live = liveValue(key),
+            -- STARTING POINT on the time list: frames, up to the replay's end.
+            span = key == 'camera_in' and axis.span() or nil,
+            step = key == 'camera_in' and axis.cameraInStep() or nil,
           }))
         end
       end
@@ -2398,7 +2514,7 @@ function script.windowAtr(dt)
   -- button that needs one -- add a camera, add a keyframe -- refused silently.
   -- Clicking + and watching nothing happen is exactly what that looked like.
   -- The car's position needs no camera held, so it is the honest fallback.
-  local playhead = pbOut.trackPos or focusedTrackPosition()
+  local playhead = axis.now() or pbOut.trackPos or focusedTrackPosition()
 
   -- A button that cannot act says so. Refusing in silence is what made these
   -- look broken.
@@ -2453,9 +2569,10 @@ function script.windowAtr(dt)
   local request = actions.keyframePosition
   if request ~= nil and camera ~= nil and keyframes ~= nil then
     local kf = keyframes[atrKeyframe]
-    local length = sim.trackLengthM
+    -- Metres on the lap, or seconds on the replay for the time list.
+    local length = axis.scale()
     if kf ~= nil and type(length) == 'number' and length > 0 then
-      local step = KEYFRAME_STEP_M
+      local step = axis.isTime() and 1 or KEYFRAME_STEP_M
       if ac.isKeyDown(ac.KeyIndex.Control) then step = step / 4 end
       if ac.isKeyDown(ac.KeyIndex.Shift) then step = step * 4 end
 

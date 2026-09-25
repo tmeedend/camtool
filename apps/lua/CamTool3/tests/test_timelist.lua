@@ -136,3 +136,121 @@ test('the app plays the time list on the replay frame', function()
   end
   handle.restoreIo()
 end)
+
+--------------------------------------------------------------------------------
+-- The pieces the panel needs
+--------------------------------------------------------------------------------
+
+local ruler = require('core/ruler')
+local edit = require('core/edit')
+local recorder = require('core/recorder')
+
+test('a ribbon along the replay is graduated in seconds and minutes', function()
+  ruler.reset()
+  eq(ruler.timeLabel(45), '45 s')
+  eq(ruler.timeLabel(90), '1:30')
+  local marks = ruler.ticks(600, 500, 'seconds')
+  local labels = {}
+  for _, m in ipairs(marks) do if m.label then labels[#labels + 1] = m.label end end
+  eq(#labels > 2, true)
+  eq(labels[1]:find('m', 1, true), nil, 'no metres on a time ruler')
+  ruler.reset()
+end)
+
+test('camera_in of the time list is held within the replay, not within a lap', function()
+  local cameras = { { camera_in = 0 }, { camera_in = 400 }, { camera_in = 900 } }
+  local change = edit.apply({ camera = cameras[2], cameras = cameras, cameraIndex = 2,
+    key = 'camera_in', op = 'set', value = 650, span = 1000 })
+  eq(change ~= nil and cameras[2].camera_in, 650, 'frames, not clamped to 1')
+  edit.apply({ camera = cameras[2], cameras = cameras, cameraIndex = 2,
+    key = 'camera_in', op = 'nudge', direction = 1, step = 20, span = 1000 })
+  eq(cameras[2].camera_in, 670, 'a step the caller gives: a second of frames')
+end)
+
+test('a camera path along the replay does not run on past a line', function()
+  local spline = recorder.emptySpline()
+  local state = recorder.new('camera', true)
+  for _, frame in ipairs({ 100, 100.2, 99.5 }) do
+    recorder.feed(state, spline, { trackPos = frame, x = 0, y = 0, z = 0,
+      pitch = 0, roll = 0, heading = 0 }, 1.01)
+  end
+  eq(spline.the_x[3], 99.5)
+end)
+
+--------------------------------------------------------------------------------
+-- The panel on the time list
+--------------------------------------------------------------------------------
+
+local function timePanel()
+  local d = doc()
+  d.version = 2
+  for _, c in ipairs(d.time) do c.camera_pit = false end
+  local opts = { clicks = {}, cameraFile = d, splinePosition = 0.9 }
+  local handle = fakes.install(opts)
+  require('ui/atr').cancelEditing()
+  require('ui/band').reset()
+  require('adapters/shortcuts').reset()
+  handle.sim.replayFrameMs = 50
+  handle.sim.replayFrames = 2000
+  handle.sim.replayCurrentFrame = 250
+  assert(loadfile('CamTool3.lua'))()
+  handle.tick(0.016)
+
+  local app = { handle = handle, opts = opts, doc = d }
+  function app.click(label)
+    opts.clicks[label] = true
+    pcall(_G.script.windowAtr, 0.016)
+    opts.clicks[label] = nil
+  end
+  function app.shows(piece)
+    handle.drawn, handle.buttons = {}, {}
+    pcall(_G.script.windowAtr, 0.016)
+    for i = 1, #handle.drawn do
+      if (handle.drawn[i].text or ''):find(piece, 1, true) then return true end
+    end
+    for i = 1, #handle.buttons do
+      if tostring(handle.buttons[i]):find(piece, 1, true) then return true end
+    end
+    return false
+  end
+  pcall(_G.script.windowAtr, 0.016)
+  app.click(' time ###modeTime')
+  -- Select the second camera of the list: over to the pit view and back
+  -- picks the first, and the ribbon's own selection is not reachable here.
+  app.click(' pit ###pitView')
+  app.click('[pit]###pitView')
+  return app
+end
+
+test('on the time list the panel speaks in seconds of replay', function()
+  local app = timePanel()
+  eq(app.shows('12.5 s'), true, 'the header: frame 250 at 50 ms')
+  eq(app.shows('0.00 s###'), true, 'STARTING POINT of the first camera, in seconds')
+  app.handle.restoreIo()
+end)
+
+test('STARTING POINT steps by a second of replay on the time list', function()
+  local app = timePanel()
+  app.click('##cameracamera_ininc')
+  eq(app.shows('1.00 s###'), true, 'twenty frames later: one second')
+  app.handle.restoreIo()
+end)
+
+test('+cam on the time list starts the camera at the replay frame', function()
+  local app = timePanel()
+  app.click('+cam##camadd')
+  -- Four cameras now, starting at frames 0, 200, 250 and 500. Stepping from
+  -- the first goes to 200 and then to the new one, each straight to its frame.
+  local reached = {}
+  for _ = 1, 2 do
+    app.opts.pressedShortcut = 'Step to next camera'
+    app.handle.tick(0.016)
+    app.opts.pressedShortcut = nil
+    app.handle.tick(0.016)
+    local last = app.handle.replayPositions[#app.handle.replayPositions]
+    reached[#reached + 1] = last ~= nil and last[1] or nil
+  end
+  eq(reached[1], 200)
+  eq(reached[2], 250, 'the new camera starts at the replay frame it was added at')
+  app.handle.restoreIo()
+end)

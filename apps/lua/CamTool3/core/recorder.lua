@@ -54,8 +54,11 @@ function recorder.count(spline)
 end
 
 ---@param kind string @'camera', 'track' or 'pit'
-function recorder.new(kind)
-  return { kind = kind, clock = 0, started = false, pastHalf = false, done = false }
+---@param alongReplay boolean|nil @the time list: the_x is a replay frame,
+---  which never wraps, so a camera path does not run on past a line
+function recorder.new(kind, alongReplay)
+  return { kind = kind, clock = 0, started = false, pastHalf = false, done = false,
+    alongReplay = alongReplay == true }
 end
 
 ---Append one sample.
@@ -106,7 +109,7 @@ function recorder.feed(state, spline, sample, replayDt)
 
   -- Camera and pit paths run on across the line.
   local n = #spline.the_x
-  if n > 0 then
+  if n > 0 and not state.alongReplay then
     local previous = spline.the_x[n]
     if math.abs(x - previous) > math.abs(x + 1 - previous) then x = x + 1 end
   end
