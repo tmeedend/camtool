@@ -35,7 +35,8 @@ test('every shortcut is declared, and none of them claims a key', function()
       'namespaced, so it cannot collide: ' .. created.id)
     eq(created.defaults.keyboard, nil,
       created.id .. ' claims a key of its own')
-    eq(created.defaults.period ~= nil, true, 'and it still repeats when held')
+    eq(created.defaults.period ~= nil, not shortcuts.DEFINITIONS[i].once,
+      created.id .. ': the steps repeat when held, the rest fire once')
   end
 
   handle.restoreIo()
@@ -67,7 +68,9 @@ test('a held key repeats', function()
   -- Walking a set of forty cameras one press at a time is not a gesture.
   local handle = withShortcuts({})
   for i = 1, #shortcuts.DEFINITIONS do
-    eq(handle.controlButtons[i].defaults.period, shortcuts.REPEAT_PERIOD)
+    if not shortcuts.DEFINITIONS[i].once then
+      eq(handle.controlButtons[i].defaults.period, shortcuts.REPEAT_PERIOD)
+    end
   end
   handle.restoreIo()
   shortcuts.reset()
@@ -77,7 +80,11 @@ test('stepping moves the playhead, and there is no variant that does not', funct
   -- There were four Shift variants that stepped without moving the replay.
   -- They were the keyboard's half of Shift+click on the ribbon; a click no
   -- longer moves the replay, so they had nothing left to abstain from.
-  eq(#shortcuts.DEFINITIONS, 4, 'four actions, four bindings')
+  local steps = 0
+  for _, definition in ipairs(shortcuts.DEFINITIONS) do
+    if not definition.once then steps = steps + 1 end
+  end
+  eq(steps, 4, 'four steps, four bindings')
   eq(shortcuts.QUIET, nil, 'and no table of quiet ones')
 end)
 

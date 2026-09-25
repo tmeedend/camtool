@@ -227,6 +227,17 @@ sous le ruban.
 
 ### Clavier
 
+**Les touches de CamTool 2 sont là, sans touche par défaut** (tranché par
+Théo) : prendre la caméra — déjà tenue, charger le fichier suivant, comme
+F10 —, la relâcher, et charger les fichiers 1 à 5 de la piste (Y à P). On
+les affecte dans `keys`. Charger par une touche demande un second appui s'il
+y a du travail non sauvé, comme le bouton.
+
+**Les touches de caméra d'AC relâchent la caméra** (F1, F3, F5…), comme dans
+CamTool 2 : c'est le changement de mode de caméra qui est surveillé, pas les
+touches, pour que des touches réaffectées comptent aussi.
+
+
 Les flèches déplacent la tête de lecture, comme les touches de saut d'un point
 de montage à l'autre dans Premiere ou Resolve : Gauche/Droite d'un keyframe à
 l'autre, Haut/Bas d'une caméra à l'autre. Elles **s'arrêtent aux extrémités** :

@@ -340,16 +340,26 @@ l'ordre de traitement retenu :
    des modifications non sauvées. Activé par défaut comme dans CamTool 2 ;
    la case est dans le panneau `keys`. Écart : le chargement attend
    l'ouverture du panneau (lire un dossier n'a rien à faire dans la boucle
-   par frame) — sans conséquence tant que prendre la caméra passe par le
-   panneau ; à revoir avec F10.
+   par frame) ; le raccourci « Take the camera » fait le même chargement
+   quand le panneau n'a jamais été ouvert.
 5. ~~**Supprimer un fichier**~~ — **fait, à confirmer en jeu**. Bouton `Delete`
    dans la rangée d'actions, pour le fichier sur lequel sont les flèches ; il
    demande deux fois comme `Reset` et envoie le fichier à la **Corbeille**
    (`io.recycle`), pas à l'effacement. Seulement les fichiers de CamTool 3 : le
    dossier de CamTool 2 reste en lecture seule, la même promesse que la
    sauvegarde. Les caméras d'un fichier ouvert qu'on supprime restent ouvertes.
-6. **Les touches** : F10 active, F1/F2/F3/F5/F6/F7 (caméras d'AC) désactivent,
-   Y/U/I/O/P chargent les fichiers 1 à 5 derrière `Enable hotkeys`.
+6. ~~**Les touches**~~ — **fait, à confirmer en jeu.** Tranché avec Théo :
+   **sans touche par défaut**, l'utilisateur les affecte dans `keys`.
+   « Take the camera » (F10 de CamTool 2 : prend la caméra, et, déjà tenue,
+   charge le fichier suivant), « Release the camera » (nouveau), « Load file
+   1..5 » (Y à P ; demande un second appui s'il y a du travail non sauvé).
+   `Enable hotkeys` n'a pas d'équivalent : un raccourci sans touche est un
+   raccourci désactivé. **F1…F7** : la caméra est relâchée quand le **mode de
+   caméra d'AC change** sans que CamTool l'ait demandé (tranché avec Théo :
+   marche aussi avec des touches réaffectées) ; un changement que CamTool
+   demande lui-même (`AC CAMERA`) est accepté avant comme après qu'AC l'a
+   appliqué. Limite : F7 déjà en caméra libre ne change rien de visible,
+   d'où le raccourci « Release the camera ».
 7. **Le mode temps** : la liste `time` s'édite mais se joue sur la position de
    la voiture ; CamTool 2 la joue sur le temps du replay
    (`replay.get_interpolated_replay_pos`). Unité de `camera_in` à établir.

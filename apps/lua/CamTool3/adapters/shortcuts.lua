@@ -51,11 +51,26 @@ local buttons = nil
 ---the old one saved, so the arrows would have gone on firing for exactly the
 ---person who reported them. A new name is a new entry, unbound. The old ones
 ---stay in controls.ini doing nothing, like the Shift variants before them.
+---
+---CamTool 2's own keys come after the steps, unbound like them -- decided
+---with Theo: F10 took the camera (and, pressed again, loaded the next file),
+---and Y, U, I, O and P loaded the track's first five files. Nobody asked for
+---a key here either, and a letter in a replay is easy to press by accident.
+---Enable hotkeys, CamTool 2's switch for Y to P, has no equivalent: an
+---unbound shortcut is a disabled one. These fire once per press (`once`),
+---where the steps repeat while held.
 shortcuts.DEFINITIONS = {
   { id = 'keyframeNext', label = 'Step to next keyframe' },
   { id = 'keyframePrevious', label = 'Step to previous keyframe' },
   { id = 'cameraNext', label = 'Step to next camera' },
   { id = 'cameraPrevious', label = 'Step to previous camera' },
+  { id = 'takeCamera', label = 'Take the camera (held: next file)', once = true },
+  { id = 'releaseCamera', label = 'Release the camera', once = true },
+  { id = 'loadFile1', label = 'Load file 1 of this track', once = true },
+  { id = 'loadFile2', label = 'Load file 2 of this track', once = true },
+  { id = 'loadFile3', label = 'Load file 3 of this track', once = true },
+  { id = 'loadFile4', label = 'Load file 4 of this track', once = true },
+  { id = 'loadFile5', label = 'Load file 5 of this track', once = true },
 }
 
 ---Keys that count while they are HELD rather than when they are pressed: the
@@ -98,7 +113,7 @@ function shortcuts.install()
       {
         keyboard = keyIndex ~= nil
           and { key = keyIndex, shift = definition.shift == true } or nil,
-        period = shortcuts.REPEAT_PERIOD,
+        period = not definition.once and shortcuts.REPEAT_PERIOD or nil,
       })
     if ok then buttons[definition.id] = button end
   end

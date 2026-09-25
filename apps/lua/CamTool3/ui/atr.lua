@@ -316,7 +316,13 @@ atr.LEGEND = {
     "NONE OF THEM HAS A KEY until you give it one: Assetto Corsa's free " ..
     'camera owns the arrows, and this is a tool you use while flying it. ' ..
     'The keys button is where you choose, and where you say whether the ' ..
-    'last file of the track opens by itself when the app starts.',
+    'last file of the track opens by itself when the app starts. CamTool ' ..
+    "2's keys are there too, unbound: take the camera (pressed again: the " ..
+    'next file), release it, and load file 1 to 5 of the track -- which ' ..
+    'asks for a second press when there is unsaved work.',
+  "Camera keys   Assetto Corsa's own camera keys (F1, F3, F5...) let go of " ..
+    'a held camera, as in CamTool 2. F7 on the free camera changes nothing ' ..
+    'the app can see: give Release the camera a key for that.',
   'Playing   the triangle beside the distance says the replay is running, ' ..
     'the two bars that it is paused -- whoever paused it. CamTool reads that ' ..
     'and cannot change it: Assetto Corsa has no call to pause a replay.',
@@ -1016,9 +1022,9 @@ function atr.draw(state)
     ui.popStyleColor()
 
     ui.pushStyleColor(ui.StyleColor.Text, theme.absent)
-    ui.text('The steps have no key until you give them one: ' ..
+    ui.text('None of these has a key until you give it one: ' ..
       "Assetto Corsa's free camera owns the arrows, and this is a tool you " ..
-      'use while flying it. Mouse look keeps the keys CamTool 2 had.')
+      'use while flying it. Only mouse look keeps the keys CamTool 2 had.')
     ui.popStyleColor()
     ui.newLine(4)
 

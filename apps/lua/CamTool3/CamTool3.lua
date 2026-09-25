@@ -331,6 +331,24 @@ local function cameraActive()
   return cam ~= nil and cam:active()
 end
 
+-- Assetto Corsa's camera mode while CamTool holds the camera. One table, for
+-- the same sixty-upvalue reason as `panel` further down.
+--   expected  what it should be: as it was when taken, or as CamTool last
+--             asked. Anything else means somebody pressed F1, F3, F5, F6...
+--             CamTool 2 let go on those keys, and so does this -- by watching
+--             the mode rather than the keys, so rebound camera keys count too.
+--   asked     a change CamTool requested that Assetto Corsa may not have
+--             applied yet: until it has, the old mode is fine as well.
+--   message   what that has to say, for the panel to show when it next draws.
+local acMode = { expected = nil, asked = nil, message = nil }
+
+---Ask Assetto Corsa for one of its camera modes, as CamTool, not as the user.
+local function askCameraMode(value)
+  if value == nil then return end
+  acMode.asked = value
+  ac.setCurrentCamera(value)
+end
+
 local function grabCamera()
   if cameraActive() then return true end
   local grabbed, err = ac.grabCamera('CamTool 3')
@@ -341,6 +359,7 @@ local function grabCamera()
   end
   cam = grabbed
   grabError = nil
+  acMode.expected, acMode.asked = sim.cameraMode, nil
   local p = grabbed.transformOriginal.position
   anchor = vec3(p.x, p.y, p.z)
   orbitTime = 0
@@ -450,6 +469,7 @@ local playing = playstate.new()
 ---work with the window closed, so it is handled in the frame loop -- which is
 ---written above everything it needs.
 local handleShortcuts = nil
+
 
 
 ---How close counts as arrived: half a bucket, which is a few metres.
@@ -888,7 +908,7 @@ local function runPlayback(transform)
   if handOver ~= nil then
     if handedTo ~= handOver.value then
       handedTo = handOver.value
-      ac.setCurrentCamera(ac.CameraMode[handOver.mode])
+      askCameraMode(ac.CameraMode[handOver.mode])
       -- CamTool 2 could not ask for these: for the F1 family it pressed F1
       -- the right number of times from a remembered offset, which is why it
       -- needed the user to line the view up first. These two calls are what
@@ -921,7 +941,7 @@ local function runPlayback(transform)
 
   if handedTo ~= nil then
     handedTo = nil
-    ac.setCurrentCamera(ac.CameraMode.Free)
+    askCameraMode(ac.CameraMode.Free)
     cam.ownShare = ownShare
     log('taking the view back')
   end
@@ -945,6 +965,28 @@ local lastFrame = -1
 ---A hand-over asked for last frame, waiting to be checked against what
 ---Assetto Corsa actually did with it. See where it is set.
 local checkHandOver = nil
+
+---Did the user take Assetto Corsa's camera back with one of its own keys?
+---If so the camera is let go, as CamTool 2 did on F1 to F7.
+local function cameraTakenBack()
+  local now = sim.cameraMode
+  if now == nil or acMode.expected == nil then return false end
+  if acMode.asked ~= nil and now == acMode.asked then
+    acMode.expected, acMode.asked = now, nil
+    return false
+  end
+  if now == acMode.expected or now == acMode.asked then return false end
+
+  log(string.format('camera mode went from %s to %s: released',
+    tostring(acMode.expected), tostring(now)))
+  releaseCamera()
+  handedTo = nil
+  acMode.message = "Assetto Corsa's camera keys let go of the camera -- " ..
+    'Take camera to hold it again.'
+  cutfadeCore.reset(cutFade)
+  setAudioMultiplier(1)
+  return true
+end
 
 local function perFrame(dt)
   local frame = sim.frame
@@ -1024,6 +1066,8 @@ local function perFrame(dt)
     setAudioMultiplier(1)
     return
   end
+
+  if cameraTakenBack() then return end
 
   -- ownShare ramp -- candidate fix for issue #16 (camera jump on activation).
   if ownShareRampSpeed ~= 0 then
@@ -1586,11 +1630,70 @@ local atrOutlineReason = nil
 ---
 ---Nothing here is an edit: stepping through cameras changes what is selected
 ---and where the replay is, and neither belongs on the undo stack.
+-- A file loaded from a key while there is unsaved work asks first, as the
+-- button does: this is which one the next press would load.
+local keyLoadArmed = nil
+
+---Load the n-th file of the track from a key -- CamTool 2's Y to P, and F10
+---pressed again. Twice when there is work to lose.
+local function loadFromKey(index)
+  ensureFileList()
+  if index < 1 or index > #files then
+    atrStatus = 'no file ' .. index .. ' for this track'
+    return
+  end
+  if #undoStack > 0 and keyLoadArmed ~= index then
+    keyLoadArmed = index
+    atrStatus = string.format('%d unsaved change%s would be lost. ' ..
+      'Press again to load %s.', #undoStack, #undoStack == 1 and '' or 's',
+      files[index].name)
+    return
+  end
+  keyLoadArmed = nil
+  fileIndex = index
+  loadSelectedFile()
+  atrPanel.cancelEditing()
+  undoStack, redoStack = {}, {}
+  atrStatus = nil
+end
+
+---The keys that are about the session rather than the cameras: CamTool 2's
+---F10 and Y to P, plus a way to let go that F7 cannot give when the game is
+---already on its free camera.
+---@return boolean @whether `fired` was one of them
+local function sessionShortcut(fired)
+  if fired == 'takeCamera' then
+    if cameraActive() then
+      -- CamTool 2's F10 on an active app: the next file.
+      ensureFileList()
+      if #files > 0 then loadFromKey(fileIndex % #files + 1) end
+    else
+      ensureFileList()
+      startupLoad()
+      grabCamera()
+    end
+    return true
+  end
+  if fired == 'releaseCamera' then
+    releaseCamera()
+    return true
+  end
+  local n = fired:match('^loadFile(%d)$')
+  if n ~= nil then
+    loadFromKey(tonumber(n))
+    return true
+  end
+  -- Anything else calls off a load that was waiting for a second press.
+  keyLoadArmed = nil
+  return false
+end
+
 handleShortcuts = function()
   shortcuts.install()
 
   local fired = shortcuts.pressed()
   if fired == nil then return end
+  if sessionShortcut(fired) then return end
 
   local action = fired
 
@@ -2011,6 +2114,10 @@ function script.windowAtr(dt)
   if seekMessage ~= nil then
     atrStatus = seekMessage
     seekMessage = nil
+  end
+  if acMode.message ~= nil then
+    atrStatus = acMode.message
+    acMode.message = nil
   end
 
   -- Adding and removing a camera from the ribbon's menu. Same edits as the
