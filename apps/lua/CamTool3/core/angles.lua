@@ -43,6 +43,22 @@ function angles.fromLook(x, y, z)
   return angles.aimAt(0, 0, 0, x, z, y)
 end
 
+---The roll of an AC camera, from its look and up vectors (Y-up).
+---The inverse of how core/playback builds the up vector from a roll: side =
+---cross(look, worldUp), level up = cross(side, look), and the up vector is
+---level up turned by the roll towards side.
+---@return number @radians, 0 when upright
+function angles.rollFromUp(lx, ly, lz, ux, uy, uz)
+  local sx, sy, sz = -lz, 0, lx
+  local sl = math.sqrt(sx * sx + sz * sz)
+  if sl < 1e-6 then return 0 end
+  sx, sz = sx / sl, sz / sl
+  local vx = sy * lz - sz * ly
+  local vy = sz * lx - sx * lz
+  local vz = sx * ly - sy * lx
+  return math.atan2(ux * sx + uy * sy + uz * sz, ux * vx + uy * vy + uz * vz)
+end
+
 ---Bring `value` to the revolution nearest `current`, so a blend between two
 ---angles takes the short way round instead of unwinding through a full turn.
 ---Ported from general.normalize_angle.

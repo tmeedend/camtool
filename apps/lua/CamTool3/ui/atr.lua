@@ -339,6 +339,12 @@ atr.LEGEND = {
   'Free camera   the button beside Take camera switches Assetto Corsa to its ' ..
     'free camera, as F7 does. It is only there when that would change ' ..
     'something.',
+  'Paths   Record path, beside SPLINE, records the camera on screen once a ' ..
+    'second of replay while you fly it; the camera then follows that path. ' ..
+    'The keys panel records the track path (a lap, from the line back to ' ..
+    'the line) and the pit lane path the same way -- use a camera that ' ..
+    'follows the car. Each button says what it will do next, and a whole ' ..
+    'recording is one undo.',
   'Mouse look   HOLD ALT and the camera is yours, whether CamTool holds it ' ..
     "or you are flying Assetto Corsa's free camera. Left button and move to " ..
     'turn it: it keeps turning a moment after the mouse stops, and coasts ' ..
@@ -981,8 +987,25 @@ function atr.draw(state)
   ui.textAligned(points > 0
     and string.format('SPLINE -- %d points recorded', points)
     or 'SPLINE -- nothing recorded for this camera', vec2(0, 0.5),
-    vec2(width, 20))
+    vec2(width - 130, 20))
   ui.popStyleColor()
+
+  -- CamTool 2's Record: one button whose label says what it will do next.
+  if state.camera ~= nil then
+    ui.sameLine(0, 4)
+    local label = state.recordingCamera and 'Stop recording'
+      or (points > 0 and 'Remove path' or 'Record path')
+    if ui.button(label .. '###recordCameraPath', vec2(124, 20)) then
+      actions.recordCameraPath = true
+    end
+    if ui.itemHovered() then
+      actions.hint = state.recordingCamera
+        and 'Stop: the path is kept, and one undo takes it all back.'
+        or (points > 0 and "Remove this camera's path. Undo puts it back."
+          or 'Record a path for this camera: fly the camera while the ' ..
+            'replay plays, one point a second, and it will follow it.')
+    end
+  end
 
   if points > 0 then
     local perRow = 3
@@ -1051,6 +1074,28 @@ function atr.draw(state)
     if ui.checkbox('Open the last file of the track when the app starts' ..
         '###loadOnStartup', state.loadOnStartup == true) then
       actions.toggleLoadOnStartup = true
+    end
+
+    -- CamTool 2's Track spline and Pit spline, from its Settings tab: a lap
+    -- of the camera along the racing line and through the pit lane. The
+    -- pit lane is told from the track by them, and the map falls back on the
+    -- first.
+    ui.newLine(4)
+    for _, path in ipairs({
+      { id = 'recordTrackPath', name = 'Track path', on = state.recordingTrack,
+        points = state.trackSplinePoints or 0 },
+      { id = 'recordPitPath', name = 'Pit lane path', on = state.recordingPit,
+        points = state.pitSplinePoints or 0 },
+    }) do
+      local label = path.on and 'Stop'
+        or (path.points > 0 and 'Remove' or 'Record')
+      if ui.button(label .. '###' .. path.id, vec2(80, theme.rowHeight)) then
+        actions[path.id] = true
+      end
+      ui.sameLine(0, 6)
+      ui.text(path.name .. (path.on and ' -- recording'
+        or (path.points > 0 and string.format(' -- %d points', path.points)
+          or ' -- none')))
     end
   else
     -- Whatever the pointer is over: a parameter, or the ribbon, which has

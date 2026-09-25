@@ -38,6 +38,7 @@ local pitlane = require('core/pitlane')
 local carsCore = require('core/cars')
 local mouselookCore = require('core/mouselook')
 local cutfadeCore = require('core/cutfade')
+local recorderCore = require('core/recorder')
 local dataModule = require('core/data')
 
 local sim = ac.getSim()
@@ -156,6 +157,10 @@ local lookActive = false
 local files = {}
 local fileIndex = 0
 local doc = nil
+
+-- Recording a path: the state and its functions, filled in below the mouse
+-- look. Declared here so that loading a file can abandon a recording.
+local recording = { kind = nil }
 local docError = nil
 local docName = ''
 
@@ -230,6 +235,8 @@ end
 
 local function loadSelectedFile()
   if fileIndex < 1 or fileIndex > #files then return end
+  -- A recording writes into the document in hand; a new one ends it.
+  if recording.abandon ~= nil then recording.abandon() end
   local entry = files[fileIndex]
   local name = entry.name
   local loaded, err = storage.loadCameraFile(entry)
@@ -316,6 +323,37 @@ local function effectiveExtraCar()
   local car = ac.getCar(extraCar)
   if car == nil or car.isConnected == false then return nil end
   return extraCar
+end
+
+---The arrows of ACTIVE CAR and EXTRA CAR. Session state and not edits, as in
+---CamTool 2: nothing reaches the camera file or the undo stack. Its own
+---function so the panel's closes over one name rather than four.
+local function stepCars(actions)
+  local function carStep(request)
+    if type(request) ~= 'table' then return nil end
+    if request.op == 'increment' then return 1 end
+    if request.op == 'decrement' then return -1 end
+    return nil
+  end
+
+  local stepFollowed = carStep(actions.trackedCarA)
+  if stepFollowed ~= nil and sim.focusedCar ~= nil and sim.focusedCar >= 0 then
+    local list = connectedCars()
+    local from = sim.focusedCar
+    local to = carsCore.step(list, from, carsCore.positionOf(list, from), stepFollowed)
+    if to ~= from then
+      ac.focusCar(to)
+      -- Followed and extra at once is no extra car. Forgotten rather than
+      -- kept, so it does not come back when the followed car moves on.
+      if extraCar == to then extraCar = nil end
+    end
+  end
+
+  local stepExtra = carStep(actions.trackedCarB)
+  if stepExtra ~= nil then
+    extraCar = carsCore.stepExtra(connectedCars(), sim.focusedCar,
+      effectiveExtraCar(), stepExtra)
+  end
 end
 
 ---World position of the extra car, in CamTool space, or nil without one.
@@ -853,6 +891,100 @@ local function setAudioMultiplier(value)
   audioMultiplier = value
 end
 
+--------------------------------------------------------------------------------
+-- Recording a path, see core/recorder. CamTool 2's Record buttons: one per
+-- camera, and the track and pit lane paths. What is recorded is Assetto
+-- Corsa's camera as it is on screen, whoever drives it.
+--
+-- A whole recording is ONE undo entry, handed to the panel as `pending`
+-- because the undo stack lives below with the panel; the path is already in
+-- the document either way.
+--------------------------------------------------------------------------------
+
+---Assetto Corsa's camera now, in CamTool space, with the car's track position.
+function recording.sample()
+  local p = ac.getCameraPosition ~= nil and ac.getCameraPosition() or nil
+  local f = ac.getCameraForward ~= nil and ac.getCameraForward() or nil
+  if p == nil or f == nil then return nil end
+  local u = ac.getCameraUp ~= nil and ac.getCameraUp() or nil
+  local heading, pitch = angles.fromLook(f.x, f.y, f.z)
+  local roll = u ~= nil and angles.rollFromUp(f.x, f.y, f.z, u.x, u.y, u.z) or 0
+  return { trackPos = focusedTrackPosition(), x = p.x, y = p.z, z = p.y,
+    pitch = pitch, roll = roll, heading = heading }
+end
+
+---Start, stop or remove -- the one button CamTool 2 gave each path, whose
+---label says what it will do. `holder[key]` is the path.
+---@return table|nil change @an undo entry, when there is one to remember
+---@return string|nil why @when nothing could be done
+function recording.toggle(kind, holder, key)
+  if holder == nil then return nil, 'no file to record into' end
+
+  if recording.kind ~= nil then
+    if recording.holder == holder and recording.key == key then
+      return recording.stop(), nil
+    end
+    return nil, 'already recording another path -- stop it first'
+  end
+
+  if recorderCore.count(holder[key]) > 0 then
+    local change = { holder = holder, key = key, before = holder[key],
+      after = recorderCore.emptySpline() }
+    holder[key] = change.after
+    return change, nil
+  end
+
+  recording.kind, recording.holder, recording.key = kind, holder, key
+  recording.before = holder[key]
+  recording.spline = recorderCore.emptySpline()
+  recording.state = recorderCore.new(kind)
+  holder[key] = recording.spline
+  log('recording ' .. kind .. ' path')
+  return nil, nil
+end
+
+---Stop, and hand back the undo entry for the whole recording.
+function recording.stop()
+  if recording.kind == nil then return nil end
+  local change = { holder = recording.holder, key = recording.key,
+    before = recording.before, after = recording.spline }
+  log(string.format('recorded %d points', recorderCore.count(recording.spline)))
+  recording.kind, recording.holder, recording.key = nil, nil, nil
+  recording.before, recording.spline, recording.state = nil, nil, nil
+  return change
+end
+
+---Drop a recording without an undo entry: the document it wrote into is going.
+function recording.abandon()
+  recording.stop()
+  recording.pending = nil
+end
+
+---How many points a path has.
+function recording.points(holder, key)
+  return holder ~= nil and recorderCore.count(holder[key]) or 0
+end
+
+---Is this path the one being recorded?
+function recording.isOn(holder, key)
+  return recording.kind ~= nil and recording.holder == holder and recording.key == key
+end
+
+---One frame: a sample per second of replay time, none while paused.
+function recording.frame(rt)
+  if recording.kind == nil then return end
+  local replayDt = 0
+  if sim.isReplayActive and not playing.paused then
+    replayDt = rt * (sim.replayPlaybackRate or 1)
+  end
+  local sample = recording.sample()
+  if sample == nil then return end
+  if recorderCore.feed(recording.state, recording.spline, sample, replayDt) then
+    -- The track path ends by itself, back at the line.
+    recording.pending = recording.stop()
+  end
+end
+
 local function runPlayback(transform)
   -- The legacy reads the camera's CURRENT heading every frame
   -- (ctt.get_heading()) and falls back to it whenever the heading is not
@@ -1058,6 +1190,7 @@ local function perFrame(dt)
   end
 
   mouseLookFrame(rt)
+  recording.frame(rt)
 
   -- Only a held camera cuts. CamTool 2 dipped the sound at every camera
   -- boundary even switched off, since it worked the live camera out anyway.
@@ -2001,6 +2134,13 @@ function script.windowAtr(dt)
     offerFreeCamera = not cameraActive() and ac.CameraMode ~= nil
       and sim.cameraMode ~= ac.CameraMode.Free,
     pitView = panel.pitView,
+    -- The three Record buttons: which path is being recorded, and how long
+    -- the others are, since each button's label says what it will do.
+    recordingCamera = camera ~= nil and recording.isOn(camera, 'spline'),
+    recordingTrack = doc ~= nil and recording.isOn(doc, 'track_spline'),
+    recordingPit = doc ~= nil and recording.isOn(doc, 'pit_spline'),
+    trackSplinePoints = recording.points(doc, 'track_spline'),
+    pitSplinePoints = recording.points(doc, 'pit_spline'),
     trackedCarA = sim.focusedCar,
     trackedCarB = effectiveExtraCar(),
     carName = ac.getDriverName,
@@ -2008,33 +2148,7 @@ function script.windowAtr(dt)
 
   -- Only the selections are wired: they change nothing about the camera, they
   -- change what the panel is looking at.
-  -- The two cars. Session state and not edits, as in CamTool 2: nothing
-  -- reaches the camera file or the undo stack.
-  local function carStep(request)
-    if type(request) ~= 'table' then return nil end
-    if request.op == 'increment' then return 1 end
-    if request.op == 'decrement' then return -1 end
-    return nil
-  end
-
-  local stepFollowed = carStep(actions.trackedCarA)
-  if stepFollowed ~= nil and sim.focusedCar ~= nil and sim.focusedCar >= 0 then
-    local list = connectedCars()
-    local from = sim.focusedCar
-    local to = carsCore.step(list, from, carsCore.positionOf(list, from), stepFollowed)
-    if to ~= from then
-      ac.focusCar(to)
-      -- Followed and extra at once is no extra car. Forgotten rather than
-      -- kept, so it does not come back when the followed car moves on.
-      if extraCar == to then extraCar = nil end
-    end
-  end
-
-  local stepExtra = carStep(actions.trackedCarB)
-  if stepExtra ~= nil then
-    extraCar = carsCore.stepExtra(connectedCars(), sim.focusedCar,
-      effectiveExtraCar(), stepExtra)
-  end
+  stepCars(actions)
 
   -- Switching the view picks the first camera it shows, so the fields below
   -- are about a camera you can see. With none there, the selection stays and
@@ -2052,6 +2166,35 @@ function script.windowAtr(dt)
     local selected = list ~= nil and atrCamera ~= nil and list[atrCamera] or nil
     panel.selectedWasPit = nil
     if selected ~= nil then panel.selectedWasPit = selected.camera_pit == true end
+  end
+
+  -- Recording a path. A recording that ended by itself -- the track path,
+  -- back at the line -- left its undo entry waiting.
+  if recording.pending ~= nil then
+    remember(recording.pending)
+    recording.pending = nil
+  end
+  local function recordButton(kind, holder, key)
+    local change, why = recording.toggle(kind, holder, key)
+    if change ~= nil then remember(change) end
+    if why ~= nil then atrStatus = why end
+  end
+  if actions.recordCameraPath then
+    if camera == nil then
+      atrStatus = 'pick a camera to record its path'
+    else
+      recordButton('camera', camera, 'spline')
+    end
+  end
+  for _, which in ipairs({ { 'recordTrackPath', 'track', 'track_spline' },
+      { 'recordPitPath', 'pit', 'pit_spline' } }) do
+    if actions[which[1]] then
+      if pb.options.listName ~= 'pos' then
+        atrStatus = 'the track and pit lane paths are recorded in position mode'
+      else
+        recordButton(which[2], doc, which[3])
+      end
+    end
   end
 
   if actions.selectCamera ~= nil then

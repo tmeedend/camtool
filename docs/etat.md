@@ -363,9 +363,18 @@ l'ordre de traitement retenu :
 7. **Le mode temps** : la liste `time` s'édite mais se joue sur la position de
    la voiture ; CamTool 2 la joue sur le temps du replay
    (`replay.get_interpolated_replay_pos`). Unité de `camera_in` à établir.
-8. **Enregistrer une spline** : par caméra (onglet Spline), et les splines de
-   piste et de stand (onglet Settings), `Record → Stop → Remove`. Le plus
-   gros morceau : portage de `record_spline`.
+8. ~~**Enregistrer une spline**~~ — **fait, à confirmer en jeu**
+   (`core/recorder.lua`). `Record path` à côté du titre `SPLINE` pour la
+   caméra choisie ; `Track path` et `Pit lane path` dans le panneau `keys`.
+   Chaque bouton annonce ce qu'il fera (`Record → Stop → Remove`), et un
+   enregistrement entier est **une** entrée d'annulation, `Remove` aussi. On
+   enregistre la caméra **à l'écran** (celle d'AC, ou celle de CamTool si elle
+   est tenue), un point par seconde de temps de replay, avec `the_x` qui
+   continue au-delà de 1 et le cap déroulé, comme CamTool 2. La spline de
+   piste démarre dans la première moitié du tour et s'arrête seule à la
+   ligne (les deux drapeaux de CamTool 2, gardés). Écart : un replay en pause
+   n'enregistre rien (CamTool 2 écrivait le même point chaque seconde).
+   Pistes et stands : en mode position seulement, comme CamTool 2.
 9. ~~**Reset de `PITCH` et `ROLL`**~~ — **tranché avec Théo : pas de bouton.**
    Taper `0` fait la même chose ; la phrase d'aide des deux champs le dit, et
    les lignes restent identiques aux autres.

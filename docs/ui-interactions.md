@@ -281,6 +281,17 @@ comme dans CamTool 2, parce qu'on remonte un peloton, pas une liste.
 - Ni l'une ni l'autre n'est enregistrée dans le fichier, ni n'entre dans la
   pile d'annulation : c'est de l'état de session, comme dans CamTool 2.
 
+## Enregistrer un chemin : un bouton qui dit ce qu'il fera
+
+Les trois chemins — celui d'une caméra, le tour de piste, la voie des stands —
+s'enregistrent chacun avec **un seul bouton** dont le libellé annonce la
+suite : `Record`, puis `Stop` pendant l'enregistrement, puis `Remove` une fois
+qu'il existe. C'est le bouton tri-état de CamTool 2. `Record path` est à côté
+du titre `SPLINE` (il concerne la caméra choisie) ; les chemins de piste et
+de stand, qui concernent le fichier, sont dans `keys` avec les autres
+réglages. Un enregistrement entier est **une** entrée d'annulation : on
+annule une prise, pas quarante points.
+
 ## Mouse look : Alt
 
 Le geste de CamTool 2 pour **reprendre la caméra à la main** : Alt maintenu,

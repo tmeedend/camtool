@@ -110,6 +110,7 @@ function fakes.install(opts)
   handle.stored = {}
   for key, value in pairs(opts.stored or {}) do handle.stored[key] = value end
   handle.freeLook = vec3fake(0, 0, 1)
+  handle.cameraPosition = vec3fake(1, 2, 3)
   handle.freeFov = 45
   handle.freeCameraWrites = 0
   sim.cameraMode = opts.cameraMode
@@ -157,7 +158,7 @@ function fakes.install(opts)
       return grabbedCamera
     end,
 
-    getCameraPosition = function() return vec3fake(1, 2, 3) end,
+    getCameraPosition = function() return handle.cameraPosition end,
     getCameraForward = function() return handle.freeLook end,
     getCameraUp = function() return vec3fake(0, 1, 0) end,
     getCameraFOV = function() return handle.freeFov end,
