@@ -797,6 +797,12 @@ diagnostic.
   raccourcis à côté des états bruts.
 - **`transform_loc_strength`** n'est pas appliqué (il vaut 1.0 sur les 566
   caméras de référence et n'est jamais keyframé, donc sans effet aujourd'hui).
+- **Sur un CSP sans `isTrackOpen` (0.2.11), une piste A-B est dessinée
+  fermée** : un trait relie ses deux bouts sur la carte. Repli voulu de la
+  PR #39 — mieux qu'une app qui ne s'ouvre pas. Le reste de l'app a été vérifié
+  en jeu sur 0.2.11 par Théo (charger une caméra, changer des valeurs,
+  déplacer le curseur). Aucune version minimale de CSP n'est déclarée dans le
+  manifest.
 
 ## 🎯 Le ruban navigable — branche `replay-seek`
 

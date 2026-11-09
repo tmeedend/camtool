@@ -198,6 +198,14 @@ Pièges déjà identifiés et couverts par un test :
   est un `cdata` : appelable, mais `type` dit autre chose. Tester la présence,
   et laisser `pcall` trancher.
 
+- **Un champ absent d'une struct FFI de CSP lève, il ne vaut pas `nil`.**
+  `ac.getSim()`, `ac.getCar()`… sont des structs FFI : lire un membre que le
+  CSP installé ne définit pas fait planter l'appelant. Le SDK local ne prouve
+  rien — il décrit **notre** build, pas celui de l'utilisateur. Un champ
+  récent se lit sous `pcall`, avec un repli qui garde l'ancien comportement.
+  Vécu sur CSP 0.2.11 : `isTrackOpen` manquait et la fenêtre restait vide
+  (PR #39, Víctor Campos).
+
 - **Les faux ne font pas avancer le temps tout seuls.** L'app garde son travail
   à une exécution par frame de rendu (`sim.frame`). Une boucle de trente appels
   à `script.update` n'exécute **qu'une** frame. Passer par `handle.tick`.
