@@ -158,10 +158,18 @@ function track.outline(spacingM)
 
   if #points < 2 then return nil, track.NO_POINTS end
 
+  -- state_sim is an FFI struct: older CSP builds lack isTrackOpen, and reading
+  -- a missing member throws rather than giving nil. Unknown means closed.
+  local trackOpen = false
+  if sim ~= nil then
+    local ok, value = pcall(function() return sim.isTrackOpen end)
+    trackOpen = ok and value == true
+  end
+
   return {
     points = points,
     -- An A-B track must not have its two ends joined by a line across the map.
-    closed = sim.isTrackOpen ~= true,
+    closed = not trackOpen,
     lengthM = lengthM,
     source = 'ai-spline',
   }

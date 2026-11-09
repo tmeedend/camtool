@@ -102,6 +102,25 @@ test('an A-B track is not closed, so no line is drawn across the map', function(
   handle.restoreIo()
 end)
 
+test('a CSP build without isTrackOpen gives a closed track, not an error', function()
+  local handle = withTrack({})
+  -- CSP 0.2.11's state_sim has no such member, and the FFI struct throws on
+  -- one it does not have.
+  local sim = ac.getSim()
+  ac.getSim = function()
+    return setmetatable({}, {
+      __index = function(_, key)
+        if key == 'isTrackOpen' then
+          error("'struct state_sim' has no member named 'isTrackOpen'")
+        end
+        return sim[key]
+      end,
+    })
+  end
+  eq(track.outline(5).closed, true)
+  handle.restoreIo()
+end)
+
 test('the width of the track comes from its sides', function()
   local handle = withTrack({
     trackSides = function() return { x = 7, y = 4 } end,
